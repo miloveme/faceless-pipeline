@@ -167,13 +167,16 @@ def voice_cfg():
     return cfg
 
 
-def tts_generate(text, out_path, cfg, attempt=0):
+def tts_generate(text, out_path, cfg, attempt=0, host=None):
     """설정된 제공자로 문장 하나를 음성으로. 반환: 생성 초(모르면 None).
     제공자를 바꾸려면 voice.json 의 provider 만 바꾸면 된다 — 나머지 공정은 그대로다."""
     import sys as _sys
     if str(PIPE_DIR) not in _sys.path: _sys.path.insert(0, str(PIPE_DIR))
     import providers
-    return providers.get(cfg["_provider"]).generate(text, str(out_path), cfg, attempt=attempt)
+    mod = providers.get(cfg["_provider"])
+    if host is not None and cfg["_provider"] == "comfyui_chatterbox":
+        return mod.generate(text, str(out_path), cfg, attempt=attempt, host=host)
+    return mod.generate(text, str(out_path), cfg, attempt=attempt)
 
 
 def readings_for(ep):

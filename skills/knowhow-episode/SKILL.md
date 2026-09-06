@@ -35,7 +35,7 @@ Remotion: `remotion/` — 공용 컴포넌트 `src/knowhow/`, 에피소드는 `s
 ## 2단계 내레이션
 ```
 10_tts_prep.py EP          # 사전에 없는 영문 → <EP>/script/tts_overrides.json에 읽기 추가 후 재실행
-20_tts_generate.py EP      # ComfyUI가 살아 있는지 TCP로 먼저 확인(ping 아님)
+20_tts_generate.py EP      # hosts 순서대로 고름. 막히면 다음 서버, 여럿이면 나눠서 동시에
 30_nar_check.py EP         # 백그라운드. BAD → 35_nar_retry.py EP --ids ... → 30을 그 씬만 재실행
 40_nar_finalize.py EP      # 30이 TAIL로 잡은 씬은 제안된 끝을 자동 적용
 ```

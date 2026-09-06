@@ -15,7 +15,7 @@ python3 pipeline/40_nar_finalize.py episodes/E01_myepisode
 | 10 | `10_tts_prep.py` | `script/scenes_v1.json` | `narration_tts` 필드, `audio/narration_tts_input.json` | 사전에 없는 영문 남으면 exit 2 |
 | 15 | `15_clip_prep.py` | `source/` 의 영상·이미지, `script/visual_prep.json` | `public/<slug>/` 클립·이미지·스틸·컨택트 시트 | 소재 출처는 [VISUALS](../docs/VISUALS.md) |
 | 18 | `18_bgm_prep.sh EP bgm.mp3` | BGM 원본 | `public/<slug>/bgm_lofi.mp3` (-27 LUFS) | |
-| 20 | `20_tts_generate.py [--ids] [--seed]` | tts_input, `voice.json` | `audio/nar_raw/<id>.mp3` | ComfyUI 필요 |
+| 20 | `20_tts_generate.py [--ids] [--seed] [--host] [--serial]` | tts_input, `voice.json` | `audio/nar_raw/<id>.mp3` | 서버 여러 대면 나눠서 동시에 |
 | 30 | `30_nar_check.py [--ids]` | nar_raw | `whisper_cer.json`, `speech_bounds.json` | BAD 씬 있으면 exit 3 |
 | 35 | `35_nar_retry.py --ids` | BAD 씬 | 시드 순회 교체 | 교체 후 30 재실행 |
 | 40 | `40_nar_finalize.py` | nar_raw + bounds | `narration_final/*.wav`, `script/scenes_v2.json` | 트랙을 사람이 들음 |
@@ -32,6 +32,7 @@ python3 pipeline/40_nar_finalize.py episodes/E01_myepisode
 
 ## 규약
 - 상수는 `common.py` 한 곳: LEAD 0.5 / GAP 0.8 / PAD 0.35 / 내레이션 -16 / 마스터 -14 / BGM -27 LUFS.
+- 서버 선택은 `hosts.py` — `hosts` 순서대로, 막히면 다음, 여럿이면 동시에.
 - 목소리 설정은 `pipeline/voice.json` (`voice.example.json`을 복사해 작성). 어느 서비스로 만들지는 `provider` 가 정하고 어댑터는 `providers/` 에 있습니다 → `docs/VOICE_PROVIDERS.md`. 재시도는 시드만 바꿉니다.
 - 읽기 사전 `tts_readings.json`(공통) + `<EP>/script/tts_overrides.json`(에피소드별).
 - whisper 오타 사전 `whisper_fixes.json` + `<EP>/script/whisper_fixes.json`. 3자 이하 차이는 무시합니다.

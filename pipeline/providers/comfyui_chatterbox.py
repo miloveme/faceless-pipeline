@@ -21,8 +21,14 @@ def _upload_ref(host, cfg, base_dir):
                     "-F", "overwrite=true", host + "/upload/image"],
                    check=True, stdout=subprocess.DEVNULL)
 
-def generate(text, out_path, cfg, attempt=0, _uploaded={}):
-    host = cfg["host"].rstrip("/")
+def generate(text, out_path, cfg, attempt=0, _uploaded={}, host=None):
+    # host 를 지정하지 않으면 hosts 중에서 고른다 (앞이 기본, 막히면 다음)
+    if host is None:
+        import sys, pathlib as _pl
+        sys.path.insert(0, str(_pl.Path(__file__).resolve().parent.parent))
+        from hosts import pick
+        host = pick(cfg, need=1, verbose=False)[0]
+    host = host.rstrip("/")
     base = pathlib.Path(__file__).resolve().parent.parent          # pipeline/
     if host not in _uploaded:
         _upload_ref(host, cfg, base); _uploaded[host] = True

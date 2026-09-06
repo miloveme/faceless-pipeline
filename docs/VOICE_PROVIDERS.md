@@ -33,12 +33,26 @@ ComfyUI 에 Chatterbox 다국어 TTS 커스텀 노드를 설치해서 씁니다.
 ```json
 "provider": "comfyui_chatterbox",
 "providers": { "comfyui_chatterbox": {
-  "host": "http://192.0.2.10:8188",
+  "hosts": ["http://192.0.2.10:8188", "http://127.0.0.1:8188"],
+  "max_queue": 2,
+  "parallel": true,
   "ref_file": "channel_voice_ref.mp3",
   "seed": 163260306,
   "retry_seeds": [7, 99, 2024, 31337]
 }}
 ```
+
+**서버를 여러 대 쓸 수 있습니다.** `hosts` 는 우선순위 순서입니다.
+- 앞의 것이 기본입니다. 응답이 없거나 큐가 `max_queue` 보다 길면 다음으로 넘어갑니다.
+- 씬이 여러 개고 `parallel` 이 켜져 있으면 **살아 있는 서버에 나눠 동시에 돌립니다.**
+- 한 대가 도중에 죽으면 그 씬은 다른 서버가 집어갑니다. 두 번 연속 실패한 서버는 뺍니다.
+- 전부 바쁘면 가장 덜 바쁜 한 대에 맡깁니다. 기다리는 게 안 하는 것보다 낫습니다.
+- 한 대만 쓰려면 `20_tts_generate.py <EP> --serial`, 특정 서버를 지정하려면 `--host <주소>`.
+
+실측 참고: 같은 모델이라도 **음성 생성은 GPU 성능을 크게 타지 않습니다.**
+Apple Silicon 통합 메모리와 RTX 3090 을 같은 문장으로 비교했을 때 처리량 차이가 3% 였습니다
+(초당 8.3자 대 8.5자). 순차적으로 한 토큰씩 만드는 구조라 병렬 연산 이득이 적습니다.
+그러니 좋은 GPU 는 영상 생성에 쓰고, 음성은 남는 기계에 돌리는 편이 낫습니다.
 - 참조 음성은 `pipeline/` 안에 두고, **저장소에 커밋하지 마세요**(gitignore 에 있습니다).
 - 참조 만드는 법은 [RECORDING.md](RECORDING.md).
 - 로컬 GPU 가 없으면 클라우드 ComfyUI 주소를 `host` 에 넣으면 됩니다.
