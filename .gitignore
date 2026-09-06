@@ -15,3 +15,6 @@ __pycache__/
 .venv/
 node_modules/
 .DS_Store
+
+# 테스트 흔적
+remotion/src/e[0-9][0-9]/
