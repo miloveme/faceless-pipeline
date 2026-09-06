@@ -6,7 +6,9 @@
 import argparse
 from common import *
 ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids", default=""); ap.add_argument("--maxlen", type=int, default=42)
-a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep); sc = jload(p["scenes_v2"]); only = set(a.ids.split(",")) if a.ids else None
+a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
+if not p["scenes_v2"].exists(): die("scenes_v2.json 이 없습니다 — 먼저 40_nar_finalize.py 를 돌리세요.")
+sc = jload(p["scenes_v2"]); only = set(a.ids.split(",")) if a.ids else None
 wc = jload(p["caps_whisper"]) if p["caps_whisper"].exists() else {}
 caps = jload(p["caps"]) if p["caps"].exists() else {}
 def sentences(t):

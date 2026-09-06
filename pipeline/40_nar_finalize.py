@@ -25,7 +25,9 @@ for s in scenes["scenes"]:
     run(["ffmpeg","-v","error","-y","-i",str(src),"-af",af,"-ar","44100","-ac","1",str(out)])
     d = dur(out); s["narration_file"] = str(out.relative_to(ep)); s["narration_dur"] = round(d,2)
     s["t_start"] = round(t,2); s["t_end"] = round(t+LEAD+d+GAP,2); rows.append((sid, info[sid]["dur"], d, s["t_start"], s["t_end"])); t = s["t_end"]
-v = voice_cfg(); scenes["narration_voice"] = f"{v['engine']} ref={v['ref_file']} seed={v['seed']}"
+v = voice_cfg()
+_bits = [v["_provider"]] + [f"{k}={v[k]}" for k in ("ref_file", "voice_id", "voice", "model", "seed") if v.get(k) is not None]
+scenes["narration_voice"] = " ".join(str(b) for b in _bits)
 scenes["lead"] = LEAD; scenes["gap"] = GAP; scenes["target_duration_sec"] = round(t,1)
 jdump(scenes, p["scenes_v2"])
 print("scene   raw  final  t_start   t_end"); [print(f"{a}  {b:5.1f}  {c:5.1f}  {d:7.2f}  {e:7.2f}") for a,b,c,d,e in rows]

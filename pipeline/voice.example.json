@@ -1,17 +1,55 @@
 {
-  "_comment": "복사해서 voice.json으로 쓰세요. channel_voice_ref.mp3(본인 목소리 30~60초 녹음)는 저장소에 넣지 말고 로컬에만 두세요.",
-  "engine": "chatterbox_comfyui",
-  "host": "http://<ComfyUI 주소>:8188",
-  "ref_file": "channel_voice_ref.mp3",
-  "ref_upload_name": "chatterbox_input_target_voice.mp3",
-  "node": "FL_ChatterboxMultilingualTTS",
-  "language": "Korean (ko)",
-  "exaggeration": 0.3,
-  "cfg_weight": 0.5,
-  "temperature": 0.7,
-  "repetition_penalty": 2.0,
-  "min_p": 0.05,
-  "top_p": 1.0,
-  "seed": 163260306,
-  "retry_seeds": [7, 99, 2024, 31337]
+  "_comment": "복사해서 voice.json 으로 쓰세요. provider 만 바꾸면 나머지 공정은 그대로입니다. API 키는 여기에 적지 말고 환경변수로 두세요.",
+
+  "provider": "comfyui_chatterbox",
+
+  "providers": {
+    "comfyui_chatterbox": {
+      "_note": "자체 호스팅 ComfyUI + Chatterbox 노드. 참조 음성으로 화자를 고정하고, 로컬 GPU면 비용 0. 참조 음성 만드는 법은 docs/RECORDING.md",
+      "host": "http://<ComfyUI 주소>:8188",
+      "node": "FL_ChatterboxMultilingualTTS",
+      "ref_file": "channel_voice_ref.mp3",
+      "ref_upload_name": "chatterbox_input_target_voice.mp3",
+      "language": "Korean (ko)",
+      "exaggeration": 0.3,
+      "cfg_weight": 0.5,
+      "temperature": 0.7,
+      "repetition_penalty": 2.0,
+      "min_p": 0.05,
+      "top_p": 1.0,
+      "seed": 163260306,
+      "retry_seeds": [7, 99, 2024, 31337],
+      "timeout_sec": 900
+    },
+
+    "elevenlabs": {
+      "_note": "voice_id 로 화자를 고정합니다. 본인 목소리를 쓰려면 ElevenLabs 에서 Voice Clone 을 만들고 그 id 를 넣으세요.",
+      "api_key_env": "ELEVENLABS_API_KEY",
+      "voice_id": "<voice_id>",
+      "model_id": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity_boost": 0.8,
+      "style": 0.0,
+      "use_speaker_boost": true,
+      "seed": null,
+      "retry_seeds": [7, 99],
+      "timeout_sec": 180
+    },
+
+    "openai": {
+      "_note": "제공되는 목소리 중에서 고릅니다(복제는 안 됩니다). 시드가 없어 재시도는 그냥 다시 생성합니다.",
+      "api_key_env": "OPENAI_API_KEY",
+      "model": "gpt-4o-mini-tts",
+      "voice": "onyx",
+      "format": "mp3",
+      "instructions": "차분하고 또박또박, 설명하는 톤",
+      "timeout_sec": 180
+    },
+
+    "shell": {
+      "_note": "여기 없는 서비스를 붙이는 탈출구. 텍스트 파일을 받아 오디오를 만드는 스크립트를 하나 짜서 경로를 적으세요. 치환자: {text_file} {out} {attempt}",
+      "command": "python3 my_tts.py --in {text_file} --out {out} --attempt {attempt}",
+      "timeout_sec": 600
+    }
+  }
 }

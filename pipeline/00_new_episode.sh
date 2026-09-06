@@ -1,9 +1,10 @@
 #!/bin/bash
 # 새 에피소드 폴더 골격. 사용: 00_new_episode.sh E01_myepisode "제목(가제)"
 set -e
-NAME=$1; TITLE=${2:-"(가제)"}; CH=$(cd "$(dirname "$0")/.." && pwd); EP=$CH/$NAME
+NAME=$1; TITLE=${2:-"(가제)"}; ROOT=$(cd "$(dirname "$0")/.." && pwd); EP=${EPISODES_DIR:-$ROOT/episodes}/$NAME
 [ -z "$NAME" ] && { echo "사용: 00_new_episode.sh E01_myepisode \"제목\""; exit 1; }
 [ -e "$EP" ] && { echo "이미 있음: $EP"; exit 1; }
+mkdir -p "$(dirname "$EP")"
 mkdir -p "$EP"/{source,script,audio,edit}
 cat > "$EP/STATUS.md" <<EOT
 # $NAME — $TITLE

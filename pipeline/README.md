@@ -30,7 +30,7 @@ python3 pipeline/40_nar_finalize.py episodes/E01_myepisode
 
 ## 규약
 - 상수는 `common.py` 한 곳: LEAD 0.5 / GAP 0.8 / PAD 0.35 / 내레이션 -16 / 마스터 -14 / BGM -27 LUFS.
-- 목소리 설정은 `pipeline/voice.json` (`voice.example.json`을 복사해 작성). 재시도는 시드만 바꿉니다.
+- 목소리 설정은 `pipeline/voice.json` (`voice.example.json`을 복사해 작성). 어느 서비스로 만들지는 `provider` 가 정하고 어댑터는 `providers/` 에 있습니다 → `docs/VOICE_PROVIDERS.md`. 재시도는 시드만 바꿉니다.
 - 읽기 사전 `tts_readings.json`(공통) + `<EP>/script/tts_overrides.json`(에피소드별).
 - whisper 오타 사전 `whisper_fixes.json` + `<EP>/script/whisper_fixes.json`. 3자 이하 차이는 무시합니다.
 - 꼬리 잡음은 30단계가 실제 끝을 제안하고 40단계가 적용합니다. 다르면 `<EP>/audio/bounds_override.json`이 우선입니다.

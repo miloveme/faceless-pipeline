@@ -3,9 +3,9 @@
 """
 import json, os, re, subprocess, sys, time, pathlib, urllib.request, difflib
 
-CHANNEL = pathlib.Path(__file__).resolve().parent.parent          # .../Channel
-VOICE_DIR = CHANNEL / "_voice"
-PIPE_DIR = CHANNEL / "_pipeline"
+PIPE_DIR = pathlib.Path(__file__).resolve().parent               # .../pipeline
+ROOT = PIPE_DIR.parent                                           # 저장소 루트
+EPISODES_DIR = pathlib.Path(os.environ.get("EPISODES_DIR", ROOT / "episodes"))
 # Remotion 프로젝트 위치: 환경변수 REMOTION_DIR > 저장소 옆 remotion/ > 오류
 def _remotion_dir():
     env = os.environ.get("REMOTION_DIR")
@@ -32,8 +32,10 @@ def die(msg, code=1):
 def ep_dir(arg) -> pathlib.Path:
     p = pathlib.Path(arg).expanduser()
     if not p.is_absolute():
-        cwd_rel = pathlib.Path.cwd() / p
-        p = cwd_rel.resolve() if cwd_rel.is_dir() else (CHANNEL / p).resolve()
+        for base in (pathlib.Path.cwd(), ROOT, EPISODES_DIR):
+            cand = base / p
+            if cand.is_dir(): p = cand.resolve(); break
+        else: p = (pathlib.Path.cwd() / p).resolve()
     if not p.is_dir(): die(f"에피소드 폴더 없음: {p}")
     return p
 
@@ -149,103 +151,30 @@ def hyp_normalize_readings(hyp: str, readings: dict) -> str:
     h = re.sub(r"(\d[\d,]*)\s*([가-힣]+)?", read_number, h)
     return h
 
-# ---------- 원격 ComfyUI ----------
-class Comfy:
-    def __init__(self, host): self.host = host.rstrip("/")
-    def _get(self, path):
-        return json.loads(urllib.request.urlopen(self.host + path, timeout=30).read())
-    def alive(self):
-        try: self._get("/system_stats"); return True
-        except Exception: return False
-    def upload_input(self, path):
-        run(["curl","-s","-m","60","-F",f"image=@{path}","-F","type=input","-F","overwrite=true",self.host+"/upload/image"],stdout=subprocess.DEVNULL)
-    def submit(self, wf):
-        req = urllib.request.Request(self.host+"/prompt", data=json.dumps({"prompt": wf}).encode(), headers={"Content-Type":"application/json"})
-        r = json.loads(urllib.request.urlopen(req, timeout=30).read())
-        if r.get("node_errors"): die("ComfyUI node_errors: " + json.dumps(r["node_errors"])[:500])
-        return r["prompt_id"]
-    def wait(self, pid, timeout=900, poll=3):
-        t0 = time.time()
-        while time.time()-t0 < timeout:
-            h = self._get(f"/history/{pid}")
-            if pid in h:
-                st = h[pid].get("status", {})
-                if st.get("status_str") == "error": raise RuntimeError("ComfyUI job error: " + json.dumps(st)[:500])
-                if h[pid].get("outputs"): return h[pid]
-            time.sleep(poll)
-        raise TimeoutError(pid)
-    def audio_files(self, hist):
-        return [f for o in hist.get("outputs", {}).values() for f in o.get("audio", [])]
-    def download(self, f, out):
-        url = self.host + f"/view?filename={f['filename']}&subfolder={f.get('subfolder','')}&type={f.get('type','output')}"
-        open(out, "wb").write(urllib.request.urlopen(url, timeout=120).read())
-    @staticmethod
-    def exec_secs(hist):
-        ts = {m[0]: m[1].get("timestamp") for m in hist["status"].get("messages", []) if isinstance(m, list) and len(m) > 1 and isinstance(m[1], dict)}
-        s, e = ts.get("execution_start"), ts.get("execution_success") or ts.get("execution_error")
-        return round((e-s)/1000, 1) if s and e else None
+def voice_cfg():
+    """pipeline/voice.json 을 읽는다. 없으면 voice.example.json 을 복사하라고 알린다."""
+    p = PIPE_DIR/"voice.json"
+    if not p.exists():
+        die(f"{p} 가 없습니다.\n  cp pipeline/voice.example.json pipeline/voice.json  후 편집하세요.")
+    v = jload(p)
+    name = v.get("provider")
+    if not name:
+        die("voice.json 에 provider 가 없습니다. 예: \"provider\": \"comfyui_chatterbox\"")
+    blocks = v.get("providers", {})
+    if name not in blocks:
+        die(f"voice.json 의 providers 에 '{name}' 블록이 없습니다.")
+    cfg = dict(blocks[name]); cfg["_provider"] = name
+    return cfg
 
-def voice_cfg(): return jload(VOICE_DIR/"voice.json")
 
-def upload_ref(comfy, v):
-    """채널 참조 음성을 노드가 기대하는 이름(ref_upload_name)으로 원격 input 폴더에 올린다(덮어쓰기)."""
-    src = VOICE_DIR / v["ref_file"]
-    if not src.exists(): die(f"참조 음성 없음: {src}")
-    import shutil, tempfile
-    tmp = pathlib.Path(tempfile.gettempdir()) / v["ref_upload_name"]; shutil.copy(src, tmp); comfy.upload_input(tmp)
+def tts_generate(text, out_path, cfg, attempt=0):
+    """설정된 제공자로 문장 하나를 음성으로. 반환: 생성 초(모르면 None).
+    제공자를 바꾸려면 voice.json 의 provider 만 바꾸면 된다 — 나머지 공정은 그대로다."""
+    import sys as _sys
+    if str(PIPE_DIR) not in _sys.path: _sys.path.insert(0, str(PIPE_DIR))
+    import providers
+    return providers.get(cfg["_provider"]).generate(text, str(out_path), cfg, attempt=attempt)
 
-def chatterbox_wf(text, prefix, v, seed=None, temperature=None):
-    return {"1": {"class_type":"LoadAudio","inputs":{"audio": v["ref_upload_name"]}},
-            "2": {"class_type": v["node"], "inputs": {"text": text, "language": v["language"], "exaggeration": v["exaggeration"],
-                  "cfg_weight": v["cfg_weight"], "temperature": temperature if temperature is not None else v["temperature"],
-                  "repetition_penalty": v["repetition_penalty"], "min_p": v["min_p"], "top_p": v["top_p"],
-                  "seed": seed if seed is not None else v["seed"], "audio_prompt": ["1",0], "use_cpu": False, "keep_model_loaded": True}},
-            "3": {"class_type":"SaveAudioMP3","inputs":{"audio":["2",0],"filename_prefix":prefix,"quality":"V0"}}}
-
-def tts_one(comfy, v, text, prefix, out, seed=None, temperature=None):
-    """한 씬 생성 → out 경로 저장, 실행 초 반환"""
-    pid = comfy.submit(chatterbox_wf(text, prefix, v, seed, temperature))
-    hist = comfy.wait(pid)
-    files = comfy.audio_files(hist)
-    if not files: raise RuntimeError("no audio output " + pid)
-    comfy.download(files[0], out)
-    return Comfy.exec_secs(hist)
-
-def whisper_fixes_for(ep):
-    r = jload(PIPE_DIR/"whisper_fixes.json"); f = ep/"script"/"whisper_fixes.json"
-    if f.exists(): r.update(jload(f))
-    return {k: v for k, v in r.items() if not k.startswith("_")}
-
-def check_scene(f, ref_text, readings, fixes=None):
-    """whisper 검사 한 씬.
-    반환 dict(cer, big, kind, text, first_word, last_word_end, suggest_last_word_end, tail_insert, dur)
-    kind: 'ok' | 'tail'(끝에만 없는 문장이 붙음 = 꼬리 잡음, 트림 대상) | 'content'(누락·반복·오독, 재생성 대상)"""
-    text, ws = transcribe(f, words=True)
-    hyp = text
-    for k, v in (fixes or {}).items(): hyp = hyp.replace(k, v)
-    hyp = hyp_normalize_readings(hyp, readings)
-    cer, big = big_diffs(ref_text, hyp)
-    d = dur(f)
-    # 꼬리 삽입 탐지: 단어열 기준으로 정렬해 ref가 끝난 뒤에 붙은 hyp 텍스트를 찾는다
-    R = norm(ref_text); wn = [norm(w["word"]) for w in ws]; Hw = "".join(wn)
-    tail_insert, suggest = "", None
-    if ws:
-        ops = difflib.SequenceMatcher(None, R, Hw).get_opcodes()
-        t, i1, i2, j1, j2 = ops[-1]
-        if t == "insert" and i1 == len(R) and j2 - j1 >= 3:
-            tail_insert = Hw[j1:j2]
-            acc = 0
-            for k, w in enumerate(wn):
-                acc += len(w)
-                if acc >= j1:
-                    # whisper 단어 끝은 끄는 소리에서 일찍 끊기므로 0.4s 여유, 단 잡음 첫 단어 시작은 넘지 않는다
-                    prev_end = ws[k-1]["end"] if k > 0 else 0.0
-                    suggest = round(min(prev_end + 0.4, ws[k]["start"]), 2); break
-    content = [b for b in big if b[0] != ""] or ([b for b in big if b[0] == "" and norm(b[1]) not in tail_insert])
-    kind = "content" if content else ("tail" if tail_insert else "ok")
-    return {"cer": cer, "big": big, "kind": kind, "text": text, "first_word": round(ws[0]["start"],2) if ws else 0.0,
-            "last_word_end": round(ws[-1]["end"],2) if ws else d, "suggest_last_word_end": suggest, "tail_insert": tail_insert,
-            "last_words": "".join(w["word"] for w in ws[-3:]), "dur": round(d,2)}
 
 def readings_for(ep):
     r = jload(PIPE_DIR/"tts_readings.json")
