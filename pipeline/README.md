@@ -19,6 +19,7 @@ python3 pipeline/40_nar_finalize.py episodes/E01_myepisode
 | 30 | `30_nar_check.py [--ids]` | nar_raw | `whisper_cer.json`, `speech_bounds.json` | BAD 씬 있으면 exit 3 |
 | 35 | `35_nar_retry.py --ids` | BAD 씬 | 시드 순회 교체 | 교체 후 30 재실행 |
 | 40 | `40_nar_finalize.py` | nar_raw + bounds | `narration_final/*.wav`, `script/scenes_v2.json` | 트랙을 사람이 들음 |
+| 45 | `45_visual_plan.py [--force]` | scenes_v2, scenes_v1 | `script/visual_plan.md` | 카드·이유는 사람이 채우고 승인 |
 | 50 | `50_captions_build.py` | narration_final | `captions.json` | 자막 텍스트는 원문 |
 | 55 | `55_remotion_sync.py` | scenes_v2, captions | Remotion `public/`·`src/<slug>/data/` | |
 | 60 | `60_render_master.sh EP Comp vX` | 컴포지션 | `edit/*_master.mp4` + 720p 프리뷰 | 사람이 프리뷰 검수 |

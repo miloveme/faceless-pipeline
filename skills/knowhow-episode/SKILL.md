@@ -47,6 +47,18 @@ Remotion: `remotion/` — 공용 컴포넌트 `src/knowhow/`, 에피소드는 `s
 알려진 함정: 숫자 오독(전처리로 해결), 마지막 문장 누락(시드 교체), 꼬리에 없는 문장이 붙음(트림), 긴 문장 반복(시드 교체 또는 문장 분할), 검사기 자체의 오탐(오타 사전).
 
 ## 3단계 비주얼 [승인 2]
+
+### 먼저 화면 계획을 세운다 (즉흥으로 정하지 않는다)
+```
+45_visual_plan.py EP      # script/visual_plan.md 생성
+```
+씬 번호·길이·섹션·대본의 `[V]` 메모까지는 스크립트가 채운다. **카드와 이유는 대본을 읽고 채운다.**
+채운 계획서를 사용자에게 보여주고 승인받은 뒤에 `scenes.tsx` 를 쓴다.
+계획서 없이 바로 컴포넌트를 쓰면 같은 카드가 연속되거나 증거 구간을 그림으로 덮는 실수가 난다.
+
+**테마는 편마다 바꾸지 않는다.** 색·글꼴은 채널의 얼굴이라 편마다 달라지면 같은 채널로 안 읽힌다.
+내용에 따라 정하는 것은 **씬별 카드 선택**이지 테마가 아니다.
+
 - 공용 컴포넌트(`src/knowhow/`): PromptCard(하이라이트·취소선·타이핑·순차), SplitCompare(좌우 동시 재생→정지→확대), TextCard(rule/formula/plain), ImageCard(single/pair, 켄번스), Captions, Thumbnail, Shorts, WhiteboardClip.
 - 에피소드 파일 3개: `src/<slug>/scenes.tsx`(씬 id → 컴포넌트), `index.tsx`(데이터 결합), `compositions.tsx`(등록). Root.tsx에 import 한 줄.
 - 에피소드 전용 도식은 `src/<slug>/`에 만들고, 두 편 이상 쓰이면 knowhow로 올린다.
