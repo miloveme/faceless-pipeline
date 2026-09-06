@@ -6,6 +6,7 @@ EP=$(python3 -c "import sys;sys.path.insert(0,'$(dirname "$0")');from common imp
 THUMBS=${2:-A,B,C}; SHORTS=${3:-1,2}
 SLUG=$(basename "$EP" | cut -d_ -f1 | tr A-Z a-z); PREFIX=$(basename "$EP" | cut -d_ -f1)
 REMOTION_DIR=${REMOTION_DIR:-$(cd "$(dirname "$0")/../remotion" 2>/dev/null && pwd)}; OUT=$REMOTION_DIR/out/$SLUG; mkdir -p "$OUT" "$EP/edit/thumbs"
+[ -d "$REMOTION_DIR/node_modules" ] || { echo "Remotion 이 설치되지 않았습니다: $REMOTION_DIR"; echo "  cd $REMOTION_DIR && npm install"; exit 1; }
 cd "$REMOTION_DIR" && npx tsc --noEmit && echo TSC_OK
 for v in ${THUMBS//,/ }; do npx remotion still "$PREFIX-Thumb-$v" "$OUT/thumb_$v.png" --log=error 2>&1 | grep -v "^$" | tail -1; cp "$OUT/thumb_$v.png" "$EP/edit/thumbs/"; done
 for n in ${SHORTS//,/ }; do
