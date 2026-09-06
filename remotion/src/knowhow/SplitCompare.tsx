@@ -74,7 +74,7 @@ const Pane: React.FC<{
           width: PANE_W,
           height: PANE_H,
           overflow: "hidden",
-          borderRadius: 18,
+          borderRadius: T.radius,
           border: `3px solid ${color}`,
           backgroundColor: "#000",
           position: "relative",

@@ -5,7 +5,7 @@
 ## 공용 컴포넌트
 | 파일 | 용도 |
 |---|---|
-| `theme.ts` | 색·폰트 토큰. 채널 톤을 여기서 바꿉니다 |
+| `theme.ts` | 색·글꼴·크기·여백·자막 토큰. 프리셋 3종(dark/paper/contrast) → [docs/DESIGN.md](../docs/DESIGN.md) |
 | `Episode.tsx` | 에피소드 조립기(`makeEpisode`) + 원본 클립 재생기(`ClipPlayer`) |
 | `Shorts.tsx` | 세로 쇼츠 조립기(`makeShorts`) |
 | `Captions.tsx` | 화면 하단 자막 |

@@ -18,7 +18,7 @@ export const WhiteboardClip: React.FC<Props> = ({ src, kicker, fromSec, fit }) =
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   // 미색 종이가 어두운 화면에서 갑자기 튀지 않도록 0.35초 페이드
-  const fade = interpolate(frame, [0, 0.35 * fps], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const fade = interpolate(frame, [0, T.fade * fps], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const framed = fit === "frame";
   return (
     <AbsoluteFill style={{ backgroundColor: T.bg }}>
@@ -43,7 +43,7 @@ export const WhiteboardClip: React.FC<Props> = ({ src, kicker, fromSec, fit }) =
         <div
           style={{
             position: "absolute", left: 96, top: 48,
-            fontFamily: T.sans, fontSize: 30, fontWeight: 700, letterSpacing: 2,
+            fontFamily: T.sans, fontSize: T.fsKicker, fontWeight: 700, letterSpacing: 2,
             color: T.accent, opacity: fade,
           }}
         >

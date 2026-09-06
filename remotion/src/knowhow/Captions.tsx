@@ -11,7 +11,7 @@ export const Captions: React.FC<{
   maxWidth?: number;
   fontSize?: number;
   bottom?: number;
-}> = ({ chunks, offsetSec, maxWidth = 1500, fontSize = 40, bottom = 56 }) => {
+}> = ({ chunks, offsetSec, maxWidth = T.capMaxW, fontSize = T.fsCaption, bottom = T.capBottom }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / fps - offsetSec;
@@ -39,10 +39,10 @@ export const Captions: React.FC<{
           fontFamily: T.sans,
           fontSize,
           fontWeight: 700,
-          color: "#fff",
-          backgroundColor: "rgba(0,0,0,0.72)",
-          padding: "10px 26px",
-          borderRadius: 10,
+          color: T.capColor,
+          backgroundColor: T.capBg,
+          padding: T.capPad,
+          borderRadius: T.capRadius,
           maxWidth,
           textAlign: "center",
           lineHeight: 1.35,

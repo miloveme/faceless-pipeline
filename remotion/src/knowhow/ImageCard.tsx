@@ -88,7 +88,7 @@ export const ImageCard: React.FC<Props> = (p) => {
               style={{
                 fontFamily: T.sans,
                 color: T.accent,
-                fontSize: 30,
+                fontSize: T.fsKicker,
                 fontWeight: 700,
                 textAlign: "center",
                 width: 120,

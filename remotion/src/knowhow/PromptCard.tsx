@@ -123,7 +123,7 @@ export const PromptCard: React.FC<Props> = ({
           style={{
             fontFamily: T.sans,
             color: T.muted,
-            fontSize: 30,
+            fontSize: T.fsKicker,
             letterSpacing: 6,
             marginBottom: 28,
           }}

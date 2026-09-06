@@ -12,6 +12,7 @@
 | 음성 서비스를 고르거나 바꾼다 | `docs/VOICE_PROVIDERS.md` |
 | 목소리를 녹음하거나 클론한다 | `docs/RECORDING.md` |
 | 화면 카드 종류를 본다 | `remotion/README.md` |
+| 색·글꼴·여백을 바꾼다 | `docs/DESIGN.md` — 테마 토큰 한 곳에서 |
 | 어떤 스크립트가 무엇을 하나 | `pipeline/README.md` — 단계별 입출력 표 |
 | 설치가 됐는지 본다 | `python3 pipeline/check_setup.py` |
 

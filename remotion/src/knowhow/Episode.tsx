@@ -16,11 +16,11 @@ export type VisualFor = (s: Scene) => React.ReactNode;
 export const ClipPlayer: React.FC<{ src: string; fromSec: number; label: string }> = ({ src, fromSec, label }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const fade = interpolate(frame, [0, 0.4 * fps], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const fade = interpolate(frame, [0, T.fade * fps], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
     <AbsoluteFill style={{ backgroundColor: "#000", opacity: fade }}>
       <Video src={staticFile(src)} trimBefore={Math.round(fromSec * fps)} muted style={{ width: 1920, height: 1080, objectFit: "cover" }} />
-      <div style={{ position: "absolute", right: 40, top: 34, fontFamily: T.mono, fontSize: 26, color: T.muted, backgroundColor: "rgba(0,0,0,0.55)", padding: "8px 16px", borderRadius: 8 }}>
+      <div style={{ position: "absolute", right: T.edge, top: 34, fontFamily: T.mono, fontSize: T.fsLabel, color: T.muted, backgroundColor: "rgba(0,0,0,0.55)", padding: "8px 16px", borderRadius: T.radiusSm }}>
         {label}
       </div>
     </AbsoluteFill>

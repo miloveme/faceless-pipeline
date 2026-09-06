@@ -31,19 +31,19 @@ export const TextCard: React.FC<Props> = ({ kicker, text, variant }) => {
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: variant === "rule" ? "#000" : T.bg,
+        backgroundColor: variant === "rule" ? T.ruleBg : T.bg,
         justifyContent: "center",
         alignItems: "center",
         fontFamily: T.sans,
       }}
     >
-      <div style={{ width: 1500 }}>
+      <div style={{ width: T.contentW }}>
         <div
           style={{
             color: T.accent,
-            fontSize: 30,
+            fontSize: T.fsKicker,
             letterSpacing: 8,
-            marginBottom: 30,
+            marginBottom: T.gap,
             opacity: interpolate(frame, [0, 0.5 * fps], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",

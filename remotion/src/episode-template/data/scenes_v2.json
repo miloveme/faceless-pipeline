@@ -1,1 +1,1 @@
-{"scenes":[{"id":"s00","t_start":0,"t_end":10,"narration_dur":8.5}]}
+{"scenes": [{"id": "s00", "t_start": 0.0, "t_end": 10.0, "narration_dur": 8.5}, {"id": "s01", "t_start": 10.0, "t_end": 20.0, "narration_dur": 8.5}, {"id": "s02", "t_start": 20.0, "t_end": 30.0, "narration_dur": 8.5}, {"id": "s03", "t_start": 30.0, "t_end": 40.0, "narration_dur": 8.5}, {"id": "s04", "t_start": 40.0, "t_end": 50.0, "narration_dur": 8.5}]}
