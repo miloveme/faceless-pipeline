@@ -8,6 +8,8 @@
 
 ```
 pipeline/    번호순 공정 스크립트 (00 → 80)
+assets/      여러 편에서 쓰는 자산 (로고·생성 참조·BGM)
+episodes/    편별 작업 폴더 (소재·대본·음성·결과물)
 skills/      제작 런북 (Claude Code 스킬 형식)
 remotion/    화면 컴포넌트 + 에피소드 템플릿
 docs/        목소리 준비·녹음 가이드

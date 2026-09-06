@@ -8,6 +8,9 @@ pipeline/voice.json
 **/*.mp4
 **/*.mov
 episodes/
+assets/**/*
+!assets/README.md
+!assets/*/.gitkeep
 out/
 
 __pycache__/

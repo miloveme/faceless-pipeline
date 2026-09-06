@@ -14,6 +14,32 @@ cat > "$EP/STATUS.md" <<EOT
 모델 표기(생성 기록 확인):
 결정 사항:
 EOT
+cat > "$EP/source/SOURCES.md" <<'EOT'
+# 소재 출처
+
+이 편의 화면 소재를 여기에 적습니다. 파일만 있으면 몇 주 뒤에 어디서 왔는지 모르게 됩니다.
+설명란에 사용 모델을 밝힐 때도 이 기록을 씁니다. → docs/VISUALS.md
+
+| 파일 | 종류 | 어디서 왔나 | 날짜 | 비고 |
+|---|---|---|---|---|
+|  | existing / record / gen-video / gen-image / whiteboard |  |  |  |
+
+## AI 로 만든 것
+
+모델과 프롬프트를 남깁니다. 같은 톤으로 하나 더 만들어야 할 때 필요합니다.
+
+```
+파일:
+모델:
+프롬프트:
+참조 이미지:
+```
+EOT
+cat > "$EP/source/README.md" <<'EOT'
+이 편에서만 쓰는 소재를 여기에 둡니다. 원본을 옮기지 말고 복사해 오세요.
+여러 편에서 쓰는 것은 저장소 루트의 assets/ 로 갑니다.
+출처는 SOURCES.md 에 적습니다. 넣는 법은 docs/VISUALS.md.
+EOT
 cat > "$EP/script/script_v1.md" <<'EOT'
 # 제목을 여기에
 

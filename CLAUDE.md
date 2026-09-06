@@ -55,8 +55,9 @@
 ## 경로 규약
 
 ```
+assets/     여러 편에서 쓰는 것 — 로고·인트로·생성 참조·BGM (편마다 바뀌면 안 되는 것)
 episodes/<PREFIX>_<slug>/
-  source/   원본 자료와 근거 메모
+  source/   이 편에서만 쓰는 소재 + SOURCES.md (출처 기록)
   script/   script_v1.md (사람이 씀) → scenes_v1.json → scenes_v2.json, captions.json, chapters.json
   audio/    nar_raw/ (생성 원본), narration_final/ (트림·정규화본)
   edit/     마스터·프리뷰·썸네일·자막·챕터
