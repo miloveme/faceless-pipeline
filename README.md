@@ -56,9 +56,7 @@ python3 pipeline/check_setup.py
 bash pipeline/00_new_episode.sh E01_myepisode "첫 편 제목"
 
 # script/script_v1.md 에 대본을 쓴다 (사람 몫 — 아래 형식)
-#   ## s00 훅
-#   [V] 화면에 무엇을 띄울지
-#   [N] 실제로 읽을 문장.
+#   형식은 docs/SCRIPT_FORMAT.md — ## s00 / [V] 화면 / [N] 읽을 문장
 
 python3 pipeline/05_script_to_scenes.py episodes/E01_myepisode  # 대본 → 씬 JSON
 python3 pipeline/10_tts_prep.py episodes/E01_myepisode   # 숫자·영문 읽기 전처리
@@ -72,6 +70,12 @@ bash    pipeline/65_render_derived.sh episodes/E01_myepisode
 python3 pipeline/70_srt_build.py episodes/E01_myepisode
 python3 pipeline/75_chapters.py episodes/E01_myepisode
 ```
+
+### 문서
+- [대본 형식](docs/SCRIPT_FORMAT.md) — `[V]` `[N]` 태그와 규칙
+- [음성 제공자](docs/VOICE_PROVIDERS.md) — 서비스 고르기·바꾸기
+- [목소리 준비](docs/RECORDING.md) — 본인 목소리 녹음과 클론
+- [제작 런북](skills/knowhow-episode/SKILL.md) — 단계별 판단 기준
 
 단계별 입출력과 통과 기준은 [pipeline/README.md](pipeline/README.md), 언제 무엇을 돌릴지는 [런북](skills/knowhow-episode/SKILL.md)에 있습니다.
 

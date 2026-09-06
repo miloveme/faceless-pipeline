@@ -60,7 +60,13 @@ for line in text.split("\n"):
 if not scenes: die("씬을 하나도 못 찾았습니다. `## s00 제목` 형식인지 확인하세요.")
 
 missing = [s["id"] for s in scenes if not s["narration"]]
-if missing: die("[N] 이 없는 씬: " + ", ".join(missing))
+if missing:
+    if len(missing) >= len(scenes) - 2:
+        die(f"대본이 아직 비어 있습니다 ({len(missing)}/{len(scenes)} 씬에 [N] 이 없음).\n"
+            f"  {md_path} 를 열어 각 씬의 [N] 에 읽을 문장을 쓰세요.\n"
+            f"  형식: docs/SCRIPT_FORMAT.md")
+    die("[N] 이 없는 씬: " + ", ".join(missing) +
+        "\n  읽을 문장이 없으면 씬이 아닙니다. 문장을 넣거나 그 씬을 지우세요.")
 
 ids = [s["id"] for s in scenes]
 want = [f"s{i:02d}" for i in range(len(scenes))]
