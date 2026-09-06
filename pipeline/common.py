@@ -102,12 +102,24 @@ def native(n: int) -> str:
     if n == 20 and u == 0: return "스무"
     return (NATIVE_TENS.get(t, "") + NATIVE_UNIT[u]) if n >= 10 else NATIVE_UNIT[u]
 
+DIGITS = "영일이삼사오육칠팔구"
+
 def read_number(m):
+    """숫자를 한글 읽기로. 소수는 '영 점 삼오' 처럼 점 뒤를 한 자리씩 읽는다.
+    앞에 붙은 빼기표(-, −)는 '마이너스'로 읽는다: −16 → 마이너스 십육"""
     num, unit = m.group(1), m.group(2)
+    sign = ""
+    if num[0] in "-\u2212":
+        sign, num = "마이너스 ", num[1:]
+    if "." in num:
+        # 0.35초 → 영 점 삼오 초 (소수는 항상 한자어, 소수부는 자릿수 그대로)
+        head, frac = num.split(".", 1)
+        n = int(head.replace(",", "")) if head else 0
+        return sign + sino(n) + " 점 " + "".join(DIGITS[int(c)] for c in frac if c.isdigit()) + (" " + unit if unit else "")
     n = int(num.replace(",", ""))
     if unit and unit.startswith(NATIVE_COUNTERS) and not unit.startswith("시간") and unit != "시간":
-        return native(n) + " " + unit
-    return sino(n) + (" " + unit if unit else "")
+        return sign + native(n) + " " + unit
+    return sign + sino(n) + (" " + unit if unit else "")
 
 def tts_preprocess(text: str, readings: dict) -> tuple[str, list]:
     """숫자·영문을 한글 읽기로. 반환: (전처리문, 사전에 없는 영문 토큰 목록)"""
@@ -115,7 +127,7 @@ def tts_preprocess(text: str, readings: dict) -> tuple[str, list]:
     for k in sorted(readings, key=len, reverse=True):
         if k.startswith("_"): continue
         t = re.sub(r"(?<![A-Za-z])" + re.escape(k) + r"(?![A-Za-z])", readings[k], t)
-    t = re.sub(r"(\d[\d,]*)\s*([가-힣]+)?", read_number, t)
+    t = re.sub(r"([-−]?\d{1,3}(?:,\d{3})+(?:\.\d+)?|[-−]?\d+(?:\.\d+)?)\s*([가-힣]+)?", read_number, t)
     left = sorted(set(re.findall(r"[A-Za-z][A-Za-z0-9/\-]*", t)))
     return t, left
 
@@ -148,7 +160,7 @@ def hyp_normalize_readings(hyp: str, readings: dict) -> str:
         # 키 안의 구분자(/, 공백)는 받아쓰기에서 쉼표·점·공백으로 나올 수 있다: "A/B" ↔ "A, B"
         pat = re.escape(k).replace(r"/", r"[\s,./\-]*").replace(r"\ ", r"[\s,./\-]*")
         h = re.sub(r"(?<![A-Za-z])" + pat + r"(?![A-Za-z])", readings[k], h, flags=re.I)
-    h = re.sub(r"(\d[\d,]*)\s*([가-힣]+)?", read_number, h)
+    h = re.sub(r"([-−]?\d{1,3}(?:,\d{3})+(?:\.\d+)?|[-−]?\d+(?:\.\d+)?)\s*([가-힣]+)?", read_number, h)
     return h
 
 def voice_cfg():

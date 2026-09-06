@@ -13,7 +13,10 @@
 import argparse
 from common import *
 
-CARDS = ["clip", "still", "contact", "compare", "quote", "text", "diagram", "whiteboard"]
+# 카드 이름은 화면 문법과 같은 낱말을 쓴다 (Remotion/src/knowhow/grammars.json 의 carries).
+# 어휘가 갈리면 46_grammar_check.py 가 대조를 못 한다.
+CARDS = ["clip", "still", "contact", "compare", "log", "text", "table", "list",
+         "diagram", "lead", "beats", "shot", "page", "whiteboard"]
 SOURCE_DESC = {
     "existing": "이미 있는 자산 — 원본 클립·스틸, 지난 프로젝트 파일",
     "record": "화면 녹화 — 터미널, 편집 화면, 브라우저 (OBS 등)",
@@ -29,7 +32,13 @@ CARD_DESC = {
     "still": "정지 프레임 한 장 또는 두 장 비교",
     "contact": "여러 장을 한 화면에 — 시간에 따른 변화",
     "compare": "좌우 동시 재생 → 정지 → 확대 — 전후 비교",
-    "quote": "인용문 카드 — 원문을 보여줄 때(하이라이트·취소선 가능)",
+    "log": "터미널·로그 출력 — 실제로 돌린 기록을 그대로",
+    "table": "표 — 항목과 값이 여러 행",
+    "list": "목록 — 한 줄씩 쌓이는 항목",
+    "lead": "큰 한 줄 — 바탕 위에 문장 하나 (무대 문법)",
+    "beats": "짧은 줄 몇 개 — 상자 없이 차례로 (무대 문법)",
+    "shot": "실제 화면 캡처 — 창 안에 그대로 (작업실 문법)",
+    "page": "웹 페이지 — 브라우저 창 안에 (작업실 문법)",
     "text": "텍스트 카드 — 규칙, 정리, 결론",
     "diagram": "도식 — 관계나 구조를 그림으로(이 편 전용 컴포넌트)",
     "whiteboard": "손그림 애니메이션 — 단계가 쌓이는 설명, 볼 실물이 없을 때",

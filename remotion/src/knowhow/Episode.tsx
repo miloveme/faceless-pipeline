@@ -2,7 +2,8 @@ import React from "react";
 import { AbsoluteFill, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Audio, Video } from "@remotion/media";
 import { T } from "./theme";
-import { Captions, CaptionChunk } from "./Captions";
+import { CaptionChunk } from "./Captions";
+import { captionLayerOf } from "./captionRegistry";
 
 // 채널 공용 에피소드 조립기. 에피소드는 (씬 시각표 JSON, 자막 JSON, visualFor)만 넘긴다.
 export const FPS = 30;
@@ -12,22 +13,37 @@ export type Scene = { id: string; t_start: number; t_end: number; narration_dur:
 export type CaptionMap = Record<string, CaptionChunk[]>;
 export type VisualFor = (s: Scene) => React.ReactNode;
 
+/** 자막을 그리는 층. grammars.json 의 caption.layer 이름이 이걸로 풀린다. */
+export type CaptionLayer = React.FC<{ chunks: CaptionChunk[]; offsetSec: number }>;
+
 // 원본 클립 재생 + 코너 라벨 (훅 씬용)
 export const ClipPlayer: React.FC<{ src: string; fromSec: number; label: string }> = ({ src, fromSec, label }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const fade = interpolate(frame, [0, T.fade * fps], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const fade = interpolate(frame, [0, 0.4 * fps], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
     <AbsoluteFill style={{ backgroundColor: "#000", opacity: fade }}>
       <Video src={staticFile(src)} trimBefore={Math.round(fromSec * fps)} muted style={{ width: 1920, height: 1080, objectFit: "cover" }} />
-      <div style={{ position: "absolute", right: T.edge, top: 34, fontFamily: T.mono, fontSize: T.fsLabel, color: T.muted, backgroundColor: "rgba(0,0,0,0.55)", padding: "8px 16px", borderRadius: T.radiusSm }}>
+      <div style={{ position: "absolute", right: 40, top: 34, fontFamily: T.mono, fontSize: 26, color: T.muted, backgroundColor: "rgba(0,0,0,0.55)", padding: "8px 16px", borderRadius: 8 }}>
         {label}
       </div>
     </AbsoluteFill>
   );
 };
 
-export const makeEpisode = (slug: string, scenes: Scene[], caps: CaptionMap, visualFor: VisualFor) => {
+/**
+ * 에피소드 조립. 문법은 이름으로 받는다.
+ * 자막층·안전영역은 문법이 정하고 편 안에서 바뀌지 않는다 — 자리가 튀면 영상이 망가진다.
+ * 씬마다 갈리는 것(바탕·담기)은 visualFor 안에서 알아서 한다.
+ */
+export const makeEpisode = (
+  slug: string,
+  scenes: Scene[],
+  caps: CaptionMap,
+  visualFor: VisualFor,
+  grammar: string = "panel",
+) => {
+  const CaptionsLayer = captionLayerOf(grammar);
   const EPISODE_FRAMES = Math.ceil(scenes[scenes.length - 1].t_end * FPS);
   const Episode: React.FC<{ bgm: string; bgmVolume: number }> = ({ bgm, bgmVolume }) => {
     const { fps } = useVideoConfig();
@@ -42,7 +58,7 @@ export const makeEpisode = (slug: string, scenes: Scene[], caps: CaptionMap, vis
               <Sequence from={Math.round(SCENE_LEAD * fps)} layout="none">
                 <Audio src={staticFile(`${slug}/nar/${s.id}.mp3`)} />
               </Sequence>
-              <Captions chunks={caps[s.id] ?? []} offsetSec={SCENE_LEAD} />
+              <CaptionsLayer chunks={caps[s.id] ?? []} offsetSec={SCENE_LEAD} />
             </Sequence>
           );
         })}

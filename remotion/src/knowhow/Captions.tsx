@@ -2,7 +2,9 @@ import React from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { T } from "./theme";
 
-export type CaptionChunk = { start: number; end: number; text: string };
+export type CaptionWord = { s: number; e: number; t: string };
+// words 는 50_captions_build.py 가 넣는다. 낱말 단위로 켜는 문법(무대)이 쓴다.
+export type CaptionChunk = { start: number; end: number; text: string; words?: CaptionWord[] };
 
 // 씬 로컬 시간 기준 자막. offsetSec = 씬 안에서 내레이션이 시작되는 시각(LEAD 0.5s)
 export const Captions: React.FC<{
@@ -39,10 +41,10 @@ export const Captions: React.FC<{
           fontFamily: T.sans,
           fontSize,
           fontWeight: 700,
-          color: T.capColor,
-          backgroundColor: T.capBg,
-          padding: T.capPad,
-          borderRadius: T.capRadius,
+          color: "#fff",
+          backgroundColor: "rgba(0,0,0,0.72)",
+          padding: "10px 26px",
+          borderRadius: 10,
           maxWidth,
           textAlign: "center",
           lineHeight: 1.35,
