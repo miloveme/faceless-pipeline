@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Easing, Img, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Video } from "@remotion/media";
 import { T, EASE_OUT } from "./theme";
 import { CaptionChunk } from "./Captions";
@@ -245,13 +245,77 @@ export const WorkshopCaptions: React.FC<{
         textAlign: "left",
       }}>
         {karaoke && cur.words
-          ? cur.words.map((w, i) => (
-              <span key={i} style={{ color: t >= w.s - 0.02 ? T.text : "rgba(232,232,234,0.34)" }}>
-                {i ? " " : ""}{w.t}
-              </span>
-            ))
+          ? cur.words.map((w, i) => {
+              const on = t >= w.s - 0.02;
+              const hl = w.hl && on;
+              return (
+                <React.Fragment key={i}>
+                  {i ? " " : ""}
+                  <span style={{
+                    color: hl ? "#12141a" : on ? T.text : "rgba(232,232,234,0.34)",
+                    backgroundColor: hl ? T.accent : "transparent",
+                    padding: hl ? "2px 10px" : 0, borderRadius: 8,
+                  }}>{w.t}</span>
+                </React.Fragment>
+              );
+            })
           : cur.text}
       </div>
     </div>
   );
 };
+
+/* ─────────── 화면 녹화 재생 ───────────
+ * 48_rec_sync.py 가 만든 구간표대로 튼다. 구간마다 배속이 다르고,
+ * 잘라낸 자리는 얼마를 건너뛰었는지 알려 주고, 모자란 자리는 정지 프레임으로 멈춘다.
+ * 배속을 프레임마다 바꾸지 않고 구간을 Sequence 로 쪼개는 이유는,
+ * 그래야 각 구간이 녹화의 어느 지점에서 시작하는지 정확히 못 박히기 때문이다. */
+export type RecSeg =
+  | { kind: "play"; clipFrom: number; clipTo: number; from: number; to: number; speed: number; cutSec?: number }
+  | { kind: "freeze"; at: number; from: number; to: number; still: string };
+
+export const RecPlayer: React.FC<{ clip: string; segments: RecSeg[] }> = ({ clip, segments }) => {
+  const { fps } = useVideoConfig();
+  return (
+    <AbsoluteFill style={{ backgroundColor: "#0a0c10" }}>
+      {segments.map((sg, i) => {
+        const from = Math.round(sg.from * fps);
+        const durF = Math.max(1, Math.round((sg.to - sg.from) * fps));
+        return (
+          <Sequence key={i} from={from} durationInFrames={durF} layout="none">
+            {sg.kind === "play" ? (
+              <>
+                <Video
+                  src={staticFile(clip)}
+                  trimBefore={Math.round(sg.clipFrom * fps)}
+                  trimAfter={Math.round(sg.clipTo * fps)}
+                  playbackRate={sg.speed}
+                  muted
+                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                />
+                {sg.speed > 1.15 && <RecBadge text={`×${sg.speed.toFixed(1)}`} />}
+                {sg.cutSec ? <RecBadge text={`${Math.round(sg.cutSec)}초 건너뜀`} second /> : null}
+              </>
+            ) : (
+              <>
+                <Img src={staticFile(sg.still)}
+                  style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                <RecBadge text="멈춤" />
+              </>
+            )}
+          </Sequence>
+        );
+      })}
+    </AbsoluteFill>
+  );
+};
+
+/** 지금 화면이 원속이 아니라는 표시. 없으면 시청자가 자기 눈을 의심한다. */
+const RecBadge: React.FC<{ text: string; second?: boolean }> = ({ text, second }) => (
+  <div style={{
+    position: "absolute", right: 18, top: second ? 62 : 16,
+    backgroundColor: "rgba(8,10,14,0.82)", border: `1px solid ${T.panelLine}`,
+    borderRadius: 8, padding: "6px 12px",
+    fontFamily: T.mono, fontSize: 22, color: T.muted, letterSpacing: 1,
+  }}>{text}</div>
+);

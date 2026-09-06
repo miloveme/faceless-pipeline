@@ -6,6 +6,9 @@
 import argparse
 from common import *
 ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids", default=""); ap.add_argument("--maxlen", type=int, default=42)
+ap.add_argument("--emph-only", dest="emph_only", action="store_true",
+                help="대본의 **강조** 표시만 기존 자막에 다시 반영한다(받아쓰기 건너뜀). "
+                     "강조는 대본에서 나오므로 음성을 다시 들을 이유가 없다.")
 a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep); sc = jload(p["scenes_v2"]); only = set(a.ids.split(",")) if a.ids else None
 wc = jload(p["caps_whisper"]) if p["caps_whisper"].exists() else {}
 caps = jload(p["caps"]) if p["caps"].exists() else {}
@@ -19,6 +22,14 @@ def sentences(t):
             if i > 10: out += [s[:i+1].strip(), s[i+1:].strip()]; continue
         out.append(s)
     return out
+
+def emph_flags(raw: str):
+    """원문 조각을 낱말 단위 강조 여부로 편다."""
+    flags = []
+    for seg, on in split_emphasis(raw):
+        for w in seg.split():
+            flags.append(on)
+    return flags
 
 def word_times(chunk, wchunks):
     """자막 한 줄 안의 낱말별 시각. 노래방식 자막(문법에 따라 쓴다)이 이걸 읽는다.
@@ -36,6 +47,24 @@ def word_times(chunk, wchunks):
         out.append({"s": round(s0, 2), "e": round(a0 + (b0 - a0) * acc / total, 2), "t": t})
     return out
 
+if a.emph_only:
+    if not caps: die("captions.json 이 없습니다. --emph-only 는 이미 만든 자막에만 씁니다.")
+    n = 0
+    for s in sc["scenes"]:
+        sid = s["id"]
+        if only and sid not in only: continue
+        if sid not in caps: continue
+        raw = sentences(s["narration"])
+        for i, c in enumerate(caps[sid]):
+            c["text"] = strip_emphasis(c["text"])
+            fl = emph_flags(raw[i]) if i < len(raw) else []
+            for j, w in enumerate(c.get("words", [])):
+                w.pop("hl", None)
+                if j < len(fl) and fl[j]: w["hl"] = True; n += 1
+    jdump(caps, p["caps"])
+    print(f"강조 낱말 {n}개 반영 → {p['caps']}")
+    sys.exit(0)
+
 for s in sc["scenes"]:
     sid = s["id"]
     if only and sid not in only: continue
@@ -47,7 +76,8 @@ for s in sc["scenes"]:
             chunks.append({"start": round(cur[0]["start"],2), "end": round(cur[-1]["end"],2), "text": " ".join(x["word"].strip() for x in cur), "_words": [{"start": x["start"], "end": x["end"]} for x in cur]}); cur, n = [], 0
     if cur: chunks.append({"start": round(cur[0]["start"],2), "end": round(cur[-1]["end"],2), "text": " ".join(x["word"].strip() for x in cur), "_words": [{"start": x["start"], "end": x["end"]} for x in cur]})
     wc[sid] = [{k: v for k, v in c.items() if k != "_words"} for c in chunks]
-    sents = sentences(s["narration"]); d = s["narration_dur"]
+    raw_sents = sentences(s["narration"]); d = s["narration_dur"]
+    sents = [strip_emphasis(x) for x in raw_sents]
     if chunks and len(sents) == len(chunks):
         cc = [{"start": c["start"], "end": c["end"], "text": t} for c, t in zip(chunks, sents)]; mode = "1:1"
     else:
@@ -57,7 +87,11 @@ for s in sc["scenes"]:
             a0 = t0+(t1-t0)*acc/total; acc += len(t); b0 = t0+(t1-t0)*acc/total
             cc.append({"start": round(a0,2), "end": round(b0,2), "text": t})
         mode = f"prop({len(sents)}s/{len(chunks)}c)"
-    for c in cc: c["words"] = word_times(c, chunks)
+    for i, c in enumerate(cc):
+        c["words"] = word_times(c, chunks)
+        fl = emph_flags(raw_sents[i]) if i < len(raw_sents) else []
+        for j, w in enumerate(c["words"]):
+            if j < len(fl) and fl[j]: w["hl"] = True
     caps[sid] = cc; print(sid, mode, "max", max(len(c["text"]) for c in cc))
 jdump(wc, p["caps_whisper"]); jdump(caps, p["caps"])
 print("→", p["caps"])

@@ -289,12 +289,15 @@ export const StageCaptions: React.FC<{
       }}>
         {ws.map((w, i) => {
           const spoken = t >= w.s - 0.02;
+          const hl = w.hl && spoken;
           return (
             <span key={i} style={{
               fontFamily: T.sans, fontSize, fontWeight: 700, lineHeight: 1.34,
-              color: spoken ? "#ffffff" : "rgba(255,255,255,0.34)",
-              textShadow: "0 3px 14px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9)",
-              transition: "none",
+              color: hl ? "#12141a" : spoken ? "#ffffff" : "rgba(255,255,255,0.34)",
+              backgroundColor: hl ? T.accent : "transparent",
+              padding: hl ? "2px 10px" : 0,
+              borderRadius: 8,
+              textShadow: hl ? "none" : "0 3px 14px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9)",
             }}>{w.t}</span>
           );
         })}
