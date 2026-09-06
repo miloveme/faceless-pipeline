@@ -34,6 +34,7 @@ Remotion: `remotion/` — 공용 컴포넌트 `src/knowhow/`, 에피소드는 `s
 
 ## 2단계 내레이션
 ```
+01_status.py EP            # 먼저: 서버 연결·큐·남은 작업·예상 시간
 10_tts_prep.py EP          # 사전에 없는 영문 → <EP>/script/tts_overrides.json에 읽기 추가 후 재실행
 20_tts_generate.py EP      # hosts 순서대로 고름. 막히면 다음 서버, 여럿이면 나눠서 동시에
 30_nar_check.py EP         # 백그라운드. BAD → 35_nar_retry.py EP --ids ... → 30을 그 씬만 재실행

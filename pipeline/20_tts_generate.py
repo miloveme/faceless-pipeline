@@ -9,7 +9,7 @@
 """
 import argparse, threading, queue, time
 from common import *
-from hosts import pick
+from hosts import plan
 
 ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids", default="")
 ap.add_argument("--seed", type=int); ap.add_argument("--host", default="", help="서버를 직접 지정")
@@ -20,13 +20,14 @@ tts = jload(p["tts_input"]); only = set(a.ids.split(",")) if a.ids else None
 todo = [x for x in tts if not only or x["id"] in only]
 p["nar_raw"].mkdir(parents=True, exist_ok=True)
 
-print("서버 상태")
+# 시작 전 반드시 연결을 확인하고 계획을 세운다
 if a.host:
-    hosts = [a.host]; print(f"  → 지정: {a.host}")
+    hosts = [a.host]; print(f"서버 지정: {a.host}\n")
 else:
-    v2 = dict(v);  v2["parallel"] = v.get("parallel", True) and not a.serial
-    hosts = pick(v2, need=len(todo))
+    hosts, _ = plan(v, n_items=len(todo), total_chars=sum(len(x["text"]) for x in todo),
+                    verbose=True, serial=a.serial)
 
+# 서버마다 참조 음성을 한 번 올려 둔다
 workers = [(h, h) for h in hosts]
 
 jobs = queue.Queue()
@@ -41,7 +42,7 @@ def work(host, c):
         except queue.Empty: return
         out = p["nar_raw"]/f"{x['id']}.mp3"
         try:
-            ex = tts_generate(x["text"], out, v, attempt=0, host=c)
+            ex = tts_generate(x["text"], out, v, host=c)
             with lock:
                 times[x["id"]] = ex
                 tag = host.split("//")[-1].split(":")[0]
