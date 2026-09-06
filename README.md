@@ -74,6 +74,7 @@ python3 pipeline/75_chapters.py episodes/E01_myepisode
 ### 문서
 - [대본 형식](docs/SCRIPT_FORMAT.md) — `[V]` `[N]` 태그와 규칙
 - [화면 디자인](docs/DESIGN.md) — 색·글꼴·여백을 바꾸는 곳, 카드 고치는 곳
+- [화면 소재](docs/VISUALS.md) — 녹화·AI 생성·손그림·기존 자산을 넣는 법
 - [음성 제공자](docs/VOICE_PROVIDERS.md) — 서비스 고르기·바꾸기
 - [목소리 준비](docs/RECORDING.md) — 본인 목소리 녹음과 클론
 - [제작 런북](skills/knowhow-episode/SKILL.md) — 단계별 판단 기준

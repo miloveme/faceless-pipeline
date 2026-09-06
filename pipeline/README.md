@@ -13,7 +13,7 @@ python3 pipeline/40_nar_finalize.py episodes/E01_myepisode
 | 00 | `00_new_episode.sh E01_slug "제목"` | — | 에피소드 폴더 골격 + 템플릿 | |
 | 05 | `05_script_to_scenes.py [--renumber]` | `script/script_v1.md` ([형식](../docs/SCRIPT_FORMAT.md)) | `script/scenes_v1.json` | 씬 번호·`[N]` 누락 검사 |
 | 10 | `10_tts_prep.py` | `script/scenes_v1.json` | `narration_tts` 필드, `audio/narration_tts_input.json` | 사전에 없는 영문 남으면 exit 2 |
-| 15 | `15_clip_prep.py` | `source/*.mp4`, `script/visual_prep.json` | Remotion `public/<slug>/` 클립·스틸·컨택트 시트 | |
+| 15 | `15_clip_prep.py` | `source/` 의 영상·이미지, `script/visual_prep.json` | `public/<slug>/` 클립·이미지·스틸·컨택트 시트 | 소재 출처는 [VISUALS](../docs/VISUALS.md) |
 | 18 | `18_bgm_prep.sh EP bgm.mp3` | BGM 원본 | `public/<slug>/bgm_lofi.mp3` (-27 LUFS) | |
 | 20 | `20_tts_generate.py [--ids] [--seed]` | tts_input, `voice.json` | `audio/nar_raw/<id>.mp3` | ComfyUI 필요 |
 | 30 | `30_nar_check.py [--ids]` | nar_raw | `whisper_cer.json`, `speech_bounds.json` | BAD 씬 있으면 exit 3 |

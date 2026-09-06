@@ -14,6 +14,16 @@ import argparse
 from common import *
 
 CARDS = ["clip", "still", "contact", "compare", "quote", "text", "diagram", "whiteboard"]
+SOURCE_DESC = {
+    "existing": "이미 있는 자산 — 원본 클립·스틸, 지난 프로젝트 파일",
+    "record": "화면 녹화 — 터미널, 편집 화면, 브라우저 (OBS 등)",
+    "gen-video": "AI 생성 영상",
+    "gen-image": "AI 생성 이미지",
+    "whiteboard": "손그림 애니메이션 (별도 도구로 렌더)",
+    "code": "Remotion 이 직접 그림 — 텍스트, 표, 도식",
+    "none": "소재 없이 화면만",
+}
+
 CARD_DESC = {
     "clip": "원본 영상 재생 — 증거를 그대로 보여줄 때",
     "still": "정지 프레임 한 장 또는 두 장 비교",
@@ -58,12 +68,17 @@ lines = [f"# 화면 계획 — {ep.name}", "",
          "",
          "## 쓸 수 있는 카드", ""]
 lines += [f"- `{k}` — {d}" for k, d in CARD_DESC.items()]
-lines += ["", "## 계획", "",
-          "| 씬 | 길이 | 섹션 | 대본의 [V] 메모 | 카드 | 이유 |",
-          "|---|---|---|---|---|---|"]
+lines += ["", "## 소재는 어디서 오나", ""]
+lines += [f"- `{k}` — {d}" for k, d in SOURCE_DESC.items()]
+lines += ["",
+          "**증거로 쓰는 화면은 `existing` 이나 `record` 여야 합니다.** 생성한 그림은 증거가 될 수 없습니다.",
+          "설명·분위기·개념 구간에만 `gen-*` 와 `whiteboard` 를 씁니다.", "",
+          "## 계획", "",
+          "| 씬 | 길이 | 섹션 | 대본의 [V] 메모 | 카드 | 소재 | 준비할 것 | 이유 |",
+          "|---|---|---|---|---|---|---|---|"]
 for r in rows:
-    note = r["note"].replace("|", "/")[:60] or "—"
-    lines.append(f"| {r['id']} {r['title'][:14]} | {r['sec']}초 | {r['section']} | {note} |  |  |")
+    note = r["note"].replace("|", "/")[:50] or "—"
+    lines.append(f"| {r['id']} {r['title'][:12]} | {r['sec']}초 | {r['section']} | {note} |  |  |  |  |")
 
 lines += ["", "## 점검 (계획을 채운 뒤)", "",
           "- [ ] 같은 카드가 세 번 이상 연속되지 않는가",
@@ -71,7 +86,9 @@ lines += ["", "## 점검 (계획을 채운 뒤)", "",
           "- [ ] 20초가 넘는 씬에 정지 화면 한 장만 두지 않았는가",
           "- [ ] 화면 아래쪽에 글자를 둔 카드가 없는가 (자막과 겹친다)",
           "- [ ] 손그림을 넣었다면 한 편에 한 번인가, 그만한 값을 하는가",
-          "- [ ] 필요한 소재(클립·스틸·이미지)가 `source/` 에 다 있는가", ""]
+          "- [ ] 증거 구간의 소재가 `existing` 또는 `record` 인가 (생성물로 대체하지 않았는가)",
+          "- [ ] `준비할 것` 이 빈 씬은 소재가 이미 `source/` 에 있는가",
+          "- [ ] 생성·녹화가 필요한 소재를 다 적었는가 (빠뜨리면 렌더 직전에 막힌다)", ""]
 
 out.write_text("\n".join(lines), encoding="utf-8")
 print(f"{len(rows)}개 씬 → {out}")

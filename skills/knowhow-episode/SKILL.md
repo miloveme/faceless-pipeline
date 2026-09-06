@@ -62,7 +62,8 @@ Remotion: `remotion/` — 공용 컴포넌트 `src/knowhow/`, 에피소드는 `s
 - 공용 컴포넌트(`src/knowhow/`): PromptCard(하이라이트·취소선·타이핑·순차), SplitCompare(좌우 동시 재생→정지→확대), TextCard(rule/formula/plain), ImageCard(single/pair, 켄번스), Captions, Thumbnail, Shorts, WhiteboardClip.
 - 에피소드 파일 3개: `src/<slug>/scenes.tsx`(씬 id → 컴포넌트), `index.tsx`(데이터 결합), `compositions.tsx`(등록). Root.tsx에 import 한 줄.
 - 에피소드 전용 도식은 `src/<slug>/`에 만들고, 두 편 이상 쓰이면 knowhow로 올린다.
-- `15_clip_prep.py`(클립·스틸·컨택트 시트), `18_bgm_prep.sh`(BGM -27 LUFS).
+- 소재는 무엇이든 `source/` 에 두고 `15_clip_prep.py` 로 정리한다(영상·이미지·스틸·컨택트 시트). 녹화·AI 생성·손그림·기존 자산을 구하는 법은 `docs/VISUALS.md`.
+- `18_bgm_prep.sh`(BGM -27 LUFS).
 - 씬별 대표 프레임을 `npx remotion still`로 뽑아 사용자에게 보여주고 승인받는다.
 
 **자막 안전영역**: 하단 56px부터 자막 상자(최대 2줄, 40px)가 온다. 도식 문구·타임코드·캡션은 전부 **상단**에. 이미지 안에 이미 글자가 있으면 화면 자막과 겹치지 않게 배치.

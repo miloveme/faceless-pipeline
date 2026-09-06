@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
-"""source 클립을 Remotion public/<slug>로 1080p 무음 복사, 정지 프레임, 컨택트 시트(크롭·강조 테두리).
+"""source/ 의 소재를 Remotion 이 쓸 수 있는 형태로 public/<slug>/ 에 넣는다.
+
+소재가 어디서 왔든(화면 녹화, AI 생성, 기존 프로젝트, 내려받은 이미지) 전부 source/ 에 두고
+여기서 한 번에 정리한다. → docs/VISUALS.md
+
 설정: script/visual_prep.json
-{"clips":{"take_fail":"take_C_1436_noRig.mp4","take_fix":"take_D_1503_rigLock.mp4"},
- "stills":{"take_fail":[0,7,12.9],"take_fix":[0,7,12.9]},
- "contact":[{"name":"contact_crop","src":"take_fail","every_sec":1.5,"count":9,"crop":[0.05,0,0.55,0.7],"highlight":[3,4,5,6],"cell_w":400}]}
+{
+  "clips":  {"take_fail": "raw_take_a.mp4"},              영상: 1080p 무음으로 변환
+  "images": {"diagram": "sketch.png", "shot": "still.jpg"}, 이미지: 가로 1920 이하로 맞춰 복사
+  "stills": {"take_fail": [0, 7, 12.9]},                  영상에서 정지 프레임 뽑기
+  "contact":[{"name":"contact_crop","src":"take_fail","every_sec":1.5,"count":9,
+              "crop":[0.05,0,0.55,0.7],"highlight":[3,4,5,6],"cell_w":400}]   여러 장 한 화면에
+}
 사용: 15_clip_prep.py <EP>"""
 import argparse
 from common import *
@@ -12,6 +20,14 @@ ap = argparse.ArgumentParser(); ap.add_argument("ep"); a = ap.parse_args(); ep =
 cfg = jload(p["visual_prep"]); pub = REMOTION_DIR/"public"/slug(ep); pub.mkdir(parents=True, exist_ok=True)
 for name, src in cfg.get("clips", {}).items():
     run(["ffmpeg","-v","error","-y","-i",str(ep/"source"/src),"-vf","scale=1920:-2","-c:v","libx264","-crf","18","-preset","fast","-an",str(pub/f"{name}.mp4")]); print("clip", name, f"{dur(pub/f'{name}.mp4'):.1f}s")
+for name, src in cfg.get("images", {}).items():
+    s = ep/"source"/src
+    if not s.exists(): die(f"이미지가 없습니다: {s}")
+    im = Image.open(s); im = im.convert("RGB") if im.mode not in ("RGB", "RGBA") else im
+    if im.width > 1920: im = im.resize((1920, round(im.height*1920/im.width)), Image.LANCZOS)
+    out = pub/f"{name}.png"; im.save(out)
+    print("image", name, f"{im.width}x{im.height}")
+
 for name, times in cfg.get("stills", {}).items():
     for t in times:
         run(["ffmpeg","-v","error","-y","-ss",str(t),"-i",str(pub/f"{name}.mp4"),"-frames:v","1",str(pub/f"{name.replace('take_','')}_{t}.png")])
