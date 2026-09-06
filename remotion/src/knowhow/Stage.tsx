@@ -83,91 +83,105 @@ export const Ground: React.FC<{
 
 /* ─────────── 살아 있는 바탕 ───────────
  * 소재 없이 매 프레임 그린다. 정지 이미지를 확대하는 것과 다르다.
- * 참조 영상을 재보면 화면 전체가 같이 움직이지 않고 한쪽 구역만 흐른다.
- * 이루는 것은 셋이다.
- *   격자 — 화면 전체에 촘촘하게. 늘 있고 움직이지 않는다(바닥 역할)
- *   레이저 — 가늘고 밝은 선분이 가장자리에서 미끄러진다. 움직임의 주인공
- *   빛 덩어리 — 뒤에서 천천히 도는 색. 구역마다 밝기가 달라지는 이유
+ *
+ * 무엇으로 만드느냐가 중요하다. 다른 채널의 화면을 재서 그 장치(격자·레이저·청록)를
+ * 옮겨 오면 그 채널처럼 보인다. 그래서 이 채널의 것으로 만든다.
+ *   시간 눈금 — 이 공정의 뼈대가 "음성 길이가 영상 길이를 정한다"이다
+ *   파형 띠   — 이 채널은 음성과 음악에서 왔다
+ *   호박색    — theme 의 accent. 남의 팔레트를 가져오지 않는다
  */
-const BLOBS = [
-  { c: "#2f6f9e", r: 44, x: 24, y: 26, ax: 12, ay: 7, px: 17, py: 23, o: 0.5 },
-  { c: "#245a80", r: 56, x: 74, y: 64, ax: 10, ay: 10, px: 29, py: 19, o: 0.42 },
-  { c: "#3f7a62", r: 34, x: 62, y: 70, ax: 15, ay: 6, px: 23, py: 31, o: 0.34 },
-];
 
-/** 레이저 선분. axis 를 따라 미끄러진다.
- *  pos  — 축과 직각 방향 위치(%)
- *  from/len — 축 방향 시작·길이(%)
- *  travel — 한 바퀴 도는 데 걸리는 초. 음수면 반대로 */
-const LASERS = [
-  { axis: "v" as const, pos: 2.0, from: 4, len: 26, c: "#7fdcff", w: 3, travel: 23, o: 0.85 },
-  { axis: "h" as const, pos: 30, from: 58, len: 24, c: "#7fdcff", w: 2, travel: -31, o: 0.6 },
-  { axis: "v" as const, pos: 84, from: 40, len: 16, c: "#e0a75a", w: 2, travel: 19, o: 0.5 },
-  { axis: "h" as const, pos: 54, from: 0, len: 17, c: "#9ad8ff", w: 2, travel: 27, o: 0.4 },
-  { axis: "v" as const, pos: 97, from: 55, len: 20, c: "#7fdcff", w: 2, travel: -25, o: 0.35 },
-];
+/** 결정적 의사난수. 프레임마다 같은 모양이 나와야 한다(랜덤을 쓰면 화면이 지직거린다). */
+const rnd = (i: number) => {
+  const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+/** 파형 한 줄. 시간에 따라 옆으로 흐른다. */
+const waveBand = (t: number, n: number, seed: number) => {
+  const pts: string[] = [];
+  for (let i = 0; i <= n; i++) {
+    const u = i / n;
+    const k = i + seed * 1000;
+    // 봉우리 몇 개가 겹쳐 사람 목소리 같은 들쭉날쭉함이 나오게
+    const amp =
+      (0.35 + 0.65 * rnd(k)) *
+      (0.5 + 0.5 * Math.sin(u * Math.PI * 3 + t * 0.35 + seed)) *
+      (0.4 + 0.6 * Math.sin(u * Math.PI * 11 + seed * 3));
+    pts.push(`${(u * 100).toFixed(2)},${(50 - amp * 46).toFixed(2)}`);
+  }
+  for (let i = n; i >= 0; i--) {
+    const u = i / n;
+    const k = i + seed * 1000;
+    const amp =
+      (0.35 + 0.65 * rnd(k)) *
+      (0.5 + 0.5 * Math.sin(u * Math.PI * 3 + t * 0.35 + seed)) *
+      (0.4 + 0.6 * Math.sin(u * Math.PI * 11 + seed * 3));
+    pts.push(`${(u * 100).toFixed(2)},${(50 + amp * 46).toFixed(2)}`);
+  }
+  return pts.join(" ");
+};
 
 export const LiveGround: React.FC<{
   speed?: number;
-  grid?: boolean;
   tint?: string;
-}> = ({ speed = 1, grid = true, tint = "#080b11" }) => {
+}> = ({ speed = 1, tint = "#0c0d10" }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = (frame / fps) * speed;
+
+  // 시간 눈금: 일정 간격의 세로 실선. 통째로 아주 느리게 흐른다.
+  const TICK = 46;                       // px
+  const shift = ((t * 5.5) % TICK) - TICK;
+
   return (
     <AbsoluteFill style={{ backgroundColor: tint, overflow: "hidden" }}>
-      {/* 빛 덩어리: 뒤에서 천천히 */}
-      {BLOBS.map((b, i) => {
-        const x = b.x + b.ax * Math.sin((2 * Math.PI * t) / b.px);
-        const y = b.y + b.ay * Math.cos((2 * Math.PI * t) / b.py);
-        const pulse = 0.85 + 0.15 * Math.sin((2 * Math.PI * t) / (b.px * 0.61));
-        return (
-          <div key={i} style={{
-            position: "absolute", left: `${x - b.r}%`, top: `${y - b.r}%`,
-            width: `${b.r * 2}%`, height: `${b.r * 2}%`,
-            background: `radial-gradient(circle, ${b.c} 0%, transparent 68%)`,
-            opacity: b.o * pulse, filter: "blur(30px)",
-          }} />
-        );
-      })}
+      {/* 바탕 색조 — 채널 강조색을 아주 옅게 깔아 중립 회색을 면한다 */}
+      <AbsoluteFill style={{
+        background: `radial-gradient(130% 100% at 50% 6%, rgba(245,185,66,0.035) 0%, rgba(14,14,16,0.5) 40%, ${tint} 100%)`,
+      }} />
 
-      {/* 격자: 화면 전체에 촘촘하게. 움직이지 않는다 */}
-      {grid && (
-        <AbsoluteFill style={{
-          opacity: 0.17,
-          backgroundImage:
-            `linear-gradient(rgba(150,205,240,0.55) 1px, transparent 1px),
-             linear-gradient(90deg, rgba(150,205,240,0.55) 1px, transparent 1px)`,
-          backgroundSize: "52px 52px",
-        }} />
-      )}
+      {/* 시간 눈금 */}
+      <AbsoluteFill style={{
+        opacity: 0.075,
+        transform: `translateX(${shift}px)`,
+        backgroundImage: `linear-gradient(90deg, rgba(245,185,66,0.9) 1px, transparent 1px)`,
+        backgroundSize: `${TICK}px 100%`,
+        maskImage: "linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.35) 42%, transparent 78%)",
+      }} />
+      {/* 다섯 칸마다 긴 눈금 하나 */}
+      <AbsoluteFill style={{
+        opacity: 0.115,
+        transform: `translateX(${shift}px)`,
+        backgroundImage: `linear-gradient(90deg, rgba(245,185,66,1) 1px, transparent 1px)`,
+        backgroundSize: `${TICK * 5}px 100%`,
+        maskImage: "linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.5) 55%, transparent 88%)",
+      }} />
 
-      {/* 레이저: 가늘고 밝은 선분이 미끄러진다 */}
-      {LASERS.map((l, i) => {
-        const phase = ((t / Math.abs(l.travel)) + i * 0.37) % 1;
-        const dir = l.travel > 0 ? phase : 1 - phase;
-        // 축을 따라 화면 밖에서 밖으로 지나간다
-        const along = -l.len + dir * (100 + l.len * 2);
-        const glow = `0 0 12px ${l.c}, 0 0 26px ${l.c}`;
-        return l.axis === "v" ? (
-          <div key={i} style={{
-            position: "absolute", left: `${l.pos}%`, top: `${along}%`,
-            width: l.w, height: `${l.len}%`,
-            background: `linear-gradient(to bottom, transparent, ${l.c} 22%, ${l.c} 78%, transparent)`,
-            boxShadow: glow, opacity: l.o,
-          }} />
-        ) : (
-          <div key={i} style={{
-            position: "absolute", top: `${l.pos}%`, left: `${along}%`,
-            height: l.w, width: `${l.len}%`,
-            background: `linear-gradient(to right, transparent, ${l.c} 22%, ${l.c} 78%, transparent)`,
-            boxShadow: glow, opacity: l.o,
-          }} />
-        );
-      })}
+      {/* 파형 띠 둘 — 아래쪽에 낮게 깔린다. 글자를 방해하지 않는 밝기 */}
+      {[
+        { y: 71, h: 17, o: 0.042, sp: 1.0, seed: 1 },
+        { y: 80, h: 12, o: 0.028, sp: 0.62, seed: 2 },
+      ].map((w, i) => (
+        <svg key={i} viewBox="0 0 100 100" preserveAspectRatio="none"
+          style={{
+            position: "absolute", left: `${-8 + Math.sin(t * 0.06 * w.sp + i) * 3}%`,
+            top: `${w.y}%`, width: "116%", height: `${w.h}%`, opacity: w.o,
+          }}>
+          <polygon points={waveBand(t * w.sp, 150, w.seed)} fill="#f5b942" />
+        </svg>
+      ))}
 
-      <AbsoluteFill style={{ boxShadow: "inset 0 0 300px 100px rgba(0,0,0,0.7)" }} />
+      {/* 지금 지나는 자리 — 재생 헤드처럼 한 줄이 천천히 오른쪽으로 */}
+      <div style={{
+        position: "absolute", top: 0, bottom: 0,
+        left: `${((t * 1.1) % 118) - 9}%`,
+        width: 2,
+        background: "linear-gradient(to bottom, transparent, rgba(245,185,66,0.42) 30%, rgba(245,185,66,0.42) 70%, transparent)",
+        opacity: 0.5,
+      }} />
+
+      <AbsoluteFill style={{ boxShadow: "inset 0 0 170px 40px rgba(0,0,0,0.55)" }} />
     </AbsoluteFill>
   );
 };
