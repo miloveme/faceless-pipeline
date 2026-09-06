@@ -55,8 +55,12 @@ python3 pipeline/check_setup.py
 # 에피소드 폴더 만들기
 bash pipeline/00_new_episode.sh E01_myepisode "첫 편 제목"
 
-# script/scenes_v1.json 에 씬별 narration 을 채운다 (사람 몫)
+# script/script_v1.md 에 대본을 쓴다 (사람 몫 — 아래 형식)
+#   ## s00 훅
+#   [V] 화면에 무엇을 띄울지
+#   [N] 실제로 읽을 문장.
 
+python3 pipeline/05_script_to_scenes.py episodes/E01_myepisode  # 대본 → 씬 JSON
 python3 pipeline/10_tts_prep.py episodes/E01_myepisode   # 숫자·영문 읽기 전처리
 python3 pipeline/20_tts_generate.py episodes/E01_myepisode
 python3 pipeline/30_nar_check.py episodes/E01_myepisode  # 문장 누락·꼬리 잡음 검사
@@ -73,6 +77,7 @@ python3 pipeline/75_chapters.py episodes/E01_myepisode
 
 ## 설계에서 지킨 것
 
+- **대본은 마크다운으로, 공정은 JSON으로.** 사람은 읽고 고치기 쉬운 형식으로 쓰고, 변환은 스크립트가 합니다.
 - **음성 길이가 영상 길이를 정한다.** 화면에 맞춰 음성을 늘이지 않습니다. 음성을 재서 시각표를 만듭니다.
 - **생성물을 믿지 않는다.** 만든 음성을 받아쓰기에 넣어 원본과 글자 단위로 비교합니다.
 - **검사기도 틀린다.** 받아쓰기가 자주 틀리는 단어는 사전으로 거르고, 꼬리에 붙은 문장과 중간에 빠진 문장을 구분합니다. 앞은 잘라내면 되고 뒤는 다시 만들어야 합니다.

@@ -26,7 +26,9 @@ Remotion: `remotion/` — 공용 컴포넌트 `src/knowhow/`, 에피소드는 `s
 ## 1단계 대본 [승인 1]
 구조를 정해두고 쓴다. 예: 훅 → 증상 → 흔한 오답 → 진짜 원인 → 처방 → 검증 → 규칙 한 줄 → 마무리.
 씬 12~24개, 4~10분. 씬마다 `[V] 비주얼 지시 / [N] 내레이션`.
-출력: `script/script_v1.md`, `script/scenes_v1.json`(id, section, narration, visual).
+출력: `script/script_v1.md` — 씬마다 `## s<번호> <제목>` / `[V] 화면` / `[N] 내레이션`.
+승인 후 `05_script_to_scenes.py EP` 로 `script/scenes_v1.json` 을 만든다(손으로 쓰지 않는다).
+씬을 넣거나 빼서 번호가 어긋나면 `--renumber` 가 마크다운까지 고쳐 준다.
 숫자·영문은 대본에 원문 그대로 두고 전처리는 10단계가 한다(자막은 원문을 쓴다).
 승인 전에는 다음 단계로 가지 않는다. 승인 후 수정은 버전을 올린다.
 
