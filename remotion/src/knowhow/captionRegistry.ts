@@ -25,6 +25,7 @@ export const captionLayerOf = (name: string): CaptionLayer => {
       bottom: g.caption.bottom,
       fontSize: g.caption.size,
       maxWidth: g.caption.maxWidth,
+      karaoke: g.caption.karaoke,
     });
   return Bound;
 };

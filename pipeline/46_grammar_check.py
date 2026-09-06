@@ -12,7 +12,9 @@ import argparse, json
 from common import *
 
 ap = argparse.ArgumentParser(); ap.add_argument("ep")
-ap.add_argument("--set", default="", help="이 편의 문법을 정하고 저장한다")
+ap.add_argument("--set", default="", help="이 편의 기조 문법을 정하고 저장한다")
+ap.add_argument("--except", dest="exc", default="",
+                help="씬 단위 예외. 예) s00=stage,s09=workshop")
 a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
 
 GRAMMARS_JSON = REMOTION_DIR / "src" / "knowhow" / "grammars.json"
@@ -40,10 +42,22 @@ shapes = sorted(set(used.values()))
 print(f"씬 {len(used)}개 · 쓰는 카드 {len(shapes)}종: {', '.join(shapes)}\n")
 
 gpath = ep / "script" / "grammar.json"
-if a.set:
-    if a.set not in G: die(f"없는 문법: {a.set} (있는 것: {', '.join(G)})")
-    jdump({"base": a.set, "exceptions": {}}, gpath)
-    print(f"이 편의 문법을 '{a.set}' 로 정했습니다 → {gpath}\n")
+cur = jload(gpath) if gpath.exists() else {"base": "", "exceptions": {}}
+if a.set or a.exc:
+    if a.set:
+        if a.set not in G: die(f"없는 문법: {a.set} (있는 것: {', '.join(G)})")
+        cur["base"] = a.set
+    if a.exc:
+        exc = {}
+        for pair in a.exc.split(","):
+            sid, _, name = pair.partition("=")
+            sid, name = sid.strip(), name.strip()
+            if name not in G: die(f"없는 문법: {name}")
+            if sid not in used: die(f"계획서에 없는 씬: {sid}")
+            exc[sid] = name
+        cur["exceptions"] = exc
+    jdump(cur, gpath)
+    print(f"기조 '{cur['base']}' · 예외 {len(cur['exceptions'])}개 → {gpath}\n")
 
 print("문법별로 담을 수 있나")
 fits = []
@@ -61,16 +75,27 @@ if not gpath.exists():
     print("  --set 으로 정하세요. 예) 46_grammar_check.py <EP> --set panel")
     sys.exit(2)
 
-cfg = jload(gpath); base = cfg["base"]
+cfg = jload(gpath); base = cfg["base"]; exc = cfg.get("exceptions", {})
 if base not in G: die(f"script/grammar.json 의 base '{base}' 가 없는 문법입니다.")
-miss = sorted({c for c in shapes if c not in G[base]["carries"]})
-print(f"이 편의 문법: {base} ({G[base]['label']}) — {G[base]['for']}")
-if miss:
-    bad = sorted({s for s, c in used.items() if c in miss})
-    print(f"  ✕ 담을 수 없는 카드: {', '.join(miss)}")
-    print(f"    해당 씬: {', '.join(bad)}")
-    print(f"    → 문법을 바꾸거나({', '.join(fits) if fits else '대안 없음'}), 그 씬의 카드를 바꾸세요.")
+print(f"이 편의 기조: {base} ({G[base]['label']}) — {G[base]['for']}")
+if exc:
+    by = {}
+    for sid, name in sorted(exc.items()): by.setdefault(name, []).append(sid)
+    for name, sids in by.items():
+        print(f"  예외 {name} ({G[name]['label']}): {', '.join(sids)}")
+
+# 씬마다 실제로 적용되는 문법으로 대조한다. 예외 씬은 기조가 아니라 그 문법이 담는다.
+bad = []
+for sid, card in sorted(used.items()):
+    g = G[exc.get(sid, base)]
+    if card not in g["carries"]:
+        bad.append((sid, card, exc.get(sid, base)))
+if bad:
+    print("\n  ✕ 그 씬의 문법이 담을 수 없는 카드")
+    for sid, card, name in bad:
+        print(f"    {sid}  {card:9s} ← {name} 은 담지 못함 (담는 것: {', '.join(G[name]['carries'])})")
+    print("    → 그 씬을 예외로 빼거나, 카드를 바꾸세요.")
     sys.exit(3)
-print("  ○ 계획서의 카드를 전부 담습니다.")
+print("\n  ○ 씬마다 그 문법이 카드를 담습니다.")
 print(f"  자막: {G[base]['caption']['layer']} · 아래 {G[base]['caption']['bottom']}px · "
       f"{G[base]['caption']['align']} · 안전영역 {G[base]['safeBottom']}px  (편 안에서 바뀌지 않음)")

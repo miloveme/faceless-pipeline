@@ -13,7 +13,9 @@ export const Captions: React.FC<{
   maxWidth?: number;
   fontSize?: number;
   bottom?: number;
-}> = ({ chunks, offsetSec, maxWidth = T.capMaxW, fontSize = T.fsCaption, bottom = T.capBottom }) => {
+  /** 켜지는 방식. true 면 말한 낱말만 밝다(문법이 정한다). */
+  karaoke?: boolean;
+}> = ({ chunks, offsetSec, maxWidth = T.capMaxW, fontSize = T.fsCaption, bottom = T.capBottom, karaoke = false }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / fps - offsetSec;
@@ -51,7 +53,13 @@ export const Captions: React.FC<{
           textShadow: "0 2px 6px rgba(0,0,0,0.6)",
         }}
       >
-        {cur.text}
+        {karaoke && cur.words
+          ? cur.words.map((w, i) => (
+              <span key={i} style={{ color: t >= w.s - 0.02 ? T.capColor : "rgba(255,255,255,0.36)" }}>
+                {i ? " " : ""}{w.t}
+              </span>
+            ))
+          : cur.text}
       </div>
     </div>
   );

@@ -35,7 +35,11 @@ export const Ground: React.FC<{
   fromSec?: number;
   dim?: number;          // 어둡게 (0~1). 글자가 읽혀야 한다
   drift?: number;        // 아주 느린 확대
-}> = ({ src, kind = "image", fromSec = 0, dim = 0.46, drift = 0.07 }) => {
+  /** 소재를 확대해 잘라낸다. 완성본을 바탕으로 쓰면 그 영상의 번인 자막이 같이 보이는데,
+   *  내 자막과 두 겹이 되므로 그 띠를 화면 밖으로 밀어낼 때 쓴다. */
+  zoom?: number;
+  shiftY?: number;       // 위로 올릴 비율(%). 음수면 아래로
+}> = ({ src, kind = "image", fromSec = 0, dim = 0.46, drift = 0.07, zoom = 1, shiftY = 0 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const k = interpolate(frame, [0, durationInFrames], [1, 1 + drift], { extrapolateRight: "clamp" });
@@ -43,7 +47,7 @@ export const Ground: React.FC<{
   return (
     <AbsoluteFill style={{ backgroundColor: "#07080b", overflow: "hidden" }}>
       {src ? (
-        <AbsoluteFill style={{ transform: `scale(${k})`, opacity: fade }}>
+        <AbsoluteFill style={{ transform: `scale(${k * zoom}) translateY(${shiftY}%)`, opacity: fade }}>
           {kind === "video" ? (
             <Video src={staticFile(src)} trimBefore={Math.round(fromSec * fps)} muted
               style={{ width: "100%", height: "100%", objectFit: "cover" }} />
@@ -287,7 +291,7 @@ export const StageCaptions: React.FC<{
 
 /* ─────────── 무대 한 판 ─────────── */
 export const Stage: React.FC<{
-  ground?: { src?: string; kind?: "image" | "video"; fromSec?: number; dim?: number };
+  ground?: { src?: string; kind?: "image" | "video"; fromSec?: number; dim?: number; zoom?: number; shiftY?: number };
   mark?: string;
   children?: React.ReactNode;
 }> = ({ ground = {}, mark = "J Note", children }) => (

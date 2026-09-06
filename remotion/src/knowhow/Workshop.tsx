@@ -4,6 +4,7 @@ import { Video } from "@remotion/media";
 import { T, EASE_OUT } from "./theme";
 import { CaptionChunk } from "./Captions";
 import { getGrammar } from "./grammar";
+import { LiveGround } from "./Stage";
 
 /**
  * 문법 3 · 작업실 (workshop)
@@ -35,11 +36,8 @@ const PAD = 22;       // 창 안쪽 여백
 const CMD_H = 51;     // "$ 명령" 줄
 
 /* ─────────── 책상: 창을 올려 둘 바닥 ─────────── */
-const Desk: React.FC = () => (
-  <AbsoluteFill style={{ background: "radial-gradient(120% 100% at 50% 0%, #14181f 0%, #0a0c10 60%, #06070a 100%)" }}>
-    <AbsoluteFill style={{ boxShadow: "inset 0 0 260px 70px rgba(0,0,0,0.6)" }} />
-  </AbsoluteFill>
-);
+// 창을 올려 둘 바닥. 다른 문법의 바탕과 같은 것을 써야 씬이 갈려도 한 편으로 읽힌다.
+const Desk: React.FC = () => <LiveGround speed={0.55} />;
 
 /* ─────────── 창틀: 편 전체에 계속 붙는 하나의 상자 ───────────
  * 내용이 무엇이냐에 따라 창을 갈아 끼운다.
@@ -228,8 +226,8 @@ export const Shot: React.FC<{
 /* ─────────── 자막: 창 밖 책상 위. 작업물은 가리지 않는다 ─────────── */
 export const WorkshopCaptions: React.FC<{
   chunks: CaptionChunk[]; offsetSec: number;
-  bottom?: number; fontSize?: number; maxWidth?: number;
-}> = ({ chunks, offsetSec, bottom = WORKSHOP_CAPTION_BOTTOM, fontSize = 42 }) => {
+  bottom?: number; fontSize?: number; maxWidth?: number; karaoke?: boolean;
+}> = ({ chunks, offsetSec, bottom = WORKSHOP_CAPTION_BOTTOM, fontSize = 42, karaoke = false }) => {
   const frame = useCurrentFrame(); const { fps } = useVideoConfig();
   const t = frame / fps - offsetSec;
   const cur = chunks.find((c) => t >= c.start - 0.05 && t < c.end + 0.25);
@@ -245,7 +243,15 @@ export const WorkshopCaptions: React.FC<{
       <div style={{
         fontFamily: T.sans, fontSize, fontWeight: 700, color: T.text, lineHeight: 1.32,
         textAlign: "left",
-      }}>{cur.text}</div>
+      }}>
+        {karaoke && cur.words
+          ? cur.words.map((w, i) => (
+              <span key={i} style={{ color: t >= w.s - 0.02 ? T.text : "rgba(232,232,234,0.34)" }}>
+                {i ? " " : ""}{w.t}
+              </span>
+            ))
+          : cur.text}
+      </div>
     </div>
   );
 };

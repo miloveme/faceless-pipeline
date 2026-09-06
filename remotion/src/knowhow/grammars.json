@@ -13,7 +13,7 @@
     "for": "표·로그·전후 비교처럼 늘어놓을 증거가 많은 편",
     "ground": {
       "unit": "episode",
-      "kind": "flat"
+      "kind": "live"
     },
     "contain": {
       "unit": "scene",
@@ -30,7 +30,7 @@
       "align": "center",
       "size": 40,
       "maxWidth": 1500,
-      "karaoke": false
+      "karaoke": true
     },
     "signature": {
       "unit": "episode",
@@ -82,10 +82,10 @@
     },
     "safeBottom": 150,
     "carries": [
+      "beats",
       "clip",
-      "still",
       "lead",
-      "beats"
+      "still"
     ]
   },
   "workshop": {
@@ -93,7 +93,7 @@
     "for": "도구를 실제로 굴린 기록. 보여줄 실제 화면이 있는 편",
     "ground": {
       "unit": "episode",
-      "kind": "desk"
+      "kind": "live"
     },
     "contain": {
       "unit": "episode",
@@ -110,7 +110,7 @@
       "align": "left",
       "size": 42,
       "maxWidth": 1728,
-      "karaoke": false
+      "karaoke": true
     },
     "signature": {
       "unit": "scene",
@@ -119,12 +119,12 @@
     },
     "safeBottom": 232,
     "carries": [
-      "log",
-      "shot",
-      "page",
-      "table",
       "list",
-      "still"
+      "log",
+      "page",
+      "shot",
+      "still",
+      "table"
     ]
   }
 }
