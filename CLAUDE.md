@@ -1,37 +1,71 @@
 # 이 저장소에서 작업할 때
 
-내레이션 기반 faceless 영상 공정입니다. 한 편을 만드는 절차는 `skills/knowhow-episode/SKILL.md`(런북)에 있습니다. **새 편을 만들거나 기존 편을 고칠 때는 먼저 그 런북을 읽으세요.**
+내레이션 기반 faceless 영상을 한 편씩 만드는 공정입니다.
+사람은 세 곳에서만 판단합니다 — **대본 / 화면 첫 렌더 / 업로드**.
+
+## 먼저 읽을 것
+
+| 무엇을 하려는가 | 읽을 문서 |
+|---|---|
+| 한 편을 처음부터 만든다 | `skills/knowhow-episode/SKILL.md` — **제작 런북. 단계·판단 기준·통과 기준** |
+| 대본을 쓴다 | `docs/SCRIPT_FORMAT.md` — `[V]` `[N]` 태그와 규칙, 씬 길이 기준 |
+| 음성 서비스를 고르거나 바꾼다 | `docs/VOICE_PROVIDERS.md` |
+| 목소리를 녹음하거나 클론한다 | `docs/RECORDING.md` |
+| 화면 카드 종류를 본다 | `remotion/README.md` |
+| 어떤 스크립트가 무엇을 하나 | `pipeline/README.md` — 단계별 입출력 표 |
+| 설치가 됐는지 본다 | `python3 pipeline/check_setup.py` |
+
+**새 편을 만들거나 기존 편을 고칠 때는 런북을 먼저 읽으세요.** 나머지는 필요할 때 펴 보면 됩니다.
+
+## 한 편의 흐름
+
+```
+00_new_episode.sh   에피소드 폴더 + 대본 템플릿
+  ↓  사람이 script/script_v1.md 를 쓴다  ← 승인 1
+05_script_to_scenes 대본 → 씬 JSON
+10_tts_prep         숫자·영문을 음성용 한글 읽기로
+20_tts_generate     씬별 음성 생성
+30_nar_check        받아쓰기로 검사 (문장 누락·꼬리 잡음)
+35_nar_retry        걸린 씬만 다시
+40_nar_finalize     트림·정규화·씬 시각표
+50_captions_build   자막 (원문 문장 + 받아쓰기 타이밍)
+  ↓  사람이 화면을 정하고 첫 렌더를 본다  ← 승인 2
+55_remotion_sync → 60_render_master → 65_render_derived → 70_srt_build → 75_chapters
+  ↓  사람이 올린다  ← 승인 3
+```
 
 ## 지켜야 할 것
 
-- **사람 승인 3곳에서 멈춥니다.** 대본, 화면 첫 렌더, 업로드. 승인 없이 다음 단계로 넘어가지 않습니다.
+- **승인 없이 다음 단계로 넘어가지 않습니다.** 위 흐름의 세 지점입니다.
 - **요청받은 단계만 합니다.** 범위를 넓히거나 다른 단계를 먼저 하지 않습니다.
+- **`scenes_v1.json` 을 손으로 만들지 마세요.** 대본은 `script/script_v1.md` 에 쓰고 `05_script_to_scenes.py` 로 변환합니다. 형식은 `docs/SCRIPT_FORMAT.md`.
 - **상수는 `pipeline/common.py` 한 곳에 있습니다.** 스크립트마다 값을 다시 쓰지 마세요.
-- **목소리 설정(`pipeline/voice.json`)은 잠금입니다.** 제공자·참조 파일·파라미터를 바꾸면 채널 목소리가 바뀝니다. 재생성이 필요하면 **시드만**(또는 `--attempt`) 바꿉니다.
-- **음성 제공자는 `voice.json` 의 `provider` 하나로 정해집니다.** 새 서비스를 붙일 때는 `pipeline/providers/` 에 어댑터를 넣거나 `shell` 제공자를 씁니다. 공정의 다른 단계는 손대지 않습니다 — `docs/VOICE_PROVIDERS.md`.
+- **목소리 설정(`pipeline/voice.json`)은 잠금입니다.** 제공자·참조 파일·파라미터를 바꾸면 목소리가 바뀝니다. 재생성이 필요하면 **시드만**(또는 `--attempt`) 바꿉니다.
+- **음성 제공자는 `voice.json` 의 `provider` 하나로 정해집니다.** 새 서비스는 `pipeline/providers/` 에 어댑터를 넣거나 `shell` 제공자로 붙입니다. 공정의 다른 단계는 손대지 않습니다.
 - **생성물은 보여주고 승인받은 뒤** 자산으로 등록하거나 다음 생성에 물립니다.
 - **결함이 하나면 재생성하지 말고 그것만 고칩니다.** 재생성하면 맞던 디테일이 사라집니다.
-
-- **`scenes_v1.json` 을 손으로 만들지 마세요.** 대본은 `script/script_v1.md` 에 쓰고 `05_script_to_scenes.py` 로 변환합니다.
+- **매번 손으로 하는 일이 생기면 스크립트로 만드세요.** 문서에 적어 둔 규칙은 잊히지만 공정 안에 있으면 어길 수가 없습니다.
 
 ## 경로 규약
 
 ```
 episodes/<PREFIX>_<slug>/
   source/   원본 자료와 근거 메모
-  script/   scenes_v1.json, scenes_v2.json, captions.json, chapters.json
+  script/   script_v1.md (사람이 씀) → scenes_v1.json → scenes_v2.json, captions.json, chapters.json
   audio/    nar_raw/ (생성 원본), narration_final/ (트림·정규화본)
   edit/     마스터·프리뷰·썸네일·자막·챕터
 ```
 
 Remotion 컴포지션 이름: `<PREFIX>-Episode`, `<PREFIX>-Thumb-A/B/C`, `<PREFIX>-Shorts-1/2`.
 Remotion 위치는 `REMOTION_DIR` 환경변수, 없으면 저장소의 `remotion/`.
+에피소드 위치는 `EPISODES_DIR` 환경변수, 없으면 저장소의 `episodes/`.
 
 ## 자주 걸리는 것
 
-- **ComfyUI 확인은 TCP로.** ping이 막혀 있어도 서버는 살아 있을 수 있습니다.
-- **whisper는 로컬 CPU에서 돕니다.** 17씬 검사에 4~6분. 백그라운드로 돌리고 다른 일을 하세요.
+- **ComfyUI 확인은 TCP로.** ping 이 막혀 있어도 서버는 살아 있을 수 있습니다.
+- **whisper 는 로컬 CPU 에서 돕니다.** 17씬 검사에 4~6분. 백그라운드로 돌리고 다른 일을 하세요.
 - **긴 검사·렌더는 백그라운드로.** 포그라운드에서 기다리지 마세요.
-- **자막 안전영역**: 화면 하단 56px부터 자막이 옵니다. 도식 문구·캡션은 상단에 두세요.
-- **ffmpeg에서 트리밍과 패딩을 한 명령에 합치면** 패딩이 조용히 실패합니다. 두 번에 나누세요.
+- **자막 안전영역**: 화면 하단 56px 부터 자막이 옵니다. 도식 문구·캡션은 상단에 두세요.
+- **ffmpeg 에서 트리밍과 패딩을 한 명령에 합치면** 패딩이 조용히 실패합니다. 두 번에 나누세요.
 - **비싼 생성은 하나씩** 하고 매번 확인한 뒤 다음으로 갑니다.
+- **검사기도 틀립니다.** 받아쓰기 오탐은 `whisper_fixes.json` 에 추가하고, 꼬리 잡음과 문장 누락을 구분하세요.
