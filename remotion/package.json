@@ -1,0 +1,22 @@
+{
+  "name": "faceless-pipeline-remotion",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "remotion studio",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.520",
+    "@remotion/google-fonts": "4.0.520",
+    "@remotion/media": "4.0.520",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.520",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.3",
+    "typescript": "5.9.3"
+  }
+}

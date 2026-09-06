@@ -1,0 +1,17 @@
+{
+  "_comment": "복사해서 voice.json으로 쓰세요. channel_voice_ref.mp3(본인 목소리 30~60초 녹음)는 저장소에 넣지 말고 로컬에만 두세요.",
+  "engine": "chatterbox_comfyui",
+  "host": "http://<ComfyUI 주소>:8188",
+  "ref_file": "channel_voice_ref.mp3",
+  "ref_upload_name": "chatterbox_input_target_voice.mp3",
+  "node": "FL_ChatterboxMultilingualTTS",
+  "language": "Korean (ko)",
+  "exaggeration": 0.3,
+  "cfg_weight": 0.5,
+  "temperature": 0.7,
+  "repetition_penalty": 2.0,
+  "min_p": 0.05,
+  "top_p": 1.0,
+  "seed": 163260306,
+  "retry_seeds": [7, 99, 2024, 31337]
+}

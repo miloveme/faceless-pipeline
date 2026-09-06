@@ -1,0 +1,6 @@
+# python 3.10+
+openai-whisper>=20231117   # 내레이션 받아쓰기 검사 (로컬 CPU 동작)
+librosa>=0.10              # 화자 유사도 비교(voice_similarity.py)
+numpy>=1.24
+scipy>=1.11
+Pillow>=10                 # 컨택트 시트 생성(15_clip_prep.py)

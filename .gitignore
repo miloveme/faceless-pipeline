@@ -1,0 +1,17 @@
+# 개인 자산 — 절대 커밋하지 않음
+voice/channel_voice_ref.mp3
+voice/voice.json
+pipeline/voice.json
+**/*.mp3
+**/*.wav
+**/*.m4a
+**/*.mp4
+**/*.mov
+episodes/
+out/
+
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.DS_Store
