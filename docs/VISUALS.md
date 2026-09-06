@@ -91,7 +91,17 @@ cp ~/projects/old/clip.mp4 episodes/E01_x/source/
 처음부터 9:16 으로 만들면 롱폼에서 못 씁니다.
 
 ### whiteboard — 손그림 애니메이션
-구간 자막을 뽑아 별도 도구로 렌더하고, 나온 mp4 를 `source/` 에 둡니다.
+별도 도구가 필요합니다(선택 — 안 쓰면 설치하지 않아도 됩니다).
+
+```bash
+bash pipeline/install_whiteboard.sh          # ~/.claude/skills/ 에 설치
+# 또는 직접:
+git clone https://github.com/miloveme/srt-whiteboard-animation.git
+```
+설치하면 Claude Code 에서 스킬로 부를 수 있고, 스크립트를 직접 실행할 수도 있습니다.
+자체 파이썬 환경을 쓰므로 저장소 안에서 `python3 scripts/prepare_env.py` 를 한 번 돌립니다.
+
+구간 자막을 뽑아 그 도구로 렌더하고, 나온 mp4 를 `source/` 에 둡니다.
 ```bash
 python3 pipeline/80_whiteboard_srt.py episodes/E01_x --ids s06,s07
 # 그 SRT 로 손그림 도구 실행 — 자막은 반드시 끄기(Remotion 이 이미 굽는다)

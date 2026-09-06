@@ -25,6 +25,9 @@ docs/        목소리 준비·녹음 가이드
 | Whisper (로컬) | 내레이션 검사·자막 타이밍 | 무료 |
 | 음성 서비스 (택1) | 내레이션 생성 | 자체 호스팅이면 무료 |
 
+선택 사항으로 손그림 애니메이션 도구가 있습니다 — [srt-whiteboard-animation](https://github.com/miloveme/srt-whiteboard-animation).
+개념 설명 구간에만 쓰므로 필요할 때 설치하면 됩니다(`bash pipeline/install_whiteboard.sh`).
+
 음성은 **여러 서비스 중에서 고릅니다**. 자체 호스팅 ComfyUI(Chatterbox), ElevenLabs, OpenAI 가 기본으로 들어 있고,
 그 밖의 서비스는 `shell` 제공자로 스크립트 하나만 짜면 붙습니다. 고르고 바꾸는 법은 [docs/VOICE_PROVIDERS.md](docs/VOICE_PROVIDERS.md).
 

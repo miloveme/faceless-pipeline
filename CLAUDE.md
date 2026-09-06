@@ -11,7 +11,7 @@
 | 대본을 쓴다 | `docs/SCRIPT_FORMAT.md` — `[V]` `[N]` 태그와 규칙, 씬 길이 기준 |
 | 음성 서비스를 고르거나 바꾼다 | `docs/VOICE_PROVIDERS.md` |
 | 목소리를 녹음하거나 클론한다 | `docs/RECORDING.md` |
-| 화면 소재를 구하고 넣는다 — 녹화, AI 생성, 손그림, 기존 파일 | `docs/VISUALS.md` |
+| 화면 소재를 구하고 넣는다 — 녹화, AI 생성, 손그림, 기존 파일 | `docs/VISUALS.md` (손그림 도구는 선택 설치: `pipeline/install_whiteboard.sh`) |
 | 화면 카드 종류를 본다 | `remotion/README.md` |
 | **화면 생김새를 바꾼다** — 색, 글꼴, 글자 크기, 여백, 모서리, 자막 위치·크기, 카드 배치, 전체 톤 | `docs/DESIGN.md` — 어느 층을 고칠지 먼저 판단한다 |
 | 어떤 스크립트가 무엇을 하나 | `pipeline/README.md` — 단계별 입출력 표 |

@@ -24,6 +24,12 @@ line("프로젝트 폴더", rd.is_dir(), str(rd))
 line("node_modules", (rd/"node_modules").is_dir(), "없으면: cd remotion && npm install")
 line("공용 컴포넌트", (rd/"src"/"knowhow").is_dir(), str(rd/"src"/"knowhow"))
 
+print("\n선택 — 손그림 애니메이션")
+wb = pathlib.Path(__import__("os").environ.get("WHITEBOARD_DIR", pathlib.Path.home()/".claude"/"skills"/"srt-whiteboard-animation"))
+have_wb = (wb/"scripts"/"render_stream_whiteboard.py").exists()
+line("srt-whiteboard-animation", True,
+     str(wb) if have_wb else "선택 — 안 쓰면 무시. 설치: bash pipeline/install_whiteboard.sh")
+
 print("\n목소리 설정")
 vj = ROOT/"pipeline"/"voice.json"
 line("voice.json", vj.exists(), "없으면: cp pipeline/voice.example.json pipeline/voice.json")
