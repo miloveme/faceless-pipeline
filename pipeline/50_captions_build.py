@@ -25,23 +25,50 @@ sc = jload(p["scenes_v2"]); only = pick_ids(a.ids, {s["id"] for s in sc["scenes"
 targets = [s for s in sc["scenes"] if not only or s["id"] in only]
 wc = jload(p["caps_whisper"]) if p["caps_whisper"].exists() else {}
 caps = jload(p["caps"]) if p["caps"].exists() else {}
+# 끊는 자리 우선순위 — 쉼표 → 연결어미 뒤 → 어절 경계. 어절 중간에서는 절대 끊지 않는다.
+CONNECTIVE = re.compile(r"(?:고|며|지만|는데|면)\s")
+
+def _break_at(s):
+    """maxlen 을 넘는 줄을 어디서 끊을지. 가운데에 가장 가까운 자리를 고른다. 없으면 None."""
+    mid = len(s) / 2
+    for cands in ([m.end() for m in re.finditer(r",\s*", s)],
+                  [m.end() for m in CONNECTIVE.finditer(s)],
+                  [m.end() for m in re.finditer(r"\s+", s)]):
+        cands = [i for i in cands if 0 < i < len(s)]
+        if cands: return min(cands, key=lambda i: abs(i - mid))
+    return None
+
+def _split_long(s):
+    """maxlen 이하가 될 때까지 나눈다. 못 나누면(끊을 자리가 없으면) 그대로 둔다."""
+    if len(s) <= a.maxlen: return [s]
+    i = _break_at(s)
+    if i is None: return [s]
+    return _split_long(s[:i].strip()) + _split_long(s[i:].strip())
+
 def sentences(t):
+    """대본 한 씬 → 자막 줄들. **강조 표시를 벗긴 뒤** 나눈다 —
+    마침표가 ** 안에 있으면(`…들어옵니다.**`) 뒤가 공백이 아니라 문장이 안 나뉜다(E01 s13, 86자)."""
     out = []
-    for s in re.split(r"(?<=[\.\?!])\s+", t.strip()):
+    for s in re.split(r"(?<=[\.\?!])\s+", strip_emphasis(t).strip()):
         s = s.strip()
-        if not s: continue
-        if len(s) > a.maxlen and "," in s:
-            i = s.rfind(",", 0, len(s)//2 + 8)
-            if i > 10: out += [s[:i+1].strip(), s[i+1:].strip()]; continue
-        out.append(s)
+        if s: out += _split_long(s)
     return out
 
 def emph_flags(raw: str):
-    """원문 조각을 낱말 단위 강조 여부로 편다."""
-    flags = []
-    for seg, on in split_emphasis(raw):
-        for w in seg.split():
-            flags.append(on)
+    """원문 → 자막 낱말별 강조 여부. **글자 단위로 켜 두고 낱말로 접는다.**
+    조각별로 split() 하면 강조가 낱말 중간에서 끝날 때(`**반 프레임**만`) 낱말이 하나 더 세어져
+    그 뒤 강조가 통째로 밀린다. 낱말 안에 강조 글자가 하나라도 있으면 그 낱말이 강조다."""
+    text, on = "", []
+    for seg, hl in split_emphasis(raw):
+        text += seg; on += [hl] * len(seg)
+    flags, in_word, has = [], False, False
+    for ch, hl in zip(text, on):
+        if ch.isspace():
+            if in_word: flags.append(has)
+            in_word, has = False, False
+        else:
+            in_word, has = True, has or hl
+    if in_word: flags.append(has)
     return flags
 
 # ---------- 낱말 시각으로 줄 경계 잡기 ----------
@@ -180,13 +207,15 @@ if a.emph_only:
     n = 0
     for s in targets:
         sid = s["id"]
-        raw = sentences(s["narration"])
-        for i, c in enumerate(caps[sid]):
+        # 강조는 씬 단위로 한 번 펴서 줄들에 순서대로 나눠 준다.
+        # 줄 나누기(sentences)와 무관해져서, 줄 경계가 바뀌어도 강조가 밀리지 않는다.
+        flags = emph_flags(s["narration"]); k = 0
+        for c in caps[sid]:
             c["text"] = strip_emphasis(c["text"])
-            fl = emph_flags(raw[i]) if i < len(raw) else []
-            for j, w in enumerate(c.get("words", [])):
+            for w in c.get("words", []):
                 w.pop("hl", None)
-                if j < len(fl) and fl[j]: w["hl"] = True; n += 1
+                if k < len(flags) and flags[k]: w["hl"] = True; n += 1
+                k += 1
     jdump(caps, p["caps"])
     # 타이밍을 건드리지 않으므로 여기서는 종료코드로 막지 않는다. 수치는 그대로 찍는다.
     _, line = speed_report(caps, done, f"강조 낱말 {n}개 반영 → {p['caps']}")
@@ -210,17 +239,24 @@ for s in targets:
             chunks.append(mk_chunk(cur)); cur, nch = [], 0
     if cur: chunks.append(mk_chunk(cur))
     wc[sid] = chunks
-    raw_sents = sentences(s["narration"]); sents = [strip_emphasis(x) for x in raw_sents]
+    sents = sentences(s["narration"])          # 이미 강조를 벗긴 줄들이다
+    flags = emph_flags(s["narration"]); k = 0
     cc = []
     for i, (a0, b0, wl) in enumerate(align(sents, ws, s["narration_dur"])):
         c = {"start": a0, "end": b0, "text": sents[i], "words": wl}
-        fl = emph_flags(raw_sents[i]) if i < len(raw_sents) else []
-        for j, w in enumerate(c["words"]):
-            if j < len(fl) and fl[j]: w["hl"] = True
+        for w in c["words"]:
+            if k < len(flags) and flags[k]: w["hl"] = True
+            k += 1
         cc.append(c)
     caps[sid] = cc
-    print(sid, f"{len(cc)}줄", f"최고 {max((cps_of(c) for c in cc), default=0):.1f} cps",
-          f"최단 {min((c['end']-c['start'] for c in cc), default=0):.2f}초")
+    n_hl = sum(1 for c in cc for w in c["words"] if w.get("hl"))
+    if k != len(flags):
+        print(f"  주의: {sid} 낱말 수가 안 맞습니다 (자막 {k} · 대본 {len(flags)}) — 강조가 밀렸을 수 있습니다")
+    over = [len(c["text"]) for c in cc if len(c["text"]) > a.maxlen]
+    print(sid, f"{len(cc)}줄", f"최장 {max((len(c['text']) for c in cc), default=0)}자",
+          f"최고 {max((cps_of(c) for c in cc), default=0):.1f} cps",
+          f"최단 {min((c['end']-c['start'] for c in cc), default=0):.2f}초",
+          f"강조 {n_hl}개" + (f"  ← {a.maxlen}자 초과 {len(over)}줄" if over else ""))
 
 jdump(wc, p["caps_whisper"]); jdump(caps, p["caps"])
 bad, line = speed_report(caps, done, f"자막 생성 → {p['caps']}")
