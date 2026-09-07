@@ -51,11 +51,24 @@ if p["visual_prep"].exists():
             if src_f.stat().st_mtime > out_f.stat().st_mtime:
                 stale.append((key, fname, f"소재가 더 새것입니다 (소재 {time.strftime('%H:%M:%S', time.localtime(src_f.stat().st_mtime))}"
                                           f" > 변환본 {time.strftime('%H:%M:%S', time.localtime(out_f.stat().st_mtime))})"))
+    # 잘라낸 그림은 변환본에서 또 한 번 나온다 — 소재를 바꾸고 15 를 돌려도
+    # 잘라낸 쪽이 안 따라오면 썸네일·쇼츠만 옛 그림이 된다. 사슬 두 칸을 다 본다.
+    for key, c in vp.get("crops", {}).items():
+        base = pub/f"{c['src']}.mp4"
+        if not base.exists(): base = pub/f"{c['src']}.png"
+        out_f = pub/f"{key}.png"
+        if not base.exists(): continue
+        if not out_f.exists():
+            stale.append((key, f"{c['src']} 에서 자른 것", "잘라낸 그림이 없습니다")); continue
+        if base.stat().st_mtime > out_f.stat().st_mtime:
+            stale.append((key, base.name, f"변환본이 더 새것입니다 ({time.strftime('%H:%M:%S', time.localtime(base.stat().st_mtime))}"
+                                         f" > 잘라낸 것 {time.strftime('%H:%M:%S', time.localtime(out_f.stat().st_mtime))})"))
     if stale:
         lines = "\n".join(f"  {k:22} {f}\n    {why}" for k, f, why in stale)
         die(f"소재가 변환본보다 나중입니다 — {len(stale)}건:\n{lines}\n"
             f"  15_clip_prep.py {a.ep} 를 먼저 돌리세요. 안 돌리면 렌더에 옛 그림이 그대로 나옵니다.", 3)
-    print(f"소재 최신 검사: {sum(len(vp.get(k, {})) for k in ('clips', 'images'))}개 · 뒤처진 것 0건")
+    print(f"소재 최신 검사: {sum(len(vp.get(k, {})) for k in ('clips', 'images', 'crops'))}개"
+          f"(자른 것 {len(vp.get('crops', {}))}개 포함) · 뒤처진 것 0건")
 
 # 소재 경로 검사. asset() 을 안 지난 경로는 남의 편을 가리켜도 tsc·remotion 이 통과시킨다.
 src_dir = REMOTION_DIR/"src"/sl

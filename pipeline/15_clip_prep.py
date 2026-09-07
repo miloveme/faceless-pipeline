@@ -9,6 +9,8 @@
   "clips":  {"take_fail": "raw_take_a.mp4"},              영상: 1080p 무음으로 변환
   "images": {"diagram": "sketch.png", "shot": "still.jpg"}, 이미지: 가로 1920 이하로 맞춰 복사
   "stills": {"take_fail": [0, 7, 12.9]},                  영상에서 정지 프레임 뽑기
+  "crops":  {"hook_left": {"src":"hook_compare","t":7.8,"box":[0,0,960,380]}},  일부만 잘라 새 이미지로
+                                                          (t 는 영상일 때만. box 는 변환본 픽셀 [x0,y0,x1,y1])
   "contact":[{"name":"contact_crop","src":"take_fail","every_sec":1.5,"count":9,
               "crop":[0.05,0,0.55,0.7],"highlight":[3,4,5,6],"cell_w":400}]   여러 장 한 화면에
 }
@@ -31,6 +33,28 @@ for name, src in cfg.get("images", {}).items():
 for name, times in cfg.get("stills", {}).items():
     for t in times:
         run(["ffmpeg","-v","error","-y","-ss",str(t),"-i",str(pub/f"{name}.mp4"),"-frames:v","1",str(pub/f"{name.replace('take_','')}_{t}.png")])
+# 잘라낸 그림. 좌우가 한 장에 붙어 있는 대조 소재에서 한쪽만 쓰고 싶을 때 쓴다.
+# 부품에서 자르지 않고 여기서 파일로 만드는 이유 — 부품에서 자르려면 소재의 원본 크기를
+# 코드에 적어야 하고, 소재를 다시 자르면 그 숫자가 조용히 틀린다.
+for name, c in cfg.get("crops", {}).items():
+    src = c["src"]; mp4, png = pub/f"{src}.mp4", pub/f"{src}.png"
+    if mp4.exists():
+        if "t" not in c: die(f'crops "{name}": 영상이 소재이므로 t(초)가 있어야 합니다 — {mp4}')
+        tmp = pub/f"_crop_{name}.png"
+        run(["ffmpeg","-nostdin","-v","error","-y","-ss",str(c["t"]),"-i",str(mp4),"-frames:v","1",str(tmp)])
+        im = Image.open(tmp); origin = f'{src}.mp4 @{c["t"]}s'
+    elif png.exists():
+        im = Image.open(png); tmp = None; origin = f"{src}.png"
+    else:
+        die(f'crops "{name}": 소재가 없습니다 — {mp4} 도 {png} 도 없습니다')
+    x0, y0, x1, y1 = c["box"]
+    # 범위를 벗어난 상자는 PIL 이 검정으로 메운다 — 조용히 어긋난 그림이 나가므로 여기서 죽는다
+    if not (0 <= x0 < x1 <= im.width and 0 <= y0 < y1 <= im.height):
+        die(f'crops "{name}": 상자 {c["box"]} 가 소재 {im.width}x{im.height} 를 벗어납니다 ({origin})')
+    out = pub/f"{name}.png"; im.convert("RGB").crop((x0, y0, x1, y1)).save(out)
+    if tmp: tmp.unlink()
+    print("crop", name, f"{x1-x0}x{y1-y0}", "←", origin)
+
 def sheet(imgs, cw, gap, hl, every):
     ch = int(cw*imgs[0].size[1]/imgs[0].size[0]); n = len(imgs)
     sh = Image.new("RGB",(n*cw+(n+1)*gap, ch+2*gap+44),(15,17,21)); d = ImageDraw.Draw(sh)
