@@ -5,6 +5,7 @@ import { T, EASE_OUT } from "./theme";
 import { CaptionChunk, captionRuns } from "./Captions";
 import { getGrammar } from "./grammar";
 import { LiveGround } from "./Stage";
+import { useStreamPace } from "./pacing";
 
 /**
  * 문법 3 · 작업실 (workshop)
@@ -129,11 +130,17 @@ export const Win: React.FC<{
 };
 
 /* ─────────── 창 안: 실제 로그가 한 줄씩 ─────────── */
+/** everySec 을 주지 않으면 씬 길이에서 뽑는다 — 로그가 씬 끝까지 흐르게.
+ *  손으로 맞춰 둔 값과 대조해 보면 계산이 거의 같은 값을 낸다:
+ *    s09 17줄/11.4초 손 0.42 ↔ 계산 0.44
+ *    s10 20줄/10.7초 손 0.40 ↔ 계산 0.34
+ *    s12  7줄/19.7초 손 1.80 ↔ 계산 2.25 */
 export const Term: React.FC<{
-  cmd: string; lines: string[]; everySec: number; badPrefix?: string; okPrefix?: string;
+  cmd: string; lines: string[]; everySec?: number; badPrefix?: string; okPrefix?: string;
 }> = ({ cmd, lines, everySec, badPrefix, okPrefix }) => {
   const frame = useCurrentFrame(); const { fps, height } = useVideoConfig();
-  const shown = Math.floor(interpolate(frame, [0.7 * fps, (0.7 + lines.length * everySec) * fps],
+  const st = useStreamPace(lines.length, everySec, 0.7);
+  const shown = Math.floor(interpolate(frame, [st.startSec * fps, (st.startSec + lines.length * st.everySec) * fps],
     [0, lines.length], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
   // 창 안에 실제로 몇 줄이 들어가는지 계산한다. 매직넘버를 두면 로그가 길어질 때 조용히 잘린다.
   const LINE = 35.5;                                   // fontSize 25 × lineHeight 1.42
@@ -163,6 +170,56 @@ export const Term: React.FC<{
   );
 };
 
+/* ─────────── 주석 상자: "여기를 보라" ───────────
+ * Shot 과 StillPanel 이 같이 쓴다. 그림자·라벨·딤을 두 벌 두면 한쪽만 고쳐진다.
+ *
+ * 좌표는 **이 컴포넌트를 담은 상자**의 퍼센트다. 담는 쪽이 그 상자를 이미지에
+ * 딱 맞춰 줘야 한다(aspect). 창이나 여백에 맞추면 레터박스만큼 통째로 어긋난다. */
+export type Box = {
+  x: number; y: number; w: number; h: number; at: number; label?: string; tone?: "bad" | "ok";
+  /** 이 상자만 다르게. 없으면 부모의 dim 을 쓴다. */
+  dim?: number;
+  /** 이 상자가 다시 꺼지는 시각(초). 없으면 씬 끝까지 켜져 있다(지금까지의 동작).
+   *  왜 필요한가 — 딤은 상자마다 화면 전체에 그림자를 하나씩 더 얹는다.
+   *  상자 셋이 동시에 켜져 있으면 dim 0.55 가 1−(1−0.55)³ = 0.91 이 되어
+   *  먼저 켠 상자 안까지 같이 어두워진다. 렌더에서 실제로 그랬다.
+   *  한 장 안에서 볼 곳을 차례로 짚는 씬(s06)은 앞 상자를 끄면서 넘어간다. */
+  off?: number;
+};
+
+export const Boxes: React.FC<{ boxes: Box[]; dim?: number; fade?: number }> = ({
+  boxes, dim = 0.5, fade = 0.35,
+}) => {
+  const frame = useCurrentFrame(); const { fps } = useVideoConfig();
+  return (
+    <>
+      {boxes.map((b, i) => {
+        const inn = ease(frame, fps, b.at, b.at + fade);
+        // off 를 주면 그 시각에 되꺼진다. 딤이 겹쳐 쌓이지 않게 하는 유일한 방법이다.
+        const out = b.off == null ? 0 : ease(frame, fps, b.off, b.off + fade);
+        const on = inn * (1 - out);
+        const c = b.tone === "ok" ? T.ok : T.fail;
+        const k = b.dim ?? dim;
+        return (
+          <div key={i} style={{
+            position: "absolute", left: `${b.x}%`, top: `${b.y}%`, width: `${b.w}%`, height: `${b.h}%`,
+            border: `3px solid ${c}`, borderRadius: 6, opacity: on,
+            ...(k > 0 ? { boxShadow: `0 0 0 9999px rgba(7,8,11,${k * on})` } : null),
+          }}>
+            {b.label && (
+              <div style={{
+                position: "absolute", left: 0, top: -40, backgroundColor: c, color: "#0b0d11",
+                fontFamily: T.sans, fontSize: 24, fontWeight: 700, padding: "5px 12px", borderRadius: 6,
+                whiteSpace: "nowrap",
+              }}>{b.label}</div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+};
+
 /* ─────────── 창 안: 실제 화면 캡처. 다시 그리지 않는다 ─────────── */
 export const Shot: React.FC<{
   src: string; kind?: "image" | "video"; fromSec?: number; fit?: "contain" | "cover";
@@ -179,13 +236,9 @@ export const Shot: React.FC<{
    *  s17 은 한 장에 겹친 판본과 고친 판본이 나란히 있어서, 기본값으로 깔면
    *  비교 대상인 나머지 절반이 반쯤 꺼진다. 그런 씬은 0 으로 끈다. */
   dim?: number;
-  boxes?: {
-    x: number; y: number; w: number; h: number; at: number; label?: string; tone?: "bad" | "ok";
-    /** 이 상자만 다르게. 없으면 Shot 의 dim 을 쓴다. */
-    dim?: number;
-  }[];
+  boxes?: Box[];
 }> = ({ src, kind = "image", fromSec = 0, fit = "contain", aspect, mode = "fit", dim = 0.5, boxes = [] }) => {
-  const frame = useCurrentFrame(); const { fps } = useVideoConfig();
+  const { fps } = useVideoConfig();
   return (
     <AbsoluteFill style={{
       backgroundColor: "#0b0d11",
@@ -209,26 +262,7 @@ export const Shot: React.FC<{
             ? { width: "100%", height: "auto", display: "block" }
             : { width: "100%", height: "100%", objectFit: fit }} />
       )}
-      {boxes.map((b, i) => {
-        const on = ease(frame, fps, b.at, b.at + 0.35);
-        const c = b.tone === "ok" ? T.ok : T.fail;
-        const k = b.dim ?? dim;
-        return (
-          <div key={i} style={{
-            position: "absolute", left: `${b.x}%`, top: `${b.y}%`, width: `${b.w}%`, height: `${b.h}%`,
-            border: `3px solid ${c}`, borderRadius: 6, opacity: on,
-            ...(k > 0 ? { boxShadow: `0 0 0 9999px rgba(7,8,11,${k * on})` } : null),
-          }}>
-            {b.label && (
-              <div style={{
-                position: "absolute", left: 0, top: -40, backgroundColor: c, color: "#0b0d11",
-                fontFamily: T.sans, fontSize: 24, fontWeight: 700, padding: "5px 12px", borderRadius: 6,
-                whiteSpace: "nowrap",
-              }}>{b.label}</div>
-            )}
-          </div>
-        );
-      })}
+      <Boxes boxes={boxes} dim={dim} />
       </div>
     </AbsoluteFill>
   );

@@ -111,12 +111,22 @@ export const Lead: React.FC<{
   align?: "left" | "center";
   size?: number;
   startSec?: number;
-}> = ({ text, accentWord, align = "left", size = 96, startSec = 0.35 }) => {
+  /** 화면 아래에서 이 줄까지의 거리(px). 기본 300. 최소는 안전영역(218) — 그 아래는 자막 자리다.
+   *  줄을 여러 개 겹치라고 연 것이다 — Lead 를 여러 번 쓰고 bottom 과 startSec 을
+   *  달리 주면 한 무대에서 문장이 차례로 쌓인다. 무대 문법은 상자가 없으므로
+   *  자리를 겹치지 않게 하는 책임이 연출에게 있다. size 를 보고 간격을 잡는다
+   *  (size 96 이면 줄 높이가 약 123px, 최소 간격을 그만큼 둔다). */
+  bottom?: number;
+}> = ({ text, accentWord, align = "left", size = 96, startSec = 0.35, bottom = 300 }) => {
   const frame = useCurrentFrame(); const { fps } = useVideoConfig();
+  if (process.env.NODE_ENV !== "production" && bottom < STAGE_SAFE_BOTTOM) {
+    // eslint-disable-next-line no-console
+    console.warn(`[Lead] bottom ${bottom} 이 안전영역(${STAGE_SAFE_BOTTOM}) 안이다. 자막을 가린다: "${text}"`);
+  }
   const words = text.split(" ");
   return (
     <div style={{
-      position: "absolute", left: 120, right: 120, bottom: 300,
+      position: "absolute", left: 120, right: 120, bottom,
       display: "flex", flexWrap: "wrap", gap: `0 ${Math.round(size * 0.26)}px`,
       justifyContent: align === "center" ? "center" : "flex-start",
     }}>
