@@ -52,7 +52,12 @@ def plan(cfg, n_items=1, total_chars=None, verbose=True, serial=False):
     if not free:
         busy = sorted((s["queue"], s["host"]) for s in st if s["alive"])
         if not busy:
-            raise SystemExit("쓸 수 있는 ComfyUI 서버가 없습니다. 서버를 켜고 다시 시도하세요.")
+            tried = "\n".join(f"    {s['host']}  ({s['err']})" for s in st)
+            raise SystemExit(
+                "쓸 수 있는 ComfyUI 서버가 없습니다. 확인한 주소:\n" + tried +
+                "\n  서버가 꺼져 있거나 주소가 다릅니다. 주소는 사람마다 달라 저장소에 없습니다."
+                "\n  추측하거나 포트를 훑지 말고, 무엇을 하려다 무슨 응답을 받았는지 적어 엔지니어에게 넘기세요."
+                "\n  (주소를 아는 사람은 사용자입니다. voice.json 의 hosts 를 고치는 것도 엔지니어 일입니다.)")
         free = [busy[0][1]]; note = " (전부 바쁨 — 가장 덜 바쁜 곳에 맡김)"
     if serial or not cfg.get("parallel", True) or n_items <= 1:
         free = free[:1]
