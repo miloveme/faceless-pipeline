@@ -123,8 +123,12 @@ def read_number(m):
         # 붙여 쓰면 자음동화로 자릿수가 무너진다 — 9.167 의 '일육'[일륙]이 [이륙]으로 들려 9.267 이 됐다(E01 실측).
         # 정수부는 안 띄운다. '백십팔'은 자릿값 읽기라 띄우면 뜻이 깨진다.
         head, frac = num.split(".", 1)
-        n = int(head.replace(",", "")) if head else 0
-        return sign + sino(n) + " 점 " + " ".join(DIGITS[int(c)] for c in frac if c.isdigit()) + (" " + unit if unit else "")
+        # 끝의 0 은 읽지 않는다: 0.80 → 영 점 팔. 가운데·앞의 0 은 자릿값이라 남긴다(0.801, 0.025).
+        frac = "".join(c for c in frac if c.isdigit()).rstrip("0")
+        if frac:
+            n = int(head.replace(",", "")) if head else 0
+            return sign + sino(n) + " 점 " + " ".join(DIGITS[int(c)] for c in frac) + (" " + unit if unit else "")
+        num = head or "0"            # 소수부가 전부 0 이면 정수로 읽는다: 2.00초 → 이 초
     n = int(num.replace(",", ""))
     if unit and unit.startswith(NATIVE_COUNTERS) and not unit.startswith("시간") and unit != "시간":
         return sign + native(n) + " " + unit

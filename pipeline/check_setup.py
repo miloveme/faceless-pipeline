@@ -18,6 +18,10 @@ print("\n시스템 도구")
 for c, why in [("ffmpeg","오디오·영상"),("ffprobe","길이 측정"),("node","Remotion"),("npx","Remotion")]:
     line(c, shutil.which(c) is not None, why)
 
+print("\n읽기 변환 — 대본에 그 표기가 없어도 코드가 사는지 본다")
+r = subprocess.run([sys.executable, str(ROOT/"pipeline"/"check_readings.py")], capture_output=True, text=True)
+line("check_readings.py", r.returncode == 0, (r.stdout or r.stderr).strip().split("\n")[0][:60])
+
 print("\n저장소 훅 — 개인 자산이 커밋·푸시에 섞이는 것을 막는다")
 hooks = ROOT/".githooks"
 if (ROOT/".git").exists() and hooks.is_dir():
