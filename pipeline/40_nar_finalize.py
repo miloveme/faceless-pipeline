@@ -45,13 +45,22 @@ for s in scenes["scenes"]:
           f"afade=t=out:st={max(0,end-FADE):.3f}:d={FADE},loudnorm=I={NAR_LUFS}:TP=-1.5:LRA=11")
     run(["ffmpeg","-v","error","-y","-i",str(src),"-af",af,"-ar","44100","-ac","1",str(out)])
     d = dur(out); s["narration_file"] = str(out.relative_to(ep)); s["narration_dur"] = round(d,2)
-    s["t_start"] = round(t,2); s["t_end"] = round(t+LEAD+d+GAP,2); rows.append((sid, info[sid]["dur"], d, s["t_start"], s["t_end"])); t = s["t_end"]
+    li, lp = lufs(out)                      # 씬 음량은 여기서 확정된다. 눈으로 볼 수 있게 표에 싣는다
+    s["t_start"] = round(t,2); s["t_end"] = round(t+LEAD+d+GAP,2)
+    rows.append((sid, info[sid]["dur"], d, s["t_start"], s["t_end"], li, lp)); t = s["t_end"]
 _bits = [pname] + [f"{k}={pcfg[k]}" for k in ("ref_file", "voice_id", "voice", "model", "seed") if pcfg.get(k) is not None]
 scenes["narration_voice"] = " ".join(str(b) for b in _bits)
 scenes["lead"] = LEAD; scenes["gap"] = GAP; scenes["target_duration_sec"] = round(t,1)
 jdump(scenes, p["scenes_v2"])
-print("scene   raw  final  t_start   t_end"); [print(f"{a}  {b:5.1f}  {c:5.1f}  {d:7.2f}  {e:7.2f}") for a,b,c,d,e in rows]
+print("scene   raw  final  t_start   t_end     LUFS   peak")
+for a,b,c,d,e,li,lp in rows:
+    off = "" if li is None else ("  ←" if abs(li - NAR_LUFS) > NAR_LUFS_TOL or (lp is not None and lp > NAR_TP_MAX) else "")
+    print(f"{a}  {b:5.1f}  {c:5.1f}  {d:7.2f}  {e:7.2f}  {'    ?' if li is None else f'{li:7.1f}'}  {'    ?' if lp is None else f'{lp:5.1f}'}{off}")
 print(f"{len(rows)}/{len(scenes['scenes'])}씬 · total {round(t,1)}s = {round(t/60,2)}min · {pname}")
+# 음량 기준은 음악 감독의 값이다(common.py). 여기서는 재서 보여만 준다 — 판정은 트랙과 마스터에서 한다
+_off = [a for a,_,_,_,_,li,lp in rows if li is not None and (abs(li - NAR_LUFS) > NAR_LUFS_TOL or (lp is not None and lp > NAR_TP_MAX))]
+print(f"음량: 목표 {NAR_LUFS} LUFS ±{NAR_LUFS_TOL} · peak {NAR_TP_MAX} dBFS 이하 · 벗어난 씬 {len(_off)}/{len(rows)}"
+      + (f" ({', '.join(_off)})" if _off else ""))
 sc = scenes["scenes"]
 cmd = ["ffmpeg","-v","error","-y","-f","lavfi","-i",f"anullsrc=r=44100:cl=mono:d={t}"]; filt = []
 for i, s in enumerate(sc, 1):
