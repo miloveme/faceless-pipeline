@@ -9,8 +9,14 @@ REMOTION_DIR=${REMOTION_DIR:-$(cd "$(dirname "$0")/../remotion" 2>/dev/null && p
 [ -d "$REMOTION_DIR/node_modules" ] || { echo "Remotion 이 설치되지 않았습니다: $REMOTION_DIR"; echo "  cd $REMOTION_DIR && npm install"; exit 1; }
 cd "$REMOTION_DIR" && npx tsc --noEmit && echo TSC_OK
 RAW=$OUT/${PREFIX}_episode_${VER}.mp4; MASTER=$OUT/${PREFIX}_episode_${VER}_master.mp4; PREV=$OUT/${PREFIX}_episode_${VER}_preview720.mp4
-npx remotion render "$COMP" "$RAW" --codec=h264 --crf=18 --log=error --concurrency=8 2>&1 | tail -2
+RLOG=$OUT/_render_${VER}.log
+npx remotion render "$COMP" "$RAW" --codec=h264 --crf=18 --log=error --concurrency=8 2>&1 | tee "$RLOG" | tail -2
 [ -s "$RAW" ] || { echo "렌더 결과가 없습니다: $RAW"; echo "  컴포지션 이름이 맞는지 확인하세요 (지금 값: $COMP)"; echo "  목록: cd $REMOTION_DIR && npx remotion compositions"; exit 1; }
+# 부품이 렌더 중에 한 말(문지기·경고)은 tail -2 밖으로 밀려난다. 따로 꺼내 보인다.
+# remotion 은 console.error 만 --log=error 로그로 내보낸다. console.warn 은 verbose 에서만 나온다.
+if grep -qE "\[(pacing|Lead|Boxes|Shot|StillPanel)\]" "$RLOG"; then
+  echo "--- 부품이 한 말"; grep -hE "\[(pacing|Lead|Boxes|Shot|StillPanel)\]" "$RLOG" | sed "s/^ *//" | sort -u | head -20
+fi
 ffmpeg -v error -y -i "$RAW" -vn -af "loudnorm=I=-14:TP=-1.5:LRA=11" -ar 48000 -c:a aac -b:a 192k "$OUT/_audio_norm.m4a"
 ffmpeg -v error -y -i "$RAW" -i "$OUT/_audio_norm.m4a" -map 0:v -map 1:a -c copy -shortest "$MASTER"
 ffmpeg -v error -y -i "$MASTER" -vf scale=1280:-2 -c:v libx264 -crf 24 -preset fast -c:a aac -b:a 128k "$PREV"

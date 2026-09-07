@@ -6,6 +6,7 @@ import { CaptionChunk, captionRuns } from "./Captions";
 import { getGrammar } from "./grammar";
 import { LiveGround } from "./Stage";
 import { useStreamPace } from "./pacing";
+import { useAspectCheck } from "./assetAspect";
 
 /**
  * 문법 3 · 작업실 (workshop)
@@ -313,6 +314,9 @@ export const Shot: React.FC<{
   boxes?: Box[];
 }> = ({ src, kind = "image", fromSec = 0, fit = "contain", aspect, mode = "fit", dim = 0.5, boxes = [] }) => {
   const { fps } = useVideoConfig();
+  // 선언한 비가 소재의 실제 픽셀과 다르면 렌더가 여기서 끝난다(assetAspect.ts).
+  // 상자를 이미지에 묶는 근거가 이 한 숫자뿐이라, 틀리면 상자가 통째로 어긋난다.
+  useAspectCheck("Shot", src, aspect, kind);
   const media = (
     <>
       {kind === "video" ? (

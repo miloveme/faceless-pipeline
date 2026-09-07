@@ -97,13 +97,23 @@ export type Pace = {
   dur: number;
 };
 
-/** 같은 잘못을 한 번만 말한다. 렌더는 프레임마다 도므로 그냥 warn 하면 수천 줄이 된다. */
+/** 같은 잘못을 한 번만 말한다. 렌더는 프레임마다 도므로 그냥 찍으면 수천 줄이 된다. */
 const said = new Set<string>();
+/**
+ * console.warn 이 아니라 console.error 로 찍는다. 던지는 것이 아니다 — 채널만 다르다.
+ *
+ * 이유는 렌더 기계에 있다. remotion 의 CLI 는 부품이 찍은 로그를 이렇게 나른다:
+ *   console.error → `--log=error` 에서도 나온다
+ *   console.warn  → `--log=verbose` 에서만 나온다
+ * (`npx remotion still` 은 아예 안 나른다. 마스터를 뽑는 건 render 다.)
+ * 마스터 렌더는 `--log=error` 로 돌므로, warn 으로 두면 NODE_ENV 가드를 뗀 것이
+ * 헛일이 된다 — 정확히 마스터를 뽑을 때만 입을 다무는 문지기가 그대로 남는다.
+ * 실측: 60프레임 시험 렌더에서 warn 은 `--log=error` 로그에 0줄, error 는 나왔다.
+ */
 const warnOnce = (key: string, msg: string) => {
   if (said.has(key)) return;
   said.add(key);
-  // eslint-disable-next-line no-console
-  console.warn(msg);
+  console.error(msg);
 };
 
 /** 순수 계산. 렌더 없이 시험할 수 있게 훅 밖으로 빼 뒀다. */
@@ -120,8 +130,15 @@ export const paceIn = (dur: number, count: number, o: PaceOpts = {}): Pace => {
   const gap = o.everySec ?? auto;
   const end = from + (n - 1) * gap + fade;
   // fromSec 을 손으로 넣다 보면 마지막 요소가 씬 밖으로 나가는 일이 생긴다.
-  // 산문 규칙은 재발하므로 기계가 말하게 둔다. 개발 중에만, 설정당 한 번만.
-  if (process.env.NODE_ENV !== "production" && end > dur) {
+  // 산문 규칙은 재발하므로 기계가 말하게 둔다. 설정당 한 번만.
+  //
+  // 던지지 않고 말만 한다 — 이건 리듬 결정의 결과지 오타가 아니다.
+  // "항목을 줄일 것인가 · 일찍 시작할 것인가 · 그냥 둘 것인가"는 연출이 정한다.
+  // 던질지 말지도 연출이 정할 때까지 지금 동작을 유지한다.
+  //
+  // 다만 NODE_ENV 가드는 뗐다. 렌더 번들은 production 이라 그 가드는
+  // **정확히 마스터를 뽑을 때만 입을 다무는 문지기**였다. 말은 하게 둔다.
+  if (end > dur) {
     warnOnce(
       `${dur}|${count}|${from}|${gap}|${fade}`,
       `[pacing] 마지막 요소가 씬 밖에서 끝난다 — 씬 ${dur.toFixed(2)}초, 요소 ${count}개, ` +

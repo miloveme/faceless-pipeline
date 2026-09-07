@@ -119,9 +119,22 @@ export const Lead: React.FC<{
   bottom?: number;
 }> = ({ text, accentWord, align = "left", size = 96, startSec = 0.35, bottom = 300 }) => {
   const frame = useCurrentFrame(); const { fps } = useVideoConfig();
-  if (process.env.NODE_ENV !== "production" && bottom < STAGE_SAFE_BOTTOM) {
-    // eslint-disable-next-line no-console
-    console.warn(`[Lead] bottom ${bottom} 이 안전영역(${STAGE_SAFE_BOTTOM}) 안이다. 자막을 가린다: "${text}"`);
+  // 안전영역은 충돌선이 아니라 **예약**이다. 두 줄 자막의 위 잉크는 화면 아래 187px 까지
+  // 올라오므로 기하학적 충돌선은 bottom 179 이고, 안전영역 218 은 그보다 39px 위다.
+  // 179~217 은 안 겹치지만 자막 자리를 갉아먹는 값이라 여기서 막는다.
+  // 그 폭이 정말 좁으면 grammars.json 의 safeBottom 을 고치는 것이 정공법이고,
+  // 그건 미술 감독에게 가는 길이다. 조용히 갉아먹는 길은 열어 두지 않는다.
+  //
+  // 경고가 아니라 던진다. 그리고 NODE_ENV 로 감싸지 않는다 — 렌더 번들은 production 이라
+  // 그렇게 두면 정확히 마스터를 뽑을 때만 입을 다문다. 이 결함은 최종 mp4 를 눈으로 봐야
+  // 드러나고(스틸에는 자막이 안 켜져 있을 수 있다) 지는 쪽은 언제나 자막이다.
+  if (bottom < STAGE_SAFE_BOTTOM) {
+    throw new Error(
+      `[Lead] bottom=${bottom} 이 무대 안전영역(${STAGE_SAFE_BOTTOM}) 안이다 — 자막을 가린다.\n` +
+        `  글줄: "${text}"\n` +
+        `  고치는 법: bottom 을 ${STAGE_SAFE_BOTTOM} 이상으로 올린다. ` +
+        `안전영역 자체를 바꿔야 하면 grammars.json 의 stage.safeBottom 이다(미술 감독).`,
+    );
   }
   const words = text.split(" ");
   return (
