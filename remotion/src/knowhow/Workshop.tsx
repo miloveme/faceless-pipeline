@@ -173,8 +173,18 @@ export const Shot: React.FC<{
   /** page — 웹 페이지처럼 폭을 채우고 위에서부터 보여준다(아래는 잘린다).
    *  fit  — 전체가 보이게 넣는다(기본). */
   mode?: "fit" | "page";
-  boxes?: { x: number; y: number; w: number; h: number; at: number; label?: string; tone?: "bad" | "ok" }[];
-}> = ({ src, kind = "image", fromSec = 0, fit = "contain", aspect, mode = "fit", boxes = [] }) => {
+  /** 상자 밖을 얼마나 어둡게 깔지. 0 이면 안 깐다. 기본 0.5.
+   *  상자가 "여기만 보라"고 말하는 씬(s18 같은)에서는 기본값이 맞다.
+   *  하지만 소재 자체가 전후 비교면 상자 밖에도 봐야 할 증거가 있다.
+   *  s17 은 한 장에 겹친 판본과 고친 판본이 나란히 있어서, 기본값으로 깔면
+   *  비교 대상인 나머지 절반이 반쯤 꺼진다. 그런 씬은 0 으로 끈다. */
+  dim?: number;
+  boxes?: {
+    x: number; y: number; w: number; h: number; at: number; label?: string; tone?: "bad" | "ok";
+    /** 이 상자만 다르게. 없으면 Shot 의 dim 을 쓴다. */
+    dim?: number;
+  }[];
+}> = ({ src, kind = "image", fromSec = 0, fit = "contain", aspect, mode = "fit", dim = 0.5, boxes = [] }) => {
   const frame = useCurrentFrame(); const { fps } = useVideoConfig();
   return (
     <AbsoluteFill style={{
@@ -202,11 +212,12 @@ export const Shot: React.FC<{
       {boxes.map((b, i) => {
         const on = ease(frame, fps, b.at, b.at + 0.35);
         const c = b.tone === "ok" ? T.ok : T.fail;
+        const k = b.dim ?? dim;
         return (
           <div key={i} style={{
             position: "absolute", left: `${b.x}%`, top: `${b.y}%`, width: `${b.w}%`, height: `${b.h}%`,
             border: `3px solid ${c}`, borderRadius: 6, opacity: on,
-            boxShadow: `0 0 0 9999px rgba(7,8,11,${0.5 * on})`,
+            ...(k > 0 ? { boxShadow: `0 0 0 9999px rgba(7,8,11,${k * on})` } : null),
           }}>
             {b.label && (
               <div style={{
