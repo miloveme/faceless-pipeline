@@ -33,10 +33,23 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 
 보조
 - `voice_similarity.py <참조> <생성물...>` — 화자 유사도 비교(librosa 필요).
-- `check_private.py [--range origin/main..HEAD]` — **올리기 전에** 개인 자산이 섞였는지 본다.
-  추적 중인 파일 이름(미디어·`voice.json`·`episodes/`·`assets/`)과 내용(개인 경로·사설 IP·이메일·MAC),
-  올릴 커밋의 메시지와 추가된 줄까지 훑는다. 걸리면 종료코드 3.
-  이 저장소는 공개다 — `.gitignore` 는 **이미 추적 중인 파일을 막지 못한다.**
+- `check_private.py [--staged] [--msg-file F] [--range A..B]` — 개인 자산이 저장소에 들어가는 것을 막는다.
+  **사람이 기억해서 돌리는 검사가 아니다.** `.githooks/` 의 세 훅이 부른다.
+
+  | 언제 | 무엇을 보나 |
+  |---|---|
+  | `pre-commit` | 스테이지에 올린 파일 이름과 추가된 줄 |
+  | `commit-msg` | 커밋 메시지 — 남의 경로를 인용하다 새로 흘리는 자리다 |
+  | `pre-push` | 원격에 없는 커밋 전부의 메시지와 추가된 줄 |
+
+  찾는 것: 개인 경로(`/Users/`·`/home/`·`C:\Users\`), 사설 IP, 이메일, MAC, 이 기계의 이름,
+  새로 추적되는 미디어·`voice.json`·`episodes/`·`assets/`. 걸리면 종료코드 3.
+  `.gitignore` 는 **이미 추적 중인 파일을 막지 못하고**, 커밋 메시지는 아예 안 본다.
+
+  훅 연결(`core.hooksPath`)은 `check_setup.py` 가 한다 — 클론마다 한 번 필요하고, 안 돼 있으면 그 자리에서 해 준다.
+  거짓 경보를 안 내는 것이 더 중요해서 예외를 둔다: 루프백 `127.x`, 문서 전용 대역
+  `192.0.2.x`·`198.51.100.x`·`203.0.113.x`(RFC 5737), 커밋 트레일러의 `noreply@`.
+  계정명 자체는 찾지 않는다(`jun` 이 `junk` 에 걸린다) — 계정명이 드러나는 자리는 경로라 경로 모양으로 잡는다.
 
 ## 종료코드
 

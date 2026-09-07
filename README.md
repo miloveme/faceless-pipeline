@@ -50,7 +50,7 @@ cd remotion && npm install && cd ..
 cp pipeline/voice.example.json pipeline/voice.json
 #   docs/VOICE_PROVIDERS.md 참고. 본인 목소리로 하려면 docs/RECORDING.md
 
-# 5) 점검
+# 5) 점검 — 설치 상태를 보고, 개인 자산이 커밋에 섞이지 않게 훅도 연결합니다
 python3 pipeline/check_setup.py
 ```
 

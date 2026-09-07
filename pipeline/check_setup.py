@@ -18,6 +18,23 @@ print("\n시스템 도구")
 for c, why in [("ffmpeg","오디오·영상"),("ffprobe","길이 측정"),("node","Remotion"),("npx","Remotion")]:
     line(c, shutil.which(c) is not None, why)
 
+print("\n저장소 훅 — 개인 자산이 커밋·푸시에 섞이는 것을 막는다")
+hooks = ROOT/".githooks"
+if (ROOT/".git").exists() and hooks.is_dir():
+    cur = subprocess.run(["git","-C",str(ROOT),"config","--get","core.hooksPath"],
+                         capture_output=True, text=True).stdout.strip()
+    if cur != ".githooks":
+        # 이 설정은 이 클론에만 걸린다. 사람이 기억해서 켜야 하는 검사는 안 걸리므로 여기서 연결한다.
+        subprocess.run(["git","-C",str(ROOT),"config","core.hooksPath",".githooks"], capture_output=True)
+        cur = subprocess.run(["git","-C",str(ROOT),"config","--get","core.hooksPath"],
+                             capture_output=True, text=True).stdout.strip()
+        line("core.hooksPath", cur == ".githooks", f"방금 연결했습니다 → {cur or '(실패)'}")
+    else:
+        line("core.hooksPath", True, ".githooks (pre-commit·commit-msg·pre-push)")
+    line("check_private.py", (ROOT/"pipeline"/"check_private.py").exists(), "훅이 부르는 검사")
+else:
+    line("core.hooksPath", True, "git 저장소가 아니거나 .githooks 가 없습니다 — 건너뜀")
+
 print("\nRemotion")
 rd = pathlib.Path(__import__("os").environ.get("REMOTION_DIR", ROOT/"remotion"))
 line("프로젝트 폴더", rd.is_dir(), str(rd))
