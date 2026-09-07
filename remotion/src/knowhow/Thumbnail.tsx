@@ -125,7 +125,10 @@ const Text: React.FC<{ headline: string; sub: string; align: "left" | "center"; 
           lineHeight: 1.08,
           color: "#fff",
           textShadow: "0 3px 0 rgba(0,0,0,0.85), 0 0 24px rgba(0,0,0,0.8)",
-          backgroundColor: i === 0 ? "rgba(229,72,77,0.92)" : "rgba(0,0,0,0.78)",
+          // 자막 가림막과 **같은 값**이다. 붉은 상자를 쓰면 안 된다 — 이 채널에서 T.fail 은
+          // "이건 잘못됐다"는 뜻을 달고 다니고(s05 테두리·s03 취소선), 하필 좌측 칸 위에 오면
+          // 배지·윗줄에서 뺀 「원본 = 실패」 연상이 헤드라인으로 돌아온다(미술).
+          backgroundColor: T.capBg,
           padding: "6px 22px",
           borderRadius: 10,
         }}
