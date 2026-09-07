@@ -14,8 +14,10 @@ import { T, faceFor } from "./theme";
 const SideSchema = z.object({
   src: z.string(), // 프레임 이미지
   label: z.string(), // 칸 위 배지 글자
-  color: z.string(), // 배지 바탕 + 프레임 윗줄
-  labelColor: z.string(), // 배지 글자 색
+  color: z.string(), // 배지 바탕
+  labelColor: z.string(), // 배지 글자
+  edgeColor: z.string(), // 프레임 윗줄 — 배지와 **다른 값이다.** 배지 바탕이 반투명 검정이면
+                         // 같은 값을 윗줄에 쓸 때 어두운 그림 위에서 사라진다(미술 실측)
   focusX: z.number(), // 0~1 확대 중심 (칸 기준)
   focusY: z.number(),
 });
@@ -38,7 +40,11 @@ type Side = z.infer<typeof SideSchema>;
  * 예전에는 그림 높이를 `w * 9 / 16` 로 잡았다. 16:9 가 아닌 소재를 넣으면 세로로
  * 늘어나고(시네스코프 2.0:1·가림 크롭 2.5:1 이 그렇다), 칸보다 그림이 짧으면
  * 바닥이 비었다. `objectFit: cover` 면 어떤 비가 와도 칸을 채우고 넘치는 쪽만 잘린다.
- * 확대는 `scale`, 어디를 키울지는 `transformOrigin` 이 정한다.
+ *
+ * **잘려 나가는 쪽을 고르는 것은 `objectPosition` 이다.** `transformOrigin` 으로는 안 된다 —
+ * 그건 확대할 때만 뜻이 있어서 `zoom: 1` 이면 focus 값이 통째로 무시되고 늘 가운데가 남는다.
+ * 실제로 그렇게 짰다가 좌측 칸에 미술이 고른 인물 대신 가운데 등이 잡혔다.
+ * 확대까지 하면 `scale` 이 겹치고, 그때 기준점도 같은 자리여야 한다.
  */
 const Frame: React.FC<{ side: Side; w: number; h: number; zoom: number }> = ({ side, w, h, zoom }) => (
   <div
@@ -47,7 +53,7 @@ const Frame: React.FC<{ side: Side; w: number; h: number; zoom: number }> = ({ s
       height: h,
       overflow: "hidden",
       position: "relative",
-      borderTop: `10px solid ${side.color}`,
+      borderTop: `10px solid ${side.edgeColor}`,
     }}
   >
     <CanvasImage
@@ -56,6 +62,7 @@ const Frame: React.FC<{ side: Side; w: number; h: number; zoom: number }> = ({ s
         width: w,
         height: h,
         objectFit: "cover",
+        objectPosition: `${side.focusX * 100}% ${side.focusY * 100}%`,
         transformOrigin: `${side.focusX * 100}% ${side.focusY * 100}%`,
         scale: String(zoom),
       }}
@@ -164,7 +171,7 @@ export const Thumbnail: React.FC<Props> = (p) => {
             <Text headline={p.headline} sub={p.sub} align="left" size={96} />
           </div>
           {/* 강조 원 — 색은 그 칸의 색을 따른다 */}
-          <div style={{ position: "absolute", left: W * 0.27, top: H * 0.27, width: 300, height: 300, borderRadius: "50%", border: `10px solid ${p.left.color}`, boxShadow: "0 0 40px rgba(0,0,0,0.6)" }} />
+          <div style={{ position: "absolute", left: W * 0.27, top: H * 0.27, width: 300, height: 300, borderRadius: "50%", border: `10px solid ${p.left.edgeColor}`, boxShadow: "0 0 40px rgba(0,0,0,0.6)" }} />
         </>
       )}
       {p.variant === "text-first" && (
