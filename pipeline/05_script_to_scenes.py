@@ -93,8 +93,13 @@ out = {"episode": ep.name, "title": (text.split("\n")[0].lstrip("# ").strip() or
                    "narration": s["narration"], "visual": {"note": s["visual"]}} for s in scenes]}
 jdump(out, p["scenes_v1"])
 
-chars = sum(len(s["narration"]) for s in scenes)
+# 자수는 길이(초)를 가늠하는 값이다. **강조** 표시는 음성이 읽지 않으므로(tts_preprocess 가 지운다) 세지 않는다.
+spoken = lambda s: len(strip_emphasis(s["narration"]))
+chars = sum(spoken(s) for s in scenes)
+raw = sum(len(s["narration"]) for s in scenes)
 print(f"{len(scenes)}개 씬 · {chars}자 · 약 {chars/8.5/60:.1f}분 (8.5자/초 기준) → {p['scenes_v1']}")
-longest = max(scenes, key=lambda s: len(s["narration"]))
-print(f"가장 긴 씬 {longest['id']} {len(longest['narration'])}자 ≈ {len(longest['narration'])/8.5:.0f}초")
+if raw != chars:
+    print(f"  (자수는 음성이 읽는 글자만 셉니다. 대본 원문 {raw}자 − 강조 표시 ** {raw-chars}자)")
+longest = max(scenes, key=spoken)
+print(f"가장 긴 씬 {longest['id']} {spoken(longest)}자 ≈ {spoken(longest)/8.5:.0f}초")
 print("\n다음: 10_tts_prep.py 로 숫자·영문 읽기를 전처리하세요.")
