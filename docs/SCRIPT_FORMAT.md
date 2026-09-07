@@ -42,6 +42,12 @@ python3 pipeline/05_script_to_scenes.py E01_myepisode
 python3 pipeline/05_script_to_scenes.py <EP> --renumber   # 마크다운 파일까지 고쳐 준다
 ```
 
+**대본을 고칠 때는 판본 번호를 올립니다.** `script_v1.md` → `script_v2.md` → …
+출력은 언제나 `script/scenes_v1.json` 이라, 옛 판본을 읽으면 그 파일이 조용히 되돌아갑니다.
+그래서 `--md` 를 안 주면 **가장 최신 판본**을 읽고, 옛 판본을 지목하면 종료코드 2 로 거부합니다.
+그래도 옛 판본을 쓰려면 `--md script/script_v1.md --force`.
+어느 판본에서 나왔는지는 출력 첫 줄과 `scenes_v1.json` 의 `source_md` 에 남습니다.
+
 **`[N]` 이 없는 씬은 오류입니다.** 읽을 문장이 없으면 씬이 아닙니다.
 화면만 필요한 구간은 앞뒤 씬의 길이를 늘리거나, 짧은 문장이라도 넣으세요.
 

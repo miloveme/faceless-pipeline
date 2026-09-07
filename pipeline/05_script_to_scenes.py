@@ -25,17 +25,53 @@
 section 은 자동으로 붙는다: 첫 씬 hook, 마지막 outro, 그 앞 rule, 나머지 body.
 대본에 `[S] <이름>` 을 쓰면 그 값이 우선한다.
 
-사용: 05_script_to_scenes.py <EP> [--md script/script_v1.md] [--renumber]
+판본: 대본을 고칠 때는 `script/script_v<N>.md` 로 번호를 올린다. 출력은 언제나
+`script/scenes_v1.json` 이므로, **--md 를 안 주면 가장 최신 판본**을 읽는다.
+옛 판본을 일부러 읽으려면 --md 와 함께 --force 를 준다(안 주면 종료코드 2).
+
+사용: 05_script_to_scenes.py <EP> [--md script/script_v2.md] [--renumber] [--force]
 """
 import argparse, re
 from common import *
 
+VER = re.compile(r"^script_v(\d+)\.md$")
+
+def md_version(path) -> int | None:
+    m = VER.match(pathlib.Path(path).name)
+    return int(m.group(1)) if m else None
+
+def latest_md(ep):
+    """script/ 안의 script_v<N>.md 중 N 이 가장 큰 것. 없으면 None."""
+    cands = [(md_version(f), f) for f in (ep/"script").glob("script_v*.md") if md_version(f) is not None]
+    return max(cands)[1] if cands else None
+
 ap = argparse.ArgumentParser(); ap.add_argument("ep")
-ap.add_argument("--md", default="script/script_v1.md")
+ap.add_argument("--md", default=None, help="읽을 대본. 기본값은 가장 최신 script_v<N>.md")
 ap.add_argument("--renumber", action="store_true", help="씬 번호를 순서대로 다시 매긴다(md도 수정)")
+ap.add_argument("--force", action="store_true", help="더 최신 판본이 있어도 --md 가 가리키는 옛 판본을 쓴다")
 a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
-md_path = ep / a.md
-if not md_path.exists(): die(f"대본이 없습니다: {md_path}")
+
+if a.md:
+    md_path = ep / a.md
+else:
+    md_path = latest_md(ep) or (ep/"script"/"script_v1.md")
+if not md_path.exists():
+    have = sorted(f.name for f in (ep/"script").glob("*.md"))
+    die(f"대본이 없습니다: {md_path}" + (f"\n  script/ 에 있는 것: {', '.join(have)}" if have else
+        f"\n  script/script_v1.md 에 대본을 쓰세요. 형식: docs/SCRIPT_FORMAT.md"))
+
+# 출력은 언제나 scenes_v1.json 이라, 옛 판본을 읽으면 조용히 되돌아간다. 되돌리려면 소리를 내게 한다.
+now = md_version(md_path)
+newest = latest_md(ep)
+prev = jload(p["scenes_v1"]).get("source_md") if p["scenes_v1"].exists() else None
+back_to = max([v for v in (md_version(newest) if newest else None, md_version(prev) if prev else None)
+               if v is not None], default=None)
+if now is not None and back_to is not None and now < back_to and not a.force:
+    die(f"{md_path.name} 은 옛 판본입니다 (지금 {p['scenes_v1'].name} 은 v{back_to} 에서 나왔거나 v{back_to} 가 있습니다).\n"
+        f"  그대로 쓰면 {p['scenes_v1'].name} 이 옛 대본으로 되돌아갑니다.\n"
+        f"  최신으로 만들려면: 05_script_to_scenes.py {a.ep}\n"
+        f"  그래도 옛 판본을 쓰려면: --md {a.md} --force", 2)
+
 text = md_path.read_text(encoding="utf-8")
 
 HEAD = re.compile(r"^##\s+(s\d+)\s*(.*)$")
@@ -89,6 +125,7 @@ for i, s in enumerate(scenes):
                         else "rule" if i == len(scenes) - 2 else "body")
 
 out = {"episode": ep.name, "title": (text.split("\n")[0].lstrip("# ").strip() or ep.name),
+       "source_md": md_path.name,          # 어느 판본에서 나왔나. 다음 실행이 되돌아가는지 이 값으로 안다
        "scenes": [{"id": s["id"], "section": s["section"], "title": s["title"],
                    "narration": s["narration"], "visual": {"note": s["visual"]}} for s in scenes]}
 jdump(out, p["scenes_v1"])
