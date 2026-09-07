@@ -1,9 +1,11 @@
 # 공정 스크립트
 
 모든 스크립트는 에피소드 폴더 하나를 인자로 받습니다.
+**이름만 주면 됩니다** — `00_new_episode.sh` 가 만든 곳(`episodes/`, `EPISODES_DIR` 로 옮길 수 있음)에서 찾습니다.
+경로로 줘도 됩니다(`episodes/E01_myepisode`, 절대경로, 현재 폴더 기준 상대경로).
 
 ```bash
-python3 pipeline/40_nar_finalize.py episodes/E01_myepisode
+python3 pipeline/40_nar_finalize.py E01_myepisode
 ```
 
 번호 순서가 실행 순서입니다. 무엇을 언제 돌리는지는 `skills/knowhow-episode/SKILL.md`(런북)가 정합니다.

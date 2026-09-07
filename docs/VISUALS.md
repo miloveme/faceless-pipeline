@@ -103,7 +103,7 @@ git clone https://github.com/miloveme/srt-whiteboard-animation.git
 
 구간 자막을 뽑아 그 도구로 렌더하고, 나온 mp4 를 `source/` 에 둡니다.
 ```bash
-python3 pipeline/80_whiteboard_srt.py episodes/E01_x --ids s06,s07
+python3 pipeline/80_whiteboard_srt.py E01_x --ids s06,s07
 # 그 SRT 로 손그림 도구 실행 — 자막은 반드시 끄기(Remotion 이 이미 굽는다)
 ```
 언제 쓰고 언제 쓰지 말지는 [런북](../skills/knowhow-episode/SKILL.md) 3단계에 있습니다.

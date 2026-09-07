@@ -8,6 +8,8 @@ PIPE_DIR = pathlib.Path(__file__).resolve().parent                # <repo>/pipel
 VOICE_DIR = PIPE_DIR                                              # voice.json 과 참조 음성도 pipeline/ 안
 # Remotion 위치는 환경변수가 우선, 없으면 저장소의 remotion/ (60/65_render_*.sh, check_setup.py 와 같은 곳)
 REMOTION_DIR = pathlib.Path(os.environ.get("REMOTION_DIR") or (CHANNEL / "remotion")).expanduser()
+# 에피소드 위치도 같은 규칙. 00_new_episode.sh 가 만드는 곳과 같아야 한다(거기도 EPISODES_DIR, 없으면 <repo>/episodes)
+EPISODES_DIR = pathlib.Path(os.environ.get("EPISODES_DIR") or (CHANNEL / "episodes")).expanduser()
 
 # 타이밍·음량 상수 (E06에서 확정)
 LEAD = 0.5        # 씬 시작 후 내레이션 시작까지
@@ -26,12 +28,18 @@ def die(msg, code=1):
     print("ERROR:", msg, file=sys.stderr); sys.exit(code)
 
 def ep_dir(arg) -> pathlib.Path:
+    """에피소드 폴더 찾기. 이름만 줘도(E01_x) 되고 경로로 줘도(episodes/E01_x, /abs/E01_x) 된다.
+    상대 경로는 cwd → EPISODES_DIR → 저장소 루트 순으로 본다. 못 찾으면 찾아본 곳을 다 찍고 죽는다."""
     p = pathlib.Path(arg).expanduser()
-    if not p.is_absolute():
-        cwd_rel = pathlib.Path.cwd() / p
-        p = cwd_rel.resolve() if cwd_rel.is_dir() else (CHANNEL / p).resolve()
-    if not p.is_dir(): die(f"에피소드 폴더 없음: {p}")
-    return p
+    tried = [p] if p.is_absolute() else [pathlib.Path.cwd()/p, EPISODES_DIR/p, CHANNEL/p]
+    for c in tried:
+        if c.is_dir(): return c.resolve()
+    seen, where = set(), []
+    for c in tried:                                   # 같은 경로가 두 번 나오면(예: cwd 가 저장소 루트) 한 번만 보여준다
+        r = str(c.resolve())
+        if r not in seen: seen.add(r); where.append("  " + r)
+    die(f"에피소드 폴더 없음: {arg}\n  찾아본 곳:\n" + "\n".join(where) +
+        f"\n  있는 에피소드: {', '.join(sorted(d.name for d in EPISODES_DIR.iterdir() if d.is_dir())) if EPISODES_DIR.is_dir() else '(' + str(EPISODES_DIR) + ' 가 없습니다)'}")
 
 def slug(ep: pathlib.Path) -> str:
     return ep.name.split("_")[0].lower()     # E06_popfilter -> e06

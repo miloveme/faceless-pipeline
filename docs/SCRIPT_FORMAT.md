@@ -4,7 +4,7 @@
 사람은 읽고 고치기 쉬운 형식으로 쓰고, 변환은 기계가 합니다.
 
 ```bash
-python3 pipeline/05_script_to_scenes.py episodes/E01_myepisode
+python3 pipeline/05_script_to_scenes.py E01_myepisode
 ```
 
 ## 기본 형태

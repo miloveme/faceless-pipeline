@@ -135,8 +135,8 @@ pathlib.Path(a.out).write_bytes(r.content)
 제공자를 바꾸면 목소리가 바뀝니다. 짧은 문장 두세 개로 먼저 시험하고 전체에 적용하세요.
 
 ```bash
-python3 pipeline/20_tts_generate.py episodes/E01_x --ids s00,s01
-python3 pipeline/30_nar_check.py    episodes/E01_x --ids s00,s01
+python3 pipeline/20_tts_generate.py E01_x --ids s00,s01
+python3 pipeline/30_nar_check.py    E01_x --ids s00,s01
 ```
 
 - **읽기 검사**: 문장이 빠지거나 반복되지 않는지. 30단계가 잡아 줍니다.

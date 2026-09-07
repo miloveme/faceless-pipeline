@@ -63,17 +63,17 @@ bash pipeline/00_new_episode.sh E01_myepisode "첫 편 제목"
 # script/script_v1.md 에 대본을 쓴다 (사람 몫 — 아래 형식)
 #   형식은 docs/SCRIPT_FORMAT.md — ## s00 / [V] 화면 / [N] 읽을 문장
 
-python3 pipeline/05_script_to_scenes.py episodes/E01_myepisode  # 대본 → 씬 JSON
-python3 pipeline/10_tts_prep.py episodes/E01_myepisode   # 숫자·영문 읽기 전처리
-python3 pipeline/20_tts_generate.py episodes/E01_myepisode
-python3 pipeline/30_nar_check.py episodes/E01_myepisode  # 문장 누락·꼬리 잡음 검사
-python3 pipeline/40_nar_finalize.py episodes/E01_myepisode  # 트림·정규화·시각표
-python3 pipeline/50_captions_build.py episodes/E01_myepisode
-python3 pipeline/55_remotion_sync.py episodes/E01_myepisode
-bash    pipeline/60_render_master.sh episodes/E01_myepisode E01-Episode v1
-bash    pipeline/65_render_derived.sh episodes/E01_myepisode
-python3 pipeline/70_srt_build.py episodes/E01_myepisode
-python3 pipeline/75_chapters.py episodes/E01_myepisode
+python3 pipeline/05_script_to_scenes.py E01_myepisode  # 대본 → 씬 JSON
+python3 pipeline/10_tts_prep.py E01_myepisode   # 숫자·영문 읽기 전처리
+python3 pipeline/20_tts_generate.py E01_myepisode
+python3 pipeline/30_nar_check.py E01_myepisode  # 문장 누락·꼬리 잡음 검사
+python3 pipeline/40_nar_finalize.py E01_myepisode  # 트림·정규화·시각표
+python3 pipeline/50_captions_build.py E01_myepisode
+python3 pipeline/55_remotion_sync.py E01_myepisode
+bash    pipeline/60_render_master.sh E01_myepisode E01-Episode v1
+bash    pipeline/65_render_derived.sh E01_myepisode
+python3 pipeline/70_srt_build.py E01_myepisode
+python3 pipeline/75_chapters.py E01_myepisode
 ```
 
 ### 문서
