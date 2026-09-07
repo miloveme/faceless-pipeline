@@ -160,6 +160,16 @@ def split_emphasis(t: str):
     return out or [(t, False)]
 
 NUM = re.compile(r"([-−]?\d{1,3}(?:,\d{3})+(?:\.\d+)?|[-−]?\d+(?:\.\d+)?)\s*([가-힣]+)?")
+# 단위 낱말. 뒤에 붙은 조사를 떼려고 쓴다: '명과' → '명', '초짜리를' → '초'
+UNIT_WORDS = tuple(sorted(set(NATIVE_COUNTERS + ("초","분","회","건","프레임","센티미터","밀리미터",
+             "미터","퍼센트","배","도","자","단계","비트","글자","픽셀","킬로바이트")), key=len, reverse=True))
+
+def unit_head(unit: str) -> str:
+    """단위 문자열에서 단위 한 낱말만 떼어 낸다. 모르는 단위면 첫 글자만 쓴다 —
+    앞자락이라 대조(부분 문자열 찾기)에 그대로 쓸 수 있다('프'는 '프레임'의 앞자락)."""
+    for u in UNIT_WORDS:
+        if unit.startswith(u): return u
+    return unit[:1]
 RANGE = re.compile(r"(?<=\d)\s*[~〜～–-]\s*(?=\d)")     # 숫자 사이의 물결표·붙임표 = 범위. 숫자 **앞**의 -는 마이너스라 안 걸린다
 DASH = re.compile(r"\s*—\s*")                          # 줄표는 쉼을 뜻한다. TTS 는 그냥 무시하고 이어 읽는다(E01 실측)
 # 소리로 나갈 수 있는 글자. 이 밖의 것이 남으면 10단계가 멈춘다 — 기호를 사전으로 하나씩 막으면 다음 편에서 샌다
@@ -184,7 +194,11 @@ def tts_preprocess(text: str, readings: dict):
     def _num(m):
         r, unit = read_number_parts(m)
         full = r + (" " + unit if unit else "")
-        subs.append({"kind": "number", "from": m.group(0), "to": full, "num": r})   # num = 숫자 부분만(30단계 대조용)
+        # 숫자 읽기가 한 글자면 뒤 단위 한 낱말까지 붙인다. '이'·'일'·'사'는 한국어 문장에 지천이라
+        # 그 한 글자만으로는 엉뚱한 자리에 걸린다 — '2.00초 → 이'가 5글자 앞의 '시각이'에 걸렸다(E01 s10).
+        # 조사는 뺀다. 붙이면 '초'가 '추'로 들린 것 같은 뒤 글자 오독까지 숫자 오독이 된다(s15).
+        num = r + (" " + unit_head(unit) if unit and len(norm(r)) == 1 else "")
+        subs.append({"kind": "number", "from": m.group(0), "to": full, "num": num})   # num = 30단계 대조용
         return full
     t = NUM.sub(_num, t)
 
