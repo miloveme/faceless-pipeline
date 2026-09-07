@@ -23,8 +23,13 @@ import argparse, platform, re, socket, subprocess, sys, pathlib
 def git(*args) -> str:
     return subprocess.run(["git", *args], capture_output=True, text=True).stdout
 
+# 미디어 확장자. **이미지도 미디어다** — 소재에 원본 프레임이 들어 있고 이 저장소는 공개다.
+# 목록에서 하나 빠지면 그 종류가 조용히 추적 대상이 된다(png 가 실제로 빠져 있었다).
+MEDIA_EXTS = ("mp3", "wav", "m4a", "flac", "aac", "ogg",
+              "mp4", "mov", "mkv", "avi", "webm",
+              "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "zip")
 # 이름만으로 걸러야 하는 것 (.gitignore 와 겹치지만, ignore 는 이미 추적된 파일을 못 막는다)
-BAD_NAME = re.compile(r"\.(mp3|wav|m4a|mp4|mov|avi|mkv|zip)$|(^|/)voice\.json$|^episodes/|^assets/(?!README\.md$)")
+BAD_NAME = re.compile(r"\.(" + "|".join(MEDIA_EXTS) + r")$|(^|/)voice\.json$|^episodes/|^assets/(?!README\.md$)")
 DOC_IP = re.compile(r"^(127\.|192\.0\.2\.|198\.51\.100\.|203\.0\.113\.)")
 OK_MAIL = re.compile(r"^noreply@|@users\.noreply\.github\.com$|^[a-z]+@example\.(com|org)$")
 
@@ -59,6 +64,15 @@ def scan_text(label, text, hits):
                 if what == "이메일" and OK_MAIL.search(m.group(0)): continue
                 hits.append((label, line_no, what, m.group(0), line.strip()[:100]))
 
+def ignore_gaps():
+    """미디어 확장자가 .gitignore 에 다 있는가. 목록의 누락은 조용히 샌다 —
+    png 가 빠져 있어서 15_clip_prep 이 만드는 원본 프레임 PNG 가 추적 대상이 될 뻔했다."""
+    probes = [f"remotion/public/_probe/x.{e}" for e in MEDIA_EXTS]
+    r = subprocess.run(["git", "check-ignore", "--stdin"], input="\n".join(probes),
+                       capture_output=True, text=True)
+    covered = {line.rsplit(".", 1)[-1] for line in r.stdout.split("\n") if line}
+    return [e for e in MEDIA_EXTS if e not in covered]
+
 def added_lines(*log_args):
     return "\n".join(l[1:] for l in git(*log_args).split("\n")
                      if l.startswith("+") and not l.startswith("+++"))
@@ -72,6 +86,11 @@ if not git("rev-parse", "--is-inside-work-tree").strip():
     print("ERROR: git 저장소가 아닙니다", file=sys.stderr); sys.exit(2)
 
 hits, scope = [], []
+
+gaps = ignore_gaps()
+if gaps:
+    hits.append((".gitignore", 0, "미디어 확장자가 빠졌습니다",
+                 " ".join("*." + e for e in gaps), "이 종류가 추적 대상이 됩니다"))
 
 if a.staged:
     names = [f for f in git("diff", "--cached", "--name-only", "--diff-filter=ACR").split("\n") if f]
@@ -114,4 +133,4 @@ if hits:
           "  이미 올라간 히스토리를 고치는 것은 되돌릴 수 없으니 사용자에게 물으세요.\n"
           "  검사가 잘못 잡은 것이라면 pipeline/check_private.py 의 예외를 고쳐야 합니다(엔지니어).", file=sys.stderr)
     sys.exit(3)
-print(f"개인 자산 검사: {' · '.join(scope)} · 걸린 것 0건" + (f" · 기기 이름 {len(MACHINE)}개 대조" if MACHINE else ""))
+print(f"개인 자산 검사: {' · '.join(scope)} · 미디어 확장자 {len(MEDIA_EXTS)}종 전부 무시됨 · 걸린 것 0건" + (f" · 기기 이름 {len(MACHINE)}개 대조" if MACHINE else ""))

@@ -44,6 +44,9 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 
   찾는 것: 개인 경로(`/Users/`·`/home/`·`C:\Users\`), 사설 IP, 이메일, MAC, 이 기계의 이름,
   새로 추적되는 미디어·`voice.json`·`episodes/`·`assets/`. 걸리면 종료코드 3.
+  **미디어 확장자 20종이 `.gitignore` 에 다 있는지도 본다.** 목록에서 하나 빠지면 그 종류가 조용히
+  추적 대상이 된다 — `png` 가 실제로 빠져 있어서 `15_clip_prep` 이 만드는 **원본 프레임 PNG** 가
+  커밋될 뻔했다. 이미지도 미디어다.
   `.gitignore` 는 **이미 추적 중인 파일을 막지 못하고**, 커밋 메시지는 아예 안 본다.
 
 - `check_imports.py [--staged|<파일...>]` — 올리는 `.ts/.tsx` 의 상대경로 import 가 저장소에 있는지 본다.

@@ -5,8 +5,26 @@ pipeline/voice.json
 **/*.mp3
 **/*.wav
 **/*.m4a
+**/*.flac
+**/*.aac
+**/*.ogg
 **/*.mp4
 **/*.mov
+**/*.mkv
+**/*.avi
+**/*.webm
+# 이미지도 미디어다. 소재에는 원본 드라마 프레임이 들어 있고 이 저장소는 공개다.
+# 15_clip_prep 이 public/<slug>/ 에 PNG 를 만들어 두는데, 목록에 이미지가 없어 추적 대상이 될 뻔했다.
+# 지금 추적 중인 이미지는 0개라 넓게 잡는다. 저장소에 그림이 필요해지면 그때 !예외 를 준다.
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.webp
+**/*.bmp
+**/*.tif
+**/*.tiff
+**/*.zip
 episodes/
 assets/**/*
 !assets/README.md
