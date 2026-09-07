@@ -26,6 +26,7 @@
    - 소재 경로는 전부 `slug.ts` 의 `asset()` 을 지나므로 `SLUG` 한 줄이면 따라옵니다. **경로에 slug 를 직접 적지 마세요**
 3. `scenes.tsx` 에서 씬 id 별 화면 지정 — 소재는 `asset("clip.mp4")` 처럼 **파일명만** 넘깁니다(`public/<slug>/clip.mp4` 를 가리킵니다). 실제 파일 이름과 달라지면 렌더가 404 로 죽습니다
 4. `compositions.tsx` 에서 **편마다 바꿀 것**: 썸네일 소재·문구(`failSrc`/`fixSrc`/`headline`/`sub`/`badge`), 쇼츠에 쓸 씬(`sceneIds`)과 제목. 없는 씬 id 는 조용히 건너뜁니다
+   - **BGM 을 넣으려면** `bgm: asset("bgm_lofi.mp3")` — 기본값 `""` 는 음악 없음입니다. 파일은 `pipeline/18_bgm_prep.sh` 가 `public/<slug>/` 에 -27 LUFS 로 만들어 둡니다
 5. `src/Root.tsx` 에 두 줄 추가 — 복사본은 export 이름이 템플릿과 같으므로 import 에서 바꿔 줍니다. 아래는 slug 가 `e01` 일 때의 **예시**이니 `e01`·`E01` 을 이 편 것으로 바꾸세요
    ```tsx
    import { TemplateCompositions as E01Compositions } from "./e01/compositions";
@@ -34,11 +35,14 @@
 6. `pipeline/55_remotion_sync.py` 가 `src/<slug>/data/` 와 `public/<slug>/nar/` 를 채웁니다. 그 밖의 소재는 `15_clip_prep.py` 가 `public/<slug>/` 에 둡니다
 7. 확인 — 세 개가 다 통과해야 합니다
    ```bash
-   grep -rn myepisode src/<slug>/     # 0줄. 남아 있으면 그 파일이 템플릿 소재를 가리킵니다
+   # 소재 경로가 전부 asset() 을 지나는가 — 0줄이어야 합니다
+   grep -rnE '"[^"]*/[^"]*\.(mp4|mov|webm|png|jpg|jpeg|gif|svg|webp|mp3|wav|m4a)"' src/<slug>/
    npx tsc --noEmit                   # 타입
    npx remotion compositions          # <PREFIX>-Episode 가 뜨는가. id 가 겹치면 여기서 죽습니다
    ```
    `tsc` 만으로는 id 충돌을 못 잡습니다. 세 번째 명령까지 돌리세요.
+   경로를 직접 적으면 **남의 편 소재를 가리켜도 셋 다 통과합니다**(파일이 있으면 404 도 안 납니다).
+   그래서 `55_remotion_sync.py` 가 같은 검사에 `slug.ts` 의 `SLUG` 가 이 편 것인지까지 더해 돌리고, 걸리면 종료코드 3 으로 멈춥니다.
    이 시점에 뜨는 길이는 **템플릿 데이터(5씬·50초)** 입니다. 6번을 돌리면 이 편의 길이로 바뀝니다.
 
 ## 자막 안전영역

@@ -48,6 +48,11 @@ python3 pipeline/05_script_to_scenes.py <EP> --renumber   # 마크다운 파일�
 그래도 옛 판본을 쓰려면 `--md script/script_v1.md --force`.
 어느 판본에서 나왔는지는 출력 첫 줄과 `scenes_v1.json` 의 `source_md` 에 남습니다.
 
+**쓰다 만 대본은 `script_v<N>.md` 로 만들지 마세요.** 인자 없는 호출은 번호가 가장 큰 파일을
+고르므로, 미완성 `script_v3.md` 가 있으면 승인본을 덮습니다. 초안은 `draft.md` 처럼 **번호 없는 이름**으로
+쓰다가 다 됐을 때 `script_v3.md` 로 바꾸세요. 번호가 없는 이름은 `--md script/draft.md` 로 지목하면
+판본 비교 없이 그대로 읽습니다.
+
 **`[N]` 이 없는 씬은 오류입니다.** 읽을 문장이 없으면 씬이 아닙니다.
 화면만 필요한 구간은 앞뒤 씬의 길이를 늘리거나, 짧은 문장이라도 넣으세요.
 

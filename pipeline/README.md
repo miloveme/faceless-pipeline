@@ -24,7 +24,7 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 | 40 | `40_nar_finalize.py` | nar_raw + bounds | `narration_final/*.wav`, `script/scenes_v2.json` | 트랙을 사람이 들음 |
 | 45 | `45_visual_plan.py [--force]` | scenes_v2, scenes_v1 | `script/visual_plan.md` | 카드·이유는 사람이 채우고 승인 |
 | 50 | `50_captions_build.py` | narration_final | `captions.json` | 자막 텍스트는 원문 |
-| 55 | `55_remotion_sync.py` | scenes_v2, captions | Remotion `public/`·`src/<slug>/data/` | |
+| 55 | `55_remotion_sync.py [--skip-src-check]` | scenes_v2, captions | Remotion `public/`·`src/<slug>/data/` | 소재 경로가 `asset()` 을 지나는가·`SLUG` 가 이 편인가 → exit 3 |
 | 60 | `60_render_master.sh EP Comp vX` | 컴포지션 | `edit/*_master.mp4` + 720p 프리뷰 | 사람이 프리뷰 검수 |
 | 65 | `65_render_derived.sh EP` | Thumb/Shorts 컴포지션 | 썸네일·쇼츠 | |
 | 70 | `70_srt_build.py` | captions(+captions_en) | `edit/*_ko.srt`, `*_en.srt` | |

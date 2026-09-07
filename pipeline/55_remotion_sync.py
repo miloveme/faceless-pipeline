@@ -1,9 +1,34 @@
 #!/usr/bin/env python3
 """에피소드 데이터를 Remotion 프로젝트로 복사: public/<slug>/nar/<id>.mp3, src/<slug>/data/{scenes_v2,captions}.json
-사용: 55_remotion_sync.py <EP>"""
-import argparse, shutil
+소재 경로도 함께 검사한다 — 남의 편 소재를 가리켜도 컴파일과 렌더는 되기 때문에 여기서 센다.
+사용: 55_remotion_sync.py <EP> [--skip-src-check]"""
+import argparse, shutil, re
 from common import *
-ap = argparse.ArgumentParser(); ap.add_argument("ep"); a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep); sl = slug(ep)
+ap = argparse.ArgumentParser(); ap.add_argument("ep")
+ap.add_argument("--skip-src-check", action="store_true", help="소재 경로 검사를 건너뛴다(컴포넌트를 아직 쓰는 중이거나, 검사가 잘못 잡을 때)")
+a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep); sl = slug(ep)
+
+MEDIA = r"mp4|mov|webm|png|jpg|jpeg|gif|svg|webp|mp3|wav|m4a"
+HARDCODED = re.compile(r'["`\'][^"`\']*/[^"`\']*\.(?:' + MEDIA + r')["`\']')
+SLUG_LINE = re.compile(r'export\s+const\s+SLUG\s*=\s*["\']([^"\']+)["\']')
+
+def check_src(src_dir, want_slug):
+    """src/<slug>/ 의 소재 경로가 전부 asset() 을 지나는가. 반환: (검사한 파일 수, 문제 목록)"""
+    files = sorted(f for f in src_dir.rglob("*.ts*") if "data" not in f.relative_to(src_dir).parts)
+    bad = []
+    st = src_dir/"slug.ts"
+    if st.exists():
+        m = SLUG_LINE.search(st.read_text(encoding="utf-8"))
+        if not m:
+            bad.append((st, 0, "SLUG 을 못 찾았습니다 (export const SLUG = \"…\")"))
+        elif m.group(1) != want_slug:
+            bad.append((st, 0, f'SLUG 이 "{m.group(1)}" 입니다 — 이 편은 "{want_slug}" 라 남의 편 소재를 가리킵니다'))
+    for f in files:
+        for i, line in enumerate(f.read_text(encoding="utf-8").split("\n"), 1):
+            if line.lstrip().startswith("//") or line.lstrip().startswith("*"): continue   # 주석의 예시는 넘어간다
+            for m in HARDCODED.finditer(line):
+                bad.append((f, i, f'소재 경로를 직접 적었습니다: {m.group(0)} → asset("{m.group(0).strip(chr(34)+chr(39)+chr(96)).split("/")[-1]}")'))
+    return len(files), bad
 pub = REMOTION_DIR/"public"/sl; data = REMOTION_DIR/"src"/sl/"data"; (pub/"nar").mkdir(parents=True, exist_ok=True); data.mkdir(parents=True, exist_ok=True)
 if not p["scenes_v2"].exists(): die("scenes_v2.json 이 없습니다 — 먼저 40_nar_finalize.py 를 돌리세요.")
 if not p["caps"].exists(): die("captions.json 이 없습니다 — 먼저 50_captions_build.py 를 돌리세요.")
@@ -12,3 +37,19 @@ for s in sc["scenes"]:
     run(["ffmpeg","-v","error","-y","-i",str(ep/s["narration_file"]),"-b:a","192k",str(pub/"nar"/f"{s['id']}.mp3")])
 shutil.copy(p["scenes_v2"], data/"scenes_v2.json"); jdump(jload(p["caps"]), data/"captions.json", indent=None)
 print("synced", len(sc["scenes"]), "nar →", pub/"nar", "| data →", data)
+
+# 소재 경로 검사. asset() 을 안 지난 경로는 남의 편을 가리켜도 tsc·remotion 이 통과시킨다.
+src_dir = REMOTION_DIR/"src"/sl
+tsx = [f for f in src_dir.rglob("*.ts*") if "data" not in f.relative_to(src_dir).parts] if src_dir.is_dir() else []
+if a.skip_src_check:
+    print("소재 경로 검사: 건너뜀 (--skip-src-check)")
+elif not tsx:
+    print(f"소재 경로 검사: 건너뜀 — {src_dir} 에 컴포넌트가 아직 없습니다 (remotion/README.md 의 새 에피소드 절차)")
+else:
+    n, bad = check_src(src_dir, sl)
+    if bad:
+        lines = "\n".join(f"  {f}:{i}  {msg}" if i else f"  {f}  {msg}" for f, i, msg in bad)
+        die(f"소재 경로 검사 실패 — {len(bad)}건 (검사한 파일 {n}개):\n{lines}\n"
+            f'  소재는 asset("파일명") 으로 씁니다 — public/{sl}/ 아래를 가리킵니다. slug 는 slug.ts 한 곳에만 둡니다.\n'
+            f"  절차: remotion/README.md 의 새 에피소드 만들기", 3)
+    print(f"소재 경로 검사: 파일 {n}개 · 직접 적은 경로 0건 · SLUG=\"{sl}\"")
