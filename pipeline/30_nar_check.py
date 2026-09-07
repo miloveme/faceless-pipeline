@@ -18,7 +18,7 @@ if not d.is_dir(): die(f"음성 폴더가 없습니다: {d}")
 _tts = jload(p["tts_input"])
 ref = {x["id"]: x["text"] for x in _tts}
 # 10단계가 남긴 subs 에서 숫자 읽기만 뽑는다. 옛 형식(subs 없음)이면 그 씬은 숫자 대조를 못 한다
-nums = {x["id"]: [s["to"] for s in x.get("subs", []) if s["kind"] == "number"] for x in _tts}
+nums = {x["id"]: [s.get("num") or s["to"] for s in x.get("subs", []) if s["kind"] == "number"] for x in _tts}
 no_subs = sorted(x["id"] for x in _tts if "subs" not in x)
 only = pick_ids(a.ids, set(ref))
 cer = jload(d/"whisper_cer.json") if (d/"whisper_cer.json").exists() else {}

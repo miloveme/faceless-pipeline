@@ -25,7 +25,11 @@ CASES = [
     # 정수부는 자릿값 읽기라 안 띄운다
     ("118센티미터", "백십팔 센티미터"), ("233", "이백삼십삼"), ("13초", "십삼 초"),
     # 고유어 셈씨는 단위로 판별한다
-    ("3개", "세 개"), ("6장", "여섯 장"), ("2.00개", "두 개"),
+    ("3개", "세 개"), ("6장", "여섯 장"), ("2.00개", "두 개"), ("1개", "한 개"), ("7컷", "일곱 컷"),
+    # 0 은 고유어 수사에 없다. 그냥 두면 숫자가 통째로 사라진다('0개' → ' 개'). 한자어로 떨어뜨린다
+    ("0개", "영 개"), ("0컷", "영 컷"), ("0명", "영 명"), ("0장", "영 장"), ("0번", "영 번"), ("0살", "영 살"),
+    ("0회", "영 회"), ("0초", "영 초"), ("0건", "영 건"),
+    ("컷 검출 0개, 얼굴도", "컷 검출 영 개, 얼굴도"),
     # 단위가 붙는 소수
     ("0.80초", "영 점 팔 초"), ("2.00초", "이 초"), ("0.801초", "영 점 팔 영 일 초"),
     # 범위와 마이너스를 가른다 — 숫자 **사이**의 ~·- 는 범위, 숫자 **앞**의 -·− 는 마이너스
@@ -33,6 +37,10 @@ CASES = [
     # 줄표는 쉼표로. TTS 가 그냥 이어 읽어 쉼이 사라진다
     ("배운 것 — 외형은", "배운 것, 외형은"),
 ]
+# subs 의 num — 30단계가 완전일치로 보는 값. 단위·조사는 빠져야 한다(E01 s15 오탐)
+NUM_ONLY = [("3.75초나", "삼 점 칠 오"), ("9.167초로", "구 점 일 육 칠"), ("0개", "영"),
+            ("7컷", "일곱"), ("118센티미터", "백십팔"), ("-16.5", "마이너스 십육 점 오")]
+
 # 소리로 못 내는 문자는 걸러야 한다 (입력, 걸려야 하는 문자들)
 BAD_CASES = [("5% 늘었다", ["%"]), ("괄호 (참고)", ["(", ")"]), ("화살표 →", ["→"]), ("13초 늘었다", [])]
 
@@ -43,6 +51,11 @@ def main():
         got = tts_preprocess(src, {})[0]
         if got != want: fails.append((src, want, got))
         elif verbose: print(f"  ok  {src:16} → {got}")
+    for src, want in NUM_ONLY:
+        subs = tts_preprocess(src, {})[3]
+        got = next((s.get("num") for s in subs if s["kind"] == "number"), None)
+        if got != want: fails.append((src, f"num={want!r}", f"num={got!r}"))
+        elif verbose: print(f"  ok  {src:16} → num {got}")
     for src, want_bad in BAD_CASES:
         bad = tts_preprocess(src, {})[2]
         if bad != want_bad: fails.append((src, f"못 내는 문자 {want_bad}", f"{bad}"))
@@ -54,6 +67,6 @@ def main():
         print("\n  common.py 의 read_number·tts_preprocess 를 보세요. 표의 값을 바꾸려면 음악 감독과 정합니다.",
               file=sys.stderr)
         sys.exit(3)
-    print(f"읽기 변환 검사: {len(CASES) + len(BAD_CASES)}개 전부 통과")
+    print(f"읽기 변환 검사: {len(CASES) + len(NUM_ONLY) + len(BAD_CASES)}개 전부 통과")
 
 main()

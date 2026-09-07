@@ -104,6 +104,9 @@ NATIVE_TENS = {10:"열",20:"스물",30:"서른",40:"마흔",50:"쉰",60:"예순"
 NATIVE_UNIT = ["","한","두","세","네","다섯","여섯","일곱","여덟","아홉"]
 NATIVE_COUNTERS = ("개","번","명","장","마디","살","시간","컷","편","군데","줄","가지","벌","곳","시")
 def native(n: int) -> str:
+    # 고유어 수사에 0 이 없다. NATIVE_UNIT[0] 이 빈 문자열이라 그냥 두면 숫자가 통째로 사라진다
+    # ('0개' → ' 개'). 0 은 한자어로 떨어뜨린다: 영 개, 영 컷.
+    if n == 0: return SINO[0]
     if n >= 100: return sino(n)
     t, u = (n//10)*10, n%10
     if n == 20 and u == 0: return "스무"
@@ -114,6 +117,13 @@ DIGITS = "영일이삼사오육칠팔구"
 def read_number(m):
     """숫자를 한글 읽기로. 소수는 '영 점 삼 오' 처럼 점 뒤를 한 자리씩 **띄어서** 읽는다.
     앞에 붙은 빼기표(-, −)는 '마이너스'로 읽는다: −16 → 마이너스 십육"""
+    r, unit = read_number_parts(m)
+    return r + (" " + unit if unit else "")
+
+def read_number_parts(m):
+    """(숫자 읽기, 뒤에 붙은 단위·조사). 30단계의 숫자 완전일치는 **숫자 읽기만** 본다 —
+    단위·조사까지 묶으면 '초'가 '추'로 들린 것 같은 뒤 글자 오독이 숫자 오독으로 잡힌다(E01 s15).
+    그쪽은 CER 과 big_diffs 가 본다."""
     num, unit = m.group(1), m.group(2)
     sign = ""
     if num[0] in "-\u2212":
@@ -127,12 +137,12 @@ def read_number(m):
         frac = "".join(c for c in frac if c.isdigit()).rstrip("0")
         if frac:
             n = int(head.replace(",", "")) if head else 0
-            return sign + sino(n) + " 점 " + " ".join(DIGITS[int(c)] for c in frac) + (" " + unit if unit else "")
+            return sign + sino(n) + " 점 " + " ".join(DIGITS[int(c)] for c in frac), unit
         num = head or "0"            # 소수부가 전부 0 이면 정수로 읽는다: 2.00초 → 이 초
     n = int(num.replace(",", ""))
     if unit and unit.startswith(NATIVE_COUNTERS) and not unit.startswith("시간") and unit != "시간":
-        return sign + native(n) + " " + unit
-    return sign + sino(n) + (" " + unit if unit else "")
+        return sign + native(n), unit
+    return sign + sino(n), unit
 
 EMPH = re.compile(r"\*\*(.+?)\*\*")
 
@@ -171,7 +181,12 @@ def tts_preprocess(text: str, readings: dict):
                    lambda m, v=readings[k]: record("reading", m.group(0), v), t)
     t = RANGE.sub(lambda m: record("range", m.group(0), " 에서 "), t)
     t = DASH.sub(lambda m: record("dash", m.group(0), ", "), t)
-    t = NUM.sub(lambda m: record("number", m.group(0), read_number(m)), t)
+    def _num(m):
+        r, unit = read_number_parts(m)
+        full = r + (" " + unit if unit else "")
+        subs.append({"kind": "number", "from": m.group(0), "to": full, "num": r})   # num = 숫자 부분만(30단계 대조용)
+        return full
+    t = NUM.sub(_num, t)
 
     left = sorted(set(re.findall(r"[A-Za-z][A-Za-z0-9/\-]*", t)))
     # 영문 글자는 left 로 따로 보고하므로 여기서 뺀다
@@ -359,9 +374,16 @@ def check_scene(f, ref_text, readings, fixes=None, num_tokens=None):
                     prev_end = ws[k-1]["end"] if k > 0 else 0.0
                     suggest = round(min(prev_end + 0.4, ws[k]["start"]), 2); break
     content = [b for b in big if b[0] != ""] or ([b for b in big if b[0] == "" and norm(b[1]) not in tail_insert])
-    # 숫자는 완전일치로 본다. 공백·문장부호 차이는 무시하려고 양쪽 다 norm 을 거친다
-    H = norm(hyp)
-    num_missing = [t for t in (num_tokens or []) if norm(t) and norm(t) not in H]
+    # 숫자는 완전일치로 본다. 공백·문장부호 차이는 무시하려고 양쪽 다 norm 을 거친다.
+    # 대본에 나온 **순서대로** 찾는다 — 앞 토큰이 쓴 자리 뒤에서만 다음 토큰을 본다.
+    # '영' 처럼 한 글자짜리 읽기가 앞쪽 다른 숫자('십 점 영 사')의 일부에 걸려 통과하는 것을 막는다.
+    H, cur, num_missing = norm(hyp), 0, []
+    for tok in (num_tokens or []):
+        n = norm(tok)
+        if not n: continue
+        i = H.find(n, cur)
+        if i < 0: num_missing.append(tok)      # 못 찾으면 커서는 그대로 둔다(뒤 토큰까지 연달아 걸리지 않게)
+        else: cur = i + len(n)
     kind = "content" if (content or num_missing or cer > CER_MAX) else ("tail" if tail_insert else "ok")
     return {"cer": cer, "big": big, "kind": kind, "text": text, "hyp": hyp, "num_missing": num_missing,
             "first_word": round(ws[0]["start"],2) if ws else 0.0,

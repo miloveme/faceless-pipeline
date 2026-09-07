@@ -15,7 +15,7 @@ readings = readings_for(ep); fixes = whisper_fixes_for(ep)
 if not p["tts_input"].exists(): die(f"읽기 전처리 결과가 없습니다: {p['tts_input']}")
 _tts = jload(p["tts_input"])
 ref = {x["id"]: x["text"] for x in _tts}
-nums = {x["id"]: [s["to"] for s in x.get("subs", []) if s["kind"] == "number"] for x in _tts}   # 30단계와 같은 잣대로 본다
+nums = {x["id"]: [s.get("num") or s["to"] for s in x.get("subs", []) if s["kind"] == "number"] for x in _tts}   # 30단계와 같은 잣대로 본다
 ids = sorted(pick_ids(a.ids, set(ref)))
 print(f"제공자: {pname}")
 fixed = []
