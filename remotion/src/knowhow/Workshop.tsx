@@ -33,6 +33,8 @@ export const WIN = { left: 96, right: 96, top: 96, bottom: getGrammar("workshop"
 const G = getGrammar("workshop");
 export const WORKSHOP_CAPTION_BOTTOM = G.caption.bottom;
 const TITLE_H = 56;   // 제목 표시줄
+const BROWSER_H = 60; // 주소 알약이 있는 표시줄은 조금 높다
+const BORDER = 1;     // 창 테두리. 안쪽 칸은 좌우·상하로 이만큼씩 좁다
 const PAD = 22;       // 창 안쪽 여백
 const CMD_H = 51;     // "$ 명령" 줄
 
@@ -59,7 +61,7 @@ const TitleBar: React.FC<{ chrome: Chrome; title: string }> = ({ chrome, title }
   if (chrome === "browser") {
     return (
       <div style={{
-        height: 60, flexShrink: 0, display: "flex", alignItems: "center", gap: 13,
+        height: BROWSER_H, flexShrink: 0, display: "flex", alignItems: "center", gap: 13,
         padding: "0 18px", backgroundColor: "#12151b", borderBottom: `1px solid ${T.panelLine}`,
       }}>
         <Dots />
@@ -108,9 +110,11 @@ export const Win: React.FC<{
 }> = ({ chrome = "terminal", title, children }) => {
   const frame = useCurrentFrame(); const { fps, width, height } = useVideoConfig();
   const on = ease(frame, fps, 0, 0.45);
+  // 테두리를 빼야 실제 칸이 나온다. 2px 을 흘리면 안에 든 이미지가 그만큼 커져
+  // 창 밖으로 밀리고, 이미지 퍼센트로 찍은 주석 상자도 같이 어긋난다.
   const inner = {
-    w: width - WIN.left - WIN.right,
-    h: height - WIN.top - WIN.bottom - (chrome === "browser" ? 60 : TITLE_H),
+    w: width - WIN.left - WIN.right - BORDER * 2,
+    h: height - WIN.top - WIN.bottom - BORDER * 2 - (chrome === "browser" ? BROWSER_H : TITLE_H),
   };
   return (
     <AbsoluteFill>
@@ -122,7 +126,7 @@ export const Win: React.FC<{
           borderRadius: 14,
           overflow: "hidden",
           backgroundColor: chrome === "terminal" ? "#0a0c10" : "#0b0d11",
-          border: `1px solid ${T.panelLine}`,
+          border: `${BORDER}px solid ${T.panelLine}`,
           boxShadow: "0 40px 90px rgba(0,0,0,0.65)",
           opacity: on,
           transform: `translateY(${(1 - on) * 14}px)`,
@@ -154,7 +158,7 @@ export const Term: React.FC<{
     [0, lines.length], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
   // 창 안에 실제로 몇 줄이 들어가는지 계산한다. 매직넘버를 두면 로그가 길어질 때 조용히 잘린다.
   const LINE = 35.5;                                   // fontSize 25 × lineHeight 1.42
-  const inner = height - WIN.top - WIN.bottom - TITLE_H - PAD * 2 - CMD_H;
+  const inner = height - WIN.top - WIN.bottom - BORDER * 2 - TITLE_H - PAD * 2 - CMD_H;
   const rows = Math.max(4, Math.floor(inner / LINE));
   const over = Math.max(0, shown - rows);              // 넘친 만큼 위로 밀어 올린다
   return (
