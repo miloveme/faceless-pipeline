@@ -6,16 +6,17 @@ import { PromptCard } from "../knowhow/PromptCard";
 import { SplitCompare } from "../knowhow/SplitCompare";
 import { TextCard } from "../knowhow/TextCard";
 import { ImageCard } from "../knowhow/ImageCard";
+import { asset } from "./slug";
 
 // 씬 id → 비주얼. 길이는 씬 시각표(data/scenes_v2.json)에서 오므로 여기서는 내용만 정한다.
-// public/<slug>/ 아래의 파일을 경로로 참조한다.
+// 소재는 asset("파일명") 으로 쓴다 — public/<SLUG>/ 아래를 가리킨다. 경로에 slug 를 직접 적지 않는다.
 export const visualFor: VisualFor = (s) => {
   switch (s.id) {
     case "s00":
-      return <ClipPlayer src="myepisode/clip.mp4" fromSec={0} label="원본 · 2026-01-01" />;
+      return <ClipPlayer src={asset("clip.mp4")} fromSec={0} label="원본 · 2026-01-01" />;
     case "s01":
       return (
-        <ImageCard mode="pair" src="myepisode/before.png" src2="myepisode/after.png"
+        <ImageCard mode="pair" src={asset("before.png")} src2={asset("after.png")}
           label="이전" label2="이후" caption="" kenBurns={false} arrowText="→" />
       );
     case "s02":
@@ -25,8 +26,8 @@ export const visualFor: VisualFor = (s) => {
       );
     case "s03":
       return (
-        <SplitCompare leftSrc="myepisode/a.mp4" rightSrc="myepisode/b.mp4"
-          leftStill="myepisode/a_7.png" rightStill="myepisode/b_7.png"
+        <SplitCompare leftSrc={asset("a.mp4")} rightSrc={asset("b.mp4")}
+          leftStill={asset("a_7.png")} rightStill={asset("b_7.png")}
           leftLabel="이전" rightLabel="이후" pauseAtSec={7}
           zoomLeft={{ x: 0.1, y: 0.1, w: 0.4, h: 0.4 }} zoomRight={{ x: 0.1, y: 0.1, w: 0.4, h: 0.4 }}
           zoomSec={1.4} clipSec={13} />

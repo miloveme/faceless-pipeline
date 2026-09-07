@@ -3,6 +3,7 @@ import { Composition, Folder, Still } from "remotion";
 import { Thumbnail, ThumbnailSchema } from "../knowhow/Thumbnail";
 import { ShortsSchema } from "../knowhow/Shorts";
 import { Episode, EPISODE_FRAMES, Shorts, shortsFrames } from "./index";
+import { asset } from "./slug";
 
 const FPS = 30;
 // 이 파일은 본보기다. PREFIX 는 어떤 에피소드와도 겹치지 않는 값이어야 한다 —
@@ -18,7 +19,7 @@ export const TemplateCompositions: React.FC = () => (
         defaultProps={{ bgm: "", bgmVolume: 1 }} />
       <Still id={`${PREFIX}-Thumb-A`} component={Thumbnail} width={1280} height={720}
         schema={ThumbnailSchema}
-        defaultProps={{ variant: "split", failSrc: "myepisode/before.png", fixSrc: "myepisode/after.png",
+        defaultProps={{ variant: "split", failSrc: asset("before.png"), fixSrc: asset("after.png"),
           headline: "제목 두 줄로\n짧게", sub: "부제", badge: "시리즈", zoom: 1.6, focusX: 0.1, focusY: 0.2 }} />
       <Composition id={`${PREFIX}-Shorts-1`} component={Shorts}
         durationInFrames={shortsFrames(["s00", "s04"])} fps={FPS} width={1080} height={1920}

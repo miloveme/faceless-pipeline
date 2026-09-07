@@ -61,7 +61,7 @@ Remotion: `remotion/` — 공용 컴포넌트 `src/knowhow/`, 에피소드는 `s
 내용에 따라 정하는 것은 **씬별 카드 선택**이지 테마가 아니다.
 
 - 공용 컴포넌트(`src/knowhow/`): PromptCard(하이라이트·취소선·타이핑·순차), SplitCompare(좌우 동시 재생→정지→확대), TextCard(rule/formula/plain), ImageCard(single/pair, 켄번스), Captions, Thumbnail, Shorts, WhiteboardClip.
-- 에피소드 파일 3개: `src/<slug>/scenes.tsx`(씬 id → 컴포넌트), `index.tsx`(데이터 결합), `compositions.tsx`(등록). Root.tsx에 import 한 줄. **`src/episode-template/` 을 복사한 뒤 `SLUG`·`PREFIX`·소재 경로(`myepisode/…`)를 이 편 것으로 바꾼다** — 절차와 확인 방법은 `remotion/README.md`.
+- 에피소드 파일 4개: `src/<slug>/scenes.tsx`(씬 id → 컴포넌트), `index.tsx`(데이터 결합), `compositions.tsx`(등록), `slug.ts`(이 편의 slug 한 줄). Root.tsx에 두 줄(import + JSX). **`src/episode-template/` 을 복사한 뒤 `slug.ts` 의 `SLUG` 와 `compositions.tsx` 의 `PREFIX` 두 줄을 이 편 것으로 바꾼다** — 절차와 확인 방법은 `remotion/README.md`.
 - 에피소드 전용 도식은 `src/<slug>/`에 만들고, 두 편 이상 쓰이면 knowhow로 올린다.
 - 소재는 무엇이든 `source/` 에 두고 `15_clip_prep.py` 로 정리한다(영상·이미지·스틸·컨택트 시트). 녹화·AI 생성·손그림·기존 자산을 구하는 법은 `docs/VISUALS.md`.
 - `18_bgm_prep.sh`(BGM -27 LUFS).
