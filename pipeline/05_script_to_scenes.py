@@ -134,9 +134,11 @@ jdump(out, p["scenes_v1"])
 spoken = lambda s: len(strip_emphasis(s["narration"]))
 chars = sum(spoken(s) for s in scenes)
 raw = sum(len(s["narration"]) for s in scenes)
-print(f"{md_path.name} → {len(scenes)}개 씬 · {chars}자 · 약 {chars/8.5/60:.1f}분 (8.5자/초 기준) → {p['scenes_v1']}")
+print(f"{md_path.name} → {len(scenes)}개 씬 · {chars}자 · 약 {chars/CHARS_PER_SEC/60:.1f}분 ({CHARS_PER_SEC}자/초 기준) → {p['scenes_v1']}")
 if raw != chars:
     print(f"  (자수는 음성이 읽는 글자만 셉니다. 대본 원문 {raw}자 − 강조 표시 ** {raw-chars}자)")
 longest = max(scenes, key=spoken)
-print(f"가장 긴 씬 {longest['id']} {spoken(longest)}자 ≈ {spoken(longest)/8.5:.0f}초")
+_sec = spoken(longest)/CHARS_PER_SEC
+print(f"가장 긴 씬 {longest['id']} {spoken(longest)}자 ≈ {_sec:.0f}초"
+      + (f"  ← {SCENE_MAX_SEC}초를 넘습니다. 나누는 것을 검토하세요" if _sec > SCENE_MAX_SEC else ""))
 print("\n다음: 10_tts_prep.py 로 숫자·영문 읽기를 전처리하세요.")
