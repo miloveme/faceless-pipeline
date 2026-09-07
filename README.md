@@ -78,7 +78,7 @@ python3 pipeline/75_chapters.py episodes/E01_myepisode
 
 ### 문서
 - [대본 형식](docs/SCRIPT_FORMAT.md) — `[V]` `[N]` 태그와 규칙
-- [다섯 사람](docs/AGENTS.md) — 시나리오·연출·미술·소리·총괄로 나눈 이유와 교차 검토 규칙
+- [다섯 사람](docs/AGENTS.md) — 시나리오·연출·미술·소리·엔지니어로 나눈 이유, 판단과 구현의 경계, 총괄 규칙, 교차 검토와 검증 규칙
 - [화면 디자인](docs/DESIGN.md) — 색·글꼴·여백을 바꾸는 곳, 화면 문법을 고르고 만드는 곳
 - [화면 소재](docs/VISUALS.md) — 녹화·AI 생성·손그림·기존 자산을 넣는 법
 - [음성 제공자](docs/VOICE_PROVIDERS.md) — 서비스 고르기·바꾸기
