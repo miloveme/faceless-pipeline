@@ -97,7 +97,7 @@ jdump(out, p["scenes_v1"])
 spoken = lambda s: len(strip_emphasis(s["narration"]))
 chars = sum(spoken(s) for s in scenes)
 raw = sum(len(s["narration"]) for s in scenes)
-print(f"{len(scenes)}개 씬 · {chars}자 · 약 {chars/8.5/60:.1f}분 (8.5자/초 기준) → {p['scenes_v1']}")
+print(f"{md_path.name} → {len(scenes)}개 씬 · {chars}자 · 약 {chars/8.5/60:.1f}분 (8.5자/초 기준) → {p['scenes_v1']}")
 if raw != chars:
     print(f"  (자수는 음성이 읽는 글자만 셉니다. 대본 원문 {raw}자 − 강조 표시 ** {raw-chars}자)")
 longest = max(scenes, key=spoken)
