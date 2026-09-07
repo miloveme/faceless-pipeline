@@ -2,6 +2,7 @@ import React from "react";
 import { Composition, Folder, Still } from "remotion";
 import { Thumbnail, ThumbnailSchema } from "../knowhow/Thumbnail";
 import { ShortsSchema } from "../knowhow/Shorts";
+import { T } from "../knowhow/theme";
 import { Episode, EPISODE_FRAMES, Shorts, shortsFrames } from "./index";
 import { asset } from "./slug";
 
@@ -17,10 +18,14 @@ export const TemplateCompositions: React.FC = () => (
       <Composition id={`${PREFIX}-Episode`} component={Episode}
         durationInFrames={EPISODE_FRAMES} fps={FPS} width={1920} height={1080}
         defaultProps={{ bgm: "", bgmVolume: 1 }} />
+      {/* 좌우 두 칸이 **무엇 대 무엇인지는 편이 정한다.** 라벨과 색을 여기서 준다 —
+          "실패 대 수정"인 편도 있고 "원본 대 클론"인 편도 있어서 부품이 정할 수 없다. */}
       <Still id={`${PREFIX}-Thumb-A`} component={Thumbnail} width={1280} height={720}
         schema={ThumbnailSchema}
-        defaultProps={{ variant: "split", failSrc: asset("before.png"), fixSrc: asset("after.png"),
-          headline: "제목 두 줄로\n짧게", sub: "부제", badge: "시리즈", zoom: 1.6, focusX: 0.1, focusY: 0.2 }} />
+        defaultProps={{ variant: "split",
+          left:  { src: asset("before.png"), label: "왼쪽 라벨",   color: T.muted, labelColor: "#12141a", focusX: 0.1, focusY: 0.2 },
+          right: { src: asset("after.png"),  label: "오른쪽 라벨", color: T.muted, labelColor: "#12141a", focusX: 0.1, focusY: 0.2 },
+          headline: "제목 두 줄로\n짧게", sub: "부제", badge: "시리즈", zoom: 1.6 }} />
       <Composition id={`${PREFIX}-Shorts-1`} component={Shorts}
         durationInFrames={shortsFrames(["s00", "s04"])} fps={FPS} width={1080} height={1920}
         schema={ShortsSchema}
