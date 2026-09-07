@@ -106,4 +106,22 @@ export const T: Theme = {
   // 예) fsCaption: 44,
 };
 
+/**
+ * 글자 하나에 서체를 고른다.
+ *
+ * 왜 필요한가 — mono(JetBrains Mono)는 subsets 에 latin 만 있다. 한글 글자가
+ * 아예 없으므로 한글을 mono 로 쓰면 브라우저가 아무 대체 서체나 골라 그린다.
+ * 정해 둔 얼굴이 아니라 **정해지지 않은 얼굴**이 나오고, 같은 화면 안에서
+ * 본문(Noto Sans KR)과 다른 서체가 섞인다.
+ *
+ * 그렇다고 전부 sans 로 돌리면 파일명·명령·주소가 문장처럼 보인다.
+ * 그래서 글자를 보고 고른다 — 한글이 있으면 문장이므로 sans, 없으면 mono.
+ * 손으로 고르게 두면 다음 편에서 또 틀린다.
+ *
+ * 터미널·로그처럼 **면 전체가 코드인 곳**에는 쓰지 않는다. 거기서는 한글이
+ * 섞여도 mono 가 맞다(줄이 세로로 맞아야 읽힌다).
+ */
+export const faceFor = (s: unknown): string =>
+  typeof s === "string" && /[\u3131-\u318e\uac00-\ud7a3]/.test(s) ? T.sans : T.mono;
+
 export const EASE_OUT = [0.16, 1, 0.3, 1] as const;

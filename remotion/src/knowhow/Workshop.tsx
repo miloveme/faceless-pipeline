@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Easing, Img, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Video } from "@remotion/media";
-import { T, EASE_OUT } from "./theme";
+import { T, EASE_OUT, faceFor } from "./theme";
 import { CaptionChunk, captionRuns } from "./Captions";
 import { getGrammar } from "./grammar";
 import { LiveGround } from "./Stage";
@@ -429,6 +429,6 @@ const RecBadge: React.FC<{ text: string; second?: boolean }> = ({ text, second }
     position: "absolute", right: 18, top: second ? 62 : 16,
     backgroundColor: "rgba(8,10,14,0.82)", border: `1px solid ${T.panelLine}`,
     borderRadius: 8, padding: "6px 12px",
-    fontFamily: T.mono, fontSize: 22, color: T.muted, letterSpacing: 1,
+    fontFamily: faceFor(text), fontSize: 22, color: T.muted, letterSpacing: 1,
   }}>{text}</div>
 );

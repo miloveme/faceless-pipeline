@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Video } from "@remotion/media";
-import { T, EASE_OUT } from "./theme";
+import { T, EASE_OUT, faceFor } from "./theme";
 import { CaptionChunk, captionRuns } from "./Captions";
 import { getGrammar } from "./grammar";
 
@@ -99,7 +99,7 @@ export const Mark: React.FC<{ text: string }> = ({ text }) => {
       opacity: 0.55 * ease(frame, fps, 0.2, 0.9),
     }}>
       <div style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: T.accent }} />
-      <div style={{ fontFamily: T.mono, fontSize: 24, color: T.text, letterSpacing: 3 }}>{text}</div>
+      <div style={{ fontFamily: faceFor(text), fontSize: 24, color: T.text, letterSpacing: 3 }}>{text}</div>
     </div>
   );
 };

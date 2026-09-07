@@ -74,6 +74,23 @@ export const T: Theme = {
 import { loadFont as loadSans } from "@remotion/google-fonts/Pretendard";
 ```
 
+**mono 에는 한국어 subset 이 없습니다.** 코드용 글꼴은 대개 latin 만 담기 때문입니다.
+그래서 한글을 `T.mono` 로 쓰면 정해 둔 얼굴이 아니라 브라우저가 고른 대체 서체가
+나오고, 같은 화면 안에서 본문과 다른 서체가 섞입니다.
+
+각주·부제·배지처럼 **문장이 올 수도 있고 파일명이 올 수도 있는 자리**에는
+`T.mono` 를 직접 쓰지 말고 `faceFor(글자)` 를 씁니다. 한글이 있으면 sans,
+없으면 mono 를 돌려줍니다.
+
+```tsx
+<div style={{ fontFamily: faceFor(note) }}>{note}</div>
+// "셋 중 하나라도 아니면 미룬다" → sans
+// "github.com/…/pipeline"        → mono
+```
+
+터미널·로그처럼 **면 전체가 코드인 곳**에는 쓰지 않습니다. 거기서는 한글이
+섞여도 mono 가 맞습니다 — 줄이 세로로 맞아야 읽히기 때문입니다.
+
 ### 확인하는 법
 바꾼 뒤 스튜디오에서 눈으로 봅니다.
 ```bash

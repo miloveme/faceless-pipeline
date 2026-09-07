@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Audio, Video } from "@remotion/media";
-import { T } from "./theme";
+import { T, faceFor } from "./theme";
 import { CaptionChunk } from "./Captions";
 import { captionLayerOf } from "./captionRegistry";
 
@@ -43,7 +43,7 @@ export const ClipPlayer: React.FC<{
         <Video src={staticFile(src)} trimBefore={Math.round(fromSec * fps)} muted
           style={{ width: "100%", height: "100%", objectFit: framed ? "contain" : "cover" }} />
       </div>
-      <div style={{ position: "absolute", right: 40, top: 34, fontFamily: T.mono, fontSize: 26, color: T.muted, backgroundColor: "rgba(0,0,0,0.55)", padding: "8px 16px", borderRadius: 8 }}>
+      <div style={{ position: "absolute", right: 40, top: 34, fontFamily: faceFor(label), fontSize: 26, color: T.muted, backgroundColor: "rgba(0,0,0,0.55)", padding: "8px 16px", borderRadius: 8 }}>
         {label}
       </div>
     </AbsoluteFill>
