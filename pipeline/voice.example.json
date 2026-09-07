@@ -4,7 +4,7 @@
   "providers": {
     "comfyui_chatterbox": {
       "_note": "자체 호스팅 ComfyUI + Chatterbox 노드. 참조 음성으로 화자를 고정하고, 로컬 GPU면 비용 0. hosts 는 우선순위 순서 — 앞이 기본, 응답이 없거나 큐가 길면 다음으로 넘어갑니다. 씬이 여러 개면 살아 있는 서버에 나눠 동시에 돌립니다. 참조 음성 만드는 법은 docs/RECORDING.md",
-      "_hosts_note": "서버 주소는 사람마다 다릅니다. 저장소에는 적혀 있지 않고 적으면 안 됩니다. 아래 127.0.0.1 은 예시일 뿐이니 그대로 쓰지 마세요 — 서버가 다른 기계에 있으면 안 붙습니다. 주소를 모르면 추측하거나 포트를 훑지 말고 사용자에게 물어보세요.",
+      "_hosts_note": "서버 주소는 사람마다 다릅니다. 저장소에는 적혀 있지 않고 적으면 안 됩니다. 아래 127.0.0.1 은 예시일 뿐이니 그대로 쓰지 마세요 — 서버가 다른 기계에 있으면 안 붙습니다. 주소를 모르면 hosts 를 빈 배열 [] 로 두고 엔지니어에게 요청하세요. 그러면 check_setup.py 가 X 로 알려주고 20/30단계가 그 자리에서 멈춥니다. 추측한 주소를 적으면 그 자리를 지나쳐 나중에 막힙니다.",
       "node": "FL_ChatterboxMultilingualTTS",
       "ref_file": "channel_voice_ref.mp3",
       "ref_upload_name": "chatterbox_input_target_voice.mp3",

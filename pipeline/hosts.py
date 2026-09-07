@@ -33,7 +33,10 @@ def probe(host, timeout=4):
 
 def survey(cfg, timeout=4):
     hosts = cfg.get("hosts") or ([cfg["host"]] if cfg.get("host") else [])
-    if not hosts: raise SystemExit("voice.json 에 hosts 가 없습니다.")
+    if not hosts:
+        raise SystemExit("voice.json 의 hosts 가 비어 있습니다.\n"
+                         "  서버 주소는 사람마다 달라 저장소에 없습니다. 엔지니어에게 요청하세요 —\n"
+                         "  무엇을 하려 했고 어느 설정을 보고 있었는지만 넘기면 됩니다(→ docs/AGENTS.md).")
     return [probe(h, timeout) for h in hosts]
 
 def plan(cfg, n_items=1, total_chars=None, verbose=True, serial=False):

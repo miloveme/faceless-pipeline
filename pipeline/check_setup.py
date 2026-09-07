@@ -79,7 +79,8 @@ if vj.exists():
              " — 서버가 꺼져 있거나 주소가 다릅니다"))
         if not reach:
             print("     주소는 사람마다 달라 저장소에 없습니다. 모르면 추측하지 말고 사용자에게 물어보세요.")
-            print(f"     확인한 뒤 {vj} 의 providers.{name}.hosts 를 고칩니다.")
+            print(f"     확인한 뒤 {vj} 의 providers.{name}.hosts 를 엔지니어가 고칩니다.")
+            print("     모르는 채로 두려면 hosts 를 빈 배열 [] 로 두세요. 추측한 주소를 적으면 나중에 막힙니다.")
 
 print("\n" + ("전부 준비됐습니다." if ok else "위의 X 항목을 해결한 뒤 다시 실행하세요."))
 sys.exit(0 if ok else 1)
