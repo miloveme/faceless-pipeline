@@ -35,8 +35,8 @@
 6. `pipeline/55_remotion_sync.py` 가 `src/<slug>/data/` 와 `public/<slug>/nar/` 를 채웁니다. 그 밖의 소재는 `15_clip_prep.py` 가 `public/<slug>/` 에 둡니다
 7. 확인 — 세 개가 다 통과해야 합니다
    ```bash
-   # 소재 경로가 전부 asset() 을 지나는가 — 0줄이어야 합니다
-   grep -rnE '"[^"]*/[^"]*\.(mp4|mov|webm|png|jpg|jpeg|gif|svg|webp|mp3|wav|m4a)"' src/<slug>/
+   # 소재 경로가 전부 asset() 을 지나는가 — 0줄이어야 합니다 (data/ 는 55단계가 넣는 것이라 뺍니다)
+   grep -rnE '"[^"]*/[^"]*\.(mp4|mov|webm|png|jpg|jpeg|gif|svg|webp|mp3|wav|m4a)"' src/<slug>/ --exclude-dir=data
    npx tsc --noEmit                   # 타입
    npx remotion compositions          # <PREFIX>-Episode 가 뜨는가. id 가 겹치면 여기서 죽습니다
    ```

@@ -3,5 +3,5 @@
 // public/<SLUG>/ 와 같아야 한다. 복사본에서 바꿀 곳은 이 한 줄이다.
 export const SLUG = "myepisode";
 
-// public/<SLUG>/ 아래 파일을 가리킨다: asset("before.png") → "<SLUG>/before.png"
+// public/<SLUG>/ 아래 파일을 가리킨다. asset("before.png") 이면 SLUG/before.png
 export const asset = (file: string) => `${SLUG}/${file}`;
