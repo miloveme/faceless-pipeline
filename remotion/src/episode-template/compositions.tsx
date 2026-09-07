@@ -5,9 +5,12 @@ import { ShortsSchema } from "../knowhow/Shorts";
 import { Episode, EPISODE_FRAMES, Shorts, shortsFrames } from "./index";
 
 const FPS = 30;
-const PREFIX = "E01"; // 에피소드 폴더명 앞부분과 같게
+// 이 파일은 본보기다. PREFIX 는 어떤 에피소드와도 겹치지 않는 값이어야 한다 —
+// 여기에 "E01" 같은 편 이름을 두면 그 편을 등록하는 순간 같은 id 를 둘이 주장한다.
+// 복사본에서는 이 값을 에피소드 폴더명 앞부분(E01, E02, …)으로 바꾼다.
+const PREFIX = "TEMPLATE";
 
-export const EpisodeCompositions: React.FC = () => (
+export const TemplateCompositions: React.FC = () => (
   <>
     <Folder name={`${PREFIX}-episode`}>
       <Composition id={`${PREFIX}-Episode`} component={Episode}
