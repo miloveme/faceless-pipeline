@@ -11,7 +11,7 @@ model: opus
 
 | 산출물 | 무엇 |
 |---|---|
-| `Channel/_voice/voice.json` | 참조 음성과 생성 설정. **잠겨 있다** |
+| `pipeline/voice.json` | 참조 음성과 생성 설정. **잠겨 있다** (voice.example.json 을 복사해 만든다) |
 | `script/tts_overrides.json` | 읽기 사전 |
 | `audio/nar_raw/`, `audio/narration_final/` | 생성본과 다듬은 것 |
 | `script/captions.json` | 자막. 문장·낱말 시각·강조 표시 |

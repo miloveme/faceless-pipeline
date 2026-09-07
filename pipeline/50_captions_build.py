@@ -9,7 +9,10 @@ ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids", 
 ap.add_argument("--emph-only", dest="emph_only", action="store_true",
                 help="대본의 **강조** 표시만 기존 자막에 다시 반영한다(받아쓰기 건너뜀). "
                      "강조는 대본에서 나오므로 음성을 다시 들을 이유가 없다.")
-a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep); sc = jload(p["scenes_v2"]); only = set(a.ids.split(",")) if a.ids else None
+a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
+if not p["scenes_v2"].exists(): die(f"씬 시각표가 없습니다: {p['scenes_v2']}\n  먼저 40_nar_finalize.py 를 돌리세요.")
+sc = jload(p["scenes_v2"]); only = pick_ids(a.ids, {s["id"] for s in sc["scenes"]})
+targets = [s for s in sc["scenes"] if not only or s["id"] in only]
 wc = jload(p["caps_whisper"]) if p["caps_whisper"].exists() else {}
 caps = jload(p["caps"]) if p["caps"].exists() else {}
 def sentences(t):
@@ -48,12 +51,14 @@ def word_times(chunk, wchunks):
     return out
 
 if a.emph_only:
-    if not caps: die("captions.json 이 없습니다. --emph-only 는 이미 만든 자막에만 씁니다.")
-    n = 0
-    for s in sc["scenes"]:
+    if not caps: die(f"자막이 없습니다: {p['caps']}. --emph-only 는 이미 만든 자막에만 씁니다.")
+    no_caps = [s["id"] for s in targets if s["id"] not in caps]
+    if no_caps:
+        die("자막이 아직 없는 씬: " + ", ".join(no_caps) + "\n  --emph-only 없이 먼저 돌리세요.", 3)
+    n = 0; touched = []
+    for s in targets:
         sid = s["id"]
-        if only and sid not in only: continue
-        if sid not in caps: continue
+        touched.append(sid)
         raw = sentences(s["narration"])
         for i, c in enumerate(caps[sid]):
             c["text"] = strip_emphasis(c["text"])
@@ -62,12 +67,11 @@ if a.emph_only:
                 w.pop("hl", None)
                 if j < len(fl) and fl[j]: w["hl"] = True; n += 1
     jdump(caps, p["caps"])
-    print(f"강조 낱말 {n}개 반영 → {p['caps']}")
+    print(f"{len(touched)}/{len(sc['scenes'])}씬 · 강조 낱말 {n}개 반영 → {p['caps']}")
     sys.exit(0)
 
-for s in sc["scenes"]:
+for s in targets:
     sid = s["id"]
-    if only and sid not in only: continue
     _, ws = transcribe(ep/s["narration_file"], words=True)
     chunks, cur, n = [], [], 0
     for w in ws:
@@ -94,4 +98,4 @@ for s in sc["scenes"]:
             if j < len(fl) and fl[j]: w["hl"] = True
     caps[sid] = cc; print(sid, mode, "max", max(len(c["text"]) for c in cc))
 jdump(wc, p["caps_whisper"]); jdump(caps, p["caps"])
-print("→", p["caps"])
+print(f"{len(targets)}/{len(sc['scenes'])}씬 자막 생성 → {p['caps']}")

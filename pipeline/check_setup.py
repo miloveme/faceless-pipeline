@@ -35,10 +35,19 @@ vj = ROOT/"pipeline"/"voice.json"
 line("voice.json", vj.exists(), "없으면: cp pipeline/voice.example.json pipeline/voice.json")
 if vj.exists():
     v = json.load(open(vj))
-    host = v.get("host","")
-    line("host 설정", "<" not in host and host.startswith("http"), host or "(비어 있음)")
-    ref = ROOT/"pipeline"/v.get("ref_file","")
-    line("참조 음성", ref.exists(), f"{v.get('ref_file')} — docs/RECORDING.md 참고")
+    name = v.get("provider")
+    blocks = v.get("providers") if isinstance(v.get("providers"), dict) else {}
+    line("provider", bool(name) and name in blocks,
+         f"{name or '(비어 있음)'} — providers 블록이 있어야 합니다")
+    pv = blocks.get(name, {})
+    host = (pv.get("hosts") or [pv.get("host","")])[0] if name == "comfyui_chatterbox" else ""
+    if name == "comfyui_chatterbox":
+        line("host 설정", "<" not in host and host.startswith("http"), host or "(비어 있음)")
+        ref = ROOT/"pipeline"/pv.get("ref_file","")
+        line("참조 음성", ref.exists(), f"{pv.get('ref_file')} — docs/RECORDING.md 참고")
+    elif pv.get("api_key_env"):
+        line("API 키 환경변수", bool(__import__("os").environ.get(pv["api_key_env"])),
+             f"{pv['api_key_env']} — export {pv['api_key_env']}=...")
     if host.startswith("http"):
         import socket, urllib.parse
         u = urllib.parse.urlparse(host)

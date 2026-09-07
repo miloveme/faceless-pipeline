@@ -2,6 +2,7 @@
 # 손그림 애니메이션 도구 설치 (선택).
 # 개념 설명 구간에서만 쓰는 도구라 필요할 때 설치하면 됩니다. → docs/VISUALS.md
 set -e
+set -o pipefail
 DEST="${WHITEBOARD_DIR:-$HOME/.claude/skills/srt-whiteboard-animation}"
 REPO="https://github.com/miloveme/srt-whiteboard-animation.git"
 

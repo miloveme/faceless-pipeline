@@ -6,18 +6,36 @@
 import argparse
 from common import *
 ap = argparse.ArgumentParser(); ap.add_argument("ep"); a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
+# 무거운 ffmpeg 작업 전에 설정과 입력을 먼저 검증한다 (끝에서 죽으면 한 일이 다 버려진다)
+vcfg = voice_cfg(); pname = provider_name(vcfg); pcfg = provider_cfg(vcfg, pname)
+for f in (p["bounds"], p["scenes_v1"]):
+    if not f.exists(): die(f"입력이 없습니다: {f}")
 info = jload(p["bounds"])
 for k, v in info.items():
     if v.get("suggest_last_word_end") is not None:
         v["last_word_end"] = v["suggest_last_word_end"]; print("tail junk →", k, "end", v["last_word_end"], "(30단계 제안)")
 if p["bounds_override"].exists():
-    for k, v in jload(p["bounds_override"]).items(): info[k].update(v); print("override", k, v)
-scenes = jload(p["scenes_v1"]); p["nar_final"].mkdir(parents=True, exist_ok=True)
+    for k, v in jload(p["bounds_override"]).items():
+        if k not in info: die(f"bounds_override 의 {k} 는 검사 결과에 없는 씬입니다: {p['bounds_override']}", 2)
+        info[k].update(v); print("override", k, v)
+scenes = jload(p["scenes_v1"])
+
+# ffmpeg 를 한 번이라도 돌리기 전에 모든 씬의 입력을 확인한다
+src_of = {}
+no_bounds, no_audio = [], []
+for s in scenes["scenes"]:
+    sid = s["id"]
+    if sid not in info: no_bounds.append(sid); continue
+    src = next((p["nar_raw"]/f"{sid}{e}" for e in (".wav", ".mp3", ".m4a") if (p["nar_raw"]/f"{sid}{e}").exists()), None)
+    if src is None: no_audio.append(sid)
+    else: src_of[sid] = src
+if no_bounds: die(f"검사 결과에 없는 씬: {', '.join(no_bounds)}\n  30_nar_check.py <EP> --ids {','.join(no_bounds)} 를 먼저 돌리세요.", 3)
+if no_audio: die(f"내레이션 원본 없음: {', '.join(no_audio)} ({p['nar_raw']})", 3)
+
+p["nar_final"].mkdir(parents=True, exist_ok=True)
 t = 0.0; rows = []
 for s in scenes["scenes"]:
-    sid = s["id"]; out = p["nar_final"]/f"{sid}.wav"
-    src = next((p["nar_raw"]/f"{sid}{e}" for e in (".wav", ".mp3", ".m4a") if (p["nar_raw"]/f"{sid}{e}").exists()), None)
-    if src is None: die(f"내레이션 원본 없음: {sid}")
+    sid = s["id"]; out = p["nar_final"]/f"{sid}.wav"; src = src_of[sid]
     end = min(info[sid]["last_word_end"] + PAD, info[sid]["dur"])
     # 직접 녹음본은 첫 단어 앞 여백이 길 수 있어 앞도 자른다(0.15s 여유). TTS는 first_word가 0에 가까워 영향 없음.
     start = max(0.0, info[sid]["first_word"] - 0.15)
@@ -25,13 +43,12 @@ for s in scenes["scenes"]:
     run(["ffmpeg","-v","error","-y","-i",str(src),"-af",af,"-ar","44100","-ac","1",str(out)])
     d = dur(out); s["narration_file"] = str(out.relative_to(ep)); s["narration_dur"] = round(d,2)
     s["t_start"] = round(t,2); s["t_end"] = round(t+LEAD+d+GAP,2); rows.append((sid, info[sid]["dur"], d, s["t_start"], s["t_end"])); t = s["t_end"]
-v = voice_cfg()
-_bits = [v["_provider"]] + [f"{k}={v[k]}" for k in ("ref_file", "voice_id", "voice", "model", "seed") if v.get(k) is not None]
+_bits = [pname] + [f"{k}={pcfg[k]}" for k in ("ref_file", "voice_id", "voice", "model", "seed") if pcfg.get(k) is not None]
 scenes["narration_voice"] = " ".join(str(b) for b in _bits)
 scenes["lead"] = LEAD; scenes["gap"] = GAP; scenes["target_duration_sec"] = round(t,1)
 jdump(scenes, p["scenes_v2"])
 print("scene   raw  final  t_start   t_end"); [print(f"{a}  {b:5.1f}  {c:5.1f}  {d:7.2f}  {e:7.2f}") for a,b,c,d,e in rows]
-print("total", round(t,1), "s =", round(t/60,2), "min")
+print(f"{len(rows)}/{len(scenes['scenes'])}씬 · total {round(t,1)}s = {round(t/60,2)}min · {pname}")
 sc = scenes["scenes"]
 cmd = ["ffmpeg","-v","error","-y","-f","lavfi","-i",f"anullsrc=r=44100:cl=mono:d={t}"]; filt = []
 for i, s in enumerate(sc, 1):

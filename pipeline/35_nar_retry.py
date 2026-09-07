@@ -9,11 +9,15 @@ import argparse, shutil
 from common import *
 ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids", required=True)
 ap.add_argument("--tries", type=int, default=3)
-a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep); cfg = voice_cfg()
+a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
+cfg = voice_cfg(); pname = provider_name(cfg); provider_cfg(cfg, pname)   # 생성 전에 설정을 검증한다
 readings = readings_for(ep); fixes = whisper_fixes_for(ep)
+if not p["tts_input"].exists(): die(f"읽기 전처리 결과가 없습니다: {p['tts_input']}")
 ref = {x["id"]: x["text"] for x in jload(p["tts_input"])}
-print(f"제공자: {cfg['_provider']}")
-for sid in a.ids.split(","):
+ids = sorted(pick_ids(a.ids, set(ref)))
+print(f"제공자: {pname}")
+fixed = []
+for sid in ids:
     ok = False
     for attempt in range(1, a.tries + 1):
         out = p["nar_raw"]/f"{sid}_try{attempt}.mp3"
@@ -23,7 +27,9 @@ for sid in a.ids.split(","):
         if r["kind"] != "content":
             cur = p["nar_raw"]/f"{sid}.mp3"
             if cur.exists(): shutil.move(cur, p["nar_raw"]/f"{sid}_dropped_0.mp3")
-            shutil.copy(out, cur); print(f"    → {sid} 교체 (시도 {attempt})"); ok = True; break
+            shutil.copy(out, cur); print(f"    → {sid} 교체 (시도 {attempt})"); ok = True; fixed.append(sid); break
     if not ok:
         print(f"    {sid} 실패 — 문장을 나누거나 표현을 바꿔 보세요")
-print("이제 30_nar_check.py <EP> --ids", a.ids, "로 bounds 를 갱신하세요")
+print(f"\n{len(fixed)}/{len(ids)}씬 교체")
+if fixed: print("이제 30_nar_check.py <EP> --ids", ",".join(fixed), "로 bounds 를 갱신하세요")
+if len(fixed) != len(ids): die("교체하지 못한 씬: " + ", ".join(i for i in ids if i not in fixed), 3)

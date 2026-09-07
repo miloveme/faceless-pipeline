@@ -3,10 +3,11 @@
 """
 import json, os, re, subprocess, sys, time, pathlib, urllib.request, difflib
 
-CHANNEL = pathlib.Path(__file__).resolve().parent.parent          # .../Channel
-VOICE_DIR = CHANNEL / "_voice"
-PIPE_DIR = CHANNEL / "_pipeline"
-REMOTION_DIR = pathlib.Path(os.environ.get("REMOTION_DIR", "/Users/jun/Documents/Remotion"))
+CHANNEL = pathlib.Path(__file__).resolve().parent.parent          # 저장소 루트
+PIPE_DIR = pathlib.Path(__file__).resolve().parent                # <repo>/pipeline — 읽기 사전·whisper 교정표
+VOICE_DIR = PIPE_DIR                                              # voice.json 과 참조 음성도 pipeline/ 안
+# Remotion 위치는 환경변수가 우선, 없으면 저장소의 remotion/ (60/65_render_*.sh, check_setup.py 와 같은 곳)
+REMOTION_DIR = pathlib.Path(os.environ.get("REMOTION_DIR") or (CHANNEL / "remotion")).expanduser()
 
 # 타이밍·음량 상수 (E06에서 확정)
 LEAD = 0.5        # 씬 시작 후 내레이션 시작까지
@@ -18,6 +19,8 @@ MASTER_LUFS = -14 # 최종 마스터
 BGM_LUFS = -27    # 배경음악
 CER_MAX = 0.06    # 씬 단위 글자 오류율 상한(전처리 후 기준, 정보용)
 WHISPER_MODEL = "medium"
+
+if str(PIPE_DIR) not in sys.path: sys.path.insert(0, str(PIPE_DIR))
 
 def die(msg, code=1):
     print("ERROR:", msg, file=sys.stderr); sys.exit(code)
@@ -205,7 +208,57 @@ class Comfy:
         s, e = ts.get("execution_start"), ts.get("execution_success") or ts.get("execution_error")
         return round((e-s)/1000, 1) if s and e else None
 
-def voice_cfg(): return jload(VOICE_DIR/"voice.json")
+def voice_cfg():
+    f = VOICE_DIR/"voice.json"
+    if not f.exists():
+        die(f"목소리 설정이 없습니다: {f}\n  cp pipeline/voice.example.json pipeline/voice.json 로 만든 뒤 고치세요.", 2)
+    return jload(f)
+
+def provider_name(cfg) -> str:
+    """voice.json 의 provider 이름."""
+    name = cfg.get("provider")
+    if not name:
+        die('voice.json 에 "provider" 가 없습니다. voice.example.json 을 보고 채우세요.', 2)
+    return name
+
+def provider_cfg(cfg, name=None) -> dict:
+    """voice.json 의 providers[<이름>] 블록. 어댑터가 받는 cfg 는 항상 이것이다."""
+    name = name or provider_name(cfg)
+    blocks = cfg.get("providers")
+    if not isinstance(blocks, dict) or name not in blocks:
+        have = ", ".join(blocks) if isinstance(blocks, dict) else "(없음)"
+        die(f'voice.json 의 providers 에 "{name}" 블록이 없습니다. 있는 블록: {have}', 2)
+    return blocks[name]
+
+def _provider_module(name):
+    import providers as _providers                     # pipeline/providers
+    if name not in _providers.REGISTRY:
+        die(f"모르는 제공자: {name}. 가능한 값: {', '.join(_providers.REGISTRY)}", 2)
+    return _providers.get(name)
+
+def tts_generate(text, out_path, cfg, attempt=0, host=None):
+    """한 문장을 음성으로. cfg 는 voice.json **전체**를 넘긴다(제공자 선택을 여기서 한다).
+    어댑터에는 providers[<이름>] 블록만 간다. 반환: 생성에 걸린 초 (모르면 None)."""
+    name = provider_name(cfg)
+    mod = _provider_module(name)
+    kw = {}
+    if host is not None:
+        import inspect
+        if "host" not in inspect.signature(mod.generate).parameters:
+            die(f"제공자 {name} 은 서버 주소를 받지 않습니다(--host 는 comfyui_chatterbox 전용).", 2)
+        kw["host"] = host
+    return mod.generate(text, str(out_path), provider_cfg(cfg, name), attempt=attempt, **kw)
+
+def pick_ids(arg, known, what="씬"):
+    """--ids 문자열 → 집합. 빈 문자열이면 None(전체).
+    없는 id 를 주면 조용히 0건 처리하지 않고 죽는다."""
+    if not arg: return None
+    ids = [x.strip() for x in arg.split(",") if x.strip()]
+    if not ids: die("--ids 가 비어 있습니다.", 2)
+    unknown = [i for i in ids if i not in known]
+    if unknown:
+        die(f"--ids 에 없는 {what}: {', '.join(unknown)}\n  있는 것: {', '.join(sorted(known))}", 2)
+    return set(ids)
 
 def upload_ref(comfy, v):
     """채널 참조 음성을 노드가 기대하는 이름(ref_upload_name)으로 원격 input 폴더에 올린다(덮어쓰기)."""

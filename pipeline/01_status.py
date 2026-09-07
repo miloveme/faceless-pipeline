@@ -9,13 +9,13 @@ from hosts import plan
 
 ap = argparse.ArgumentParser(); ap.add_argument("ep", nargs="?")
 a = ap.parse_args()
-v = voice_cfg()
-if v.get("_provider") != "comfyui_chatterbox":
-    print(f"음성 제공자: {v['_provider']} (서버 확인은 자체 호스팅 ComfyUI 일 때만)")
-
+v = voice_cfg(); pname = provider_name(v); pcfg = provider_cfg(v, pname)
+comfy = pname == "comfyui_chatterbox"
+if not comfy:
+    print(f"음성 제공자: {pname} (서버 확인은 자체 호스팅 ComfyUI 일 때만)")
 
 if not a.ep:
-    if v.get("_provider") == "comfyui_chatterbox": plan(v, n_items=1, verbose=True)
+    if comfy: plan(pcfg, n_items=1, verbose=True)
     sys.exit(0)
 
 ep = ep_dir(a.ep); p = P(ep)
@@ -34,9 +34,9 @@ for step, path, label in [
 ]:
     print(f"  {step} {label:12} {'있음' if path.exists() else '없음'}")
 print()
-if todo and v.get("_provider") == "comfyui_chatterbox":
-    plan(v, n_items=len(todo), total_chars=chars, verbose=True)
+if todo and comfy:
+    plan(pcfg, n_items=len(todo), total_chars=chars, verbose=True)
 elif todo:
-    print(f"남은 {len(todo)}씬을 {v['_provider']} 로 생성합니다.")
+    print(f"남은 {len(todo)}씬을 {pname} 로 생성합니다.")
 else:
     print("생성할 씬이 없습니다.")

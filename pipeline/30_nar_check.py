@@ -6,15 +6,19 @@ import argparse
 from common import *
 ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids", default=""); ap.add_argument("--dir", default="nar_raw")
 a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep); readings = readings_for(ep); fixes = whisper_fixes_for(ep)
-d = ep/"audio"/a.dir; ref = {x["id"]: x["text"] for x in jload(p["tts_input"])}
-only = set(a.ids.split(",")) if a.ids else None
+d = ep/"audio"/a.dir
+if not p["tts_input"].exists(): die(f"읽기 전처리 결과가 없습니다: {p['tts_input']}")
+if not d.is_dir(): die(f"음성 폴더가 없습니다: {d}")
+ref = {x["id"]: x["text"] for x in jload(p["tts_input"])}
+only = pick_ids(a.ids, set(ref))
 cer = jload(d/"whisper_cer.json") if (d/"whisper_cer.json").exists() else {}
 bounds = jload(d/"speech_bounds.json") if (d/"speech_bounds.json").exists() else {}
-bad = []
-for sid in sorted(ref):
-    if only and sid not in only: continue
+targets = [sid for sid in sorted(ref) if not only or sid in only]
+bad, missing = [], []
+for sid in targets:
     f = next((d/f"{sid}{e}" for e in (".wav", ".mp3", ".m4a") if (d/f"{sid}{e}").exists()), None)
-    if f is None: print(sid, "missing"); continue
+    if f is None:
+        missing.append(sid); print(f"MISS{sid} 음성 파일 없음: {d}/{sid}.(wav|mp3|m4a)", flush=True); continue
     r = check_scene(f, ref[sid], readings, fixes)
     src = f.suffix.lstrip(".")
     out = subprocess.run(["ffmpeg","-i",str(f),"-af","silencedetect=noise=-35dB:d=1.0","-f","null","-"],capture_output=True,text=True).stderr
@@ -29,5 +33,7 @@ for sid in sorted(ref):
     print(f"{flag}{sid} cer {r['cer']:.3f} dur {r['dur']:.1f} speech {r['first_word']:.2f}-{r['last_word_end']:.2f} tail {tail_junk:.1f}s '{r['last_words']}' {extra}", flush=True)
     if r["kind"] == "content": bad.append(sid)
 jdump(cer, d/"whisper_cer.json"); jdump(bounds, d/"speech_bounds.json")
-print("done; BAD(재생성 대상):", bad if bad else "none")
-sys.exit(3 if bad else 0)
+print(f"검사 {len(targets)-len(missing)}/{len(targets)}씬 (전체 {len(ref)}씬) → {d}/whisper_cer.json")
+print("BAD(재생성 대상):", ", ".join(bad) if bad else "none")
+if missing: print("검사하지 못함(음성 없음):", ", ".join(missing))
+sys.exit(3 if bad or missing else 0)
