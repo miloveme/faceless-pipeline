@@ -28,30 +28,47 @@ caps = jload(p["caps"]) if p["caps"].exists() else {}
 # 끊는 자리 우선순위 — 쉼표 → 연결어미 뒤 → 어절 경계. 어절 중간에서는 절대 끊지 않는다.
 CONNECTIVE = re.compile(r"(?:고|며|지만|는데|면)\s")
 
-def _break_at(s):
-    """maxlen 을 넘는 줄을 어디서 끊을지. 가운데에 가장 가까운 자리를 고른다. 없으면 None."""
+def _inside_emph(on, i):
+    """i 에서 끊으면 강조 구간을 가로지르는가. 강조는 시선을 한 곳에 모으려고 쓰는 것이라 갈리면 안 된다."""
+    return 0 < i < len(on) and on[i - 1] and on[i]
+
+def _break_at(s, on):
+    """maxlen 을 넘는 줄을 어디서 끊을지. 가운데에 가장 가까운 자리를 고른다.
+    **강조 구간 안은 후보에서 뺀다.** 피할 자리가 아예 없으면 None — 그때는 42자 초과를 택한다."""
     mid = len(s) / 2
     for cands in ([m.end() for m in re.finditer(r",\s*", s)],
                   [m.end() for m in CONNECTIVE.finditer(s)],
                   [m.end() for m in re.finditer(r"\s+", s)]):
-        cands = [i for i in cands if 0 < i < len(s)]
+        cands = [i for i in cands if 0 < i < len(s) and not _inside_emph(on, i)]
         if cands: return min(cands, key=lambda i: abs(i - mid))
     return None
 
-def _split_long(s):
-    """maxlen 이하가 될 때까지 나눈다. 못 나누면(끊을 자리가 없으면) 그대로 둔다."""
+def _split_long(s, on):
+    """maxlen 이하가 될 때까지 나눈다. 끊을 자리가 없으면(또는 강조를 가로지르지 않고는 못 끊으면) 그대로 둔다."""
     if len(s) <= a.maxlen: return [s]
-    i = _break_at(s)
+    i = _break_at(s, on)
     if i is None: return [s]
-    return _split_long(s[:i].strip()) + _split_long(s[i:].strip())
+    l, r = s[:i], s[i:]
+    dl, dr = len(l) - len(l.rstrip()), len(r) - len(r.lstrip())   # strip 한 만큼 on 도 맞춰 자른다
+    return _split_long(l.strip(), on[:i - dl]) + _split_long(r.strip(), on[i + dr:])
+
+def _emph_chars(raw: str):
+    """원문 → (강조를 벗긴 글자열, 글자마다 강조 여부). 줄 나누기와 강조가 같은 좌표를 쓰게 한다."""
+    text, on = "", []
+    for seg, hl in split_emphasis(raw):
+        text += seg; on += [hl] * len(seg)
+    return text, on
 
 def sentences(t):
     """대본 한 씬 → 자막 줄들. **강조 표시를 벗긴 뒤** 나눈다 —
-    마침표가 ** 안에 있으면(`…들어옵니다.**`) 뒤가 공백이 아니라 문장이 안 나뉜다(E01 s13, 86자)."""
-    out = []
-    for s in re.split(r"(?<=[\.\?!])\s+", strip_emphasis(t).strip()):
-        s = s.strip()
-        if s: out += _split_long(s)
+    마침표가 ** 안에 있으면(`…들어옵니다.**`) 뒤가 공백이 아니라 문장이 안 나뉜다(E01 s13, 86자).
+    나눌 자리는 **강조 구간을 가로지르지 않는다**(E01 s06 에서 `모델 기본값`이 두 줄로 갈렸다)."""
+    text, on = _emph_chars(t)
+    out, pos = [], 0
+    for s in re.split(r"(?<=[\.\?!])\s+", text.strip()):
+        if not s: continue
+        i = text.index(s, pos); pos = i + len(s)
+        out += _split_long(s, on[i:pos])
     return out
 
 def emph_flags(raw: str):
