@@ -97,13 +97,21 @@ const TitleBar: React.FC<{ chrome: Chrome; title: string }> = ({ chrome, title }
   );
 };
 
+/* 창 안쪽 실제 칸. 창은 자기 치수를 알지만 안에 든 것은 모른다.
+ * FitFrame 이 이 값을 받아야 상자를 이미지에 정확히 묶는다. */
+export const FitBoxCtx = React.createContext<{ w: number; h: number } | null>(null);
+
 export const Win: React.FC<{
   chrome?: Chrome;
   title: string;
   children: React.ReactNode;
 }> = ({ chrome = "terminal", title, children }) => {
-  const frame = useCurrentFrame(); const { fps } = useVideoConfig();
+  const frame = useCurrentFrame(); const { fps, width, height } = useVideoConfig();
   const on = ease(frame, fps, 0, 0.45);
+  const inner = {
+    w: width - WIN.left - WIN.right,
+    h: height - WIN.top - WIN.bottom - (chrome === "browser" ? 60 : TITLE_H),
+  };
   return (
     <AbsoluteFill>
       <Desk />
@@ -123,7 +131,9 @@ export const Win: React.FC<{
         }}
       >
         <TitleBar chrome={chrome} title={title} />
-        <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>{children}</div>
+        <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+          <FitBoxCtx.Provider value={inner}>{children}</FitBoxCtx.Provider>
+        </div>
       </div>
     </AbsoluteFill>
   );
@@ -187,10 +197,19 @@ export type Box = {
   off?: number;
 };
 
+/** 상자가 이미지에 묶였는지 알리는 표시. 칸을 이미지 크기로 맞춘 쪽만 켠다. */
+export const BoundCtx = React.createContext(false);
+
 export const Boxes: React.FC<{ boxes: Box[]; dim?: number; fade?: number }> = ({
   boxes, dim = 0.5, fade = 0.35,
 }) => {
   const frame = useCurrentFrame(); const { fps } = useVideoConfig();
+  const bound = React.useContext(BoundCtx);
+  if (process.env.NODE_ENV !== "production" && boxes.length > 0 && !bound) {
+    // 산문으로 적은 규칙은 재발한다. 칸을 손으로 잡는 컴포넌트가 또 생기면 여기서 걸린다.
+    // eslint-disable-next-line no-console
+    console.warn("[Boxes] 칸이 이미지 크기로 안 맞춰졌다. FitFrame 안에 넣어라 — 좌표가 레터박스만큼 어긋난다.");
+  }
   return (
     <>
       {boxes.map((b, i) => {
@@ -220,6 +239,38 @@ export const Boxes: React.FC<{ boxes: Box[]; dim?: number; fade?: number }> = ({
   );
 };
 
+/* ─────────── 상자를 이미지에 묶는 칸 ───────────
+ * 여태 칸을 height:100% + aspectRatio + maxWidth:100% 로 잡았다.
+ * 이건 소재가 **높이에 먼저 걸릴 때만** 맞는다. 폭에 먼저 걸리면 maxWidth 가
+ * 폭만 자르고 높이는 100% 로 남아, 칸 비율이 소재 비율과 달라진다.
+ * 그 안에서 objectFit:contain 이 다시 레터박스를 만들고, 칸 퍼센트로 찍은
+ * 상자가 그 레터박스만큼 통째로 어긋난다.
+ *   s06 speaker_drift(1720×674) — 칸 1728×722, 이미지 1728×677.1, 위아래 22.4px.
+ *   상자가 24px 씩 밀려 문단 3 의 위 테두리를 물었다.
+ *   s17·s18 은 우연히 높이에 먼저 걸려(레터박스 0) 안 드러났을 뿐이다.
+ *
+ * 고친 방법 — 칸을 픽셀로 계산해서 **그려질 이미지와 같은 크기**로 만든다.
+ * 그러면 칸 = 이미지라 안에서 다시 맞출 것이 없고, 상자 퍼센트가 곧 이미지 퍼센트다.
+ * 담긴 칸의 치수는 창이 FitBoxCtx 로 내려 준다. 창 밖(패널 문법)에서는 avail 로 준다.
+ * 어느 쪽도 없으면 화면 전체다. 여기에 매직넘버를 적어 두면 창틀을 고칠 때 조용히 어긋난다. */
+export const FitFrame: React.FC<{
+  /** 원본 가로/세로 */
+  aspect: number;
+  /** 담긴 칸의 치수(px). 창 안이면 주지 않아도 된다 — 창이 내려 준다. */
+  avail?: { w: number; h: number };
+  children: React.ReactNode;
+}> = ({ aspect, avail, children }) => {
+  const ctx = React.useContext(FitBoxCtx);
+  const { width, height } = useVideoConfig();
+  const box = avail ?? ctx ?? { w: width, h: height };
+  const w = Math.min(box.w, box.h * aspect);
+  return (
+    <BoundCtx.Provider value={true}>
+      <div style={{ position: "relative", width: w, height: w / aspect, flexShrink: 0 }}>{children}</div>
+    </BoundCtx.Provider>
+  );
+};
+
 /* ─────────── 창 안: 실제 화면 캡처. 다시 그리지 않는다 ─────────── */
 export const Shot: React.FC<{
   src: string; kind?: "image" | "video"; fromSec?: number; fit?: "contain" | "cover";
@@ -239,20 +290,8 @@ export const Shot: React.FC<{
   boxes?: Box[];
 }> = ({ src, kind = "image", fromSec = 0, fit = "contain", aspect, mode = "fit", dim = 0.5, boxes = [] }) => {
   const { fps } = useVideoConfig();
-  return (
-    <AbsoluteFill style={{
-      backgroundColor: "#0b0d11",
-      alignItems: mode === "page" ? "stretch" : "center",
-      justifyContent: mode === "page" ? "flex-start" : "center",
-    }}>
-      <div style={{
-        position: "relative",
-        ...(mode === "page"
-          ? { width: "100%" }
-          : aspect
-            ? { height: "100%", aspectRatio: String(aspect), maxWidth: "100%" }
-            : { width: "100%", height: "100%" }),
-      }}>
+  const media = (
+    <>
       {kind === "video" ? (
         <Video src={staticFile(src)} trimBefore={Math.round(fromSec * fps)} muted
           style={{ width: "100%", height: "100%", objectFit: fit }} />
@@ -263,7 +302,25 @@ export const Shot: React.FC<{
             : { width: "100%", height: "100%", objectFit: fit }} />
       )}
       <Boxes boxes={boxes} dim={dim} />
-      </div>
+    </>
+  );
+  return (
+    <AbsoluteFill style={{
+      backgroundColor: "#0b0d11",
+      alignItems: mode === "page" ? "stretch" : "center",
+      justifyContent: mode === "page" ? "flex-start" : "center",
+    }}>
+      {mode === "page" ? (
+        /* 페이지는 폭을 채우고 아래를 자른다. 칸 높이가 곧 이미지 높이라 상자는 이미 이미지에 묶인다. */
+        <BoundCtx.Provider value={true}>
+          <div style={{ position: "relative", width: "100%" }}>{media}</div>
+        </BoundCtx.Provider>
+      ) : aspect ? (
+        <FitFrame aspect={aspect}>{media}</FitFrame>
+      ) : (
+        /* aspect 를 안 주면 칸이 창을 꽉 채운다 — 상자를 쓰면 어긋난다. 표시를 켜지 않는다. */
+        <div style={{ position: "relative", width: "100%", height: "100%" }}>{media}</div>
+      )}
     </AbsoluteFill>
   );
 };
