@@ -121,6 +121,7 @@ python3 pipeline/80_whiteboard_srt.py E01_x --ids s06,s07
   "clips":  { "take_fail": "raw_take_a.mp4", "wb_s06": "whiteboard_s06.mp4" },
   "images": { "diagram": "sketch.png", "shot": "generated_scene.jpg" },
   "stills": { "take_fail": [0, 7, 12.9] },
+  "crops":  { "hook_left": { "src": "hook_compare", "t": 7.8, "box": [0, 0, 960, 380] } },
   "contact":[{ "name": "contact_crop", "src": "take_fail", "every_sec": 1.5, "count": 9,
                "crop": [0.05, 0, 0.55, 0.7], "highlight": [3,4,5,6], "cell_w": 400 }]
 }
@@ -129,6 +130,13 @@ python3 pipeline/80_whiteboard_srt.py E01_x --ids s06,s07
 - `clips` — 영상을 1080p 무음으로 변환합니다. 소리는 내레이션이 담당하므로 뺍니다.
 - `images` — 가로 1920 이하로 맞춰 복사합니다.
 - `stills` — 영상에서 정지 프레임을 뽑습니다. 전후 비교에 씁니다.
+- `crops` — 그림의 **일부만** 잘라 새 파일로 만듭니다. 좌우가 한 장에 붙은 대조 소재에서
+  한쪽만 썸네일·쇼츠에 쓸 때. `src` 는 클립이나 이미지의 키, `t` 는 클립일 때의 초,
+  `box` 는 **변환본 픽셀** `[x0, y0, x1, y1]` 입니다.
+  **부품에서 자르지 않고 여기서 파일로 만드는 이유** — 부품에서 자르려면 소재의 원본 크기를
+  코드에 적어야 하고, 소재를 다시 자르면 그 숫자가 조용히 틀립니다. 화면이 안 깨지고
+  **엉뚱한 자리가 멀쩡하게** 나오므로 사람 눈에 안 걸립니다.
+  범위를 벗어난 상자는 PIL 이 검정으로 메우므로 `15_clip_prep.py` 가 거기서 멈춥니다.
 - `contact` — 여러 장을 한 화면에 늘어놓습니다. 시간에 따른 변화를 한눈에 보일 때.
 
 돌리고 나면 `remotion/public/<slug>/` 에 파일이 생기고, `scenes.tsx` 에서 그 이름으로 참조합니다.

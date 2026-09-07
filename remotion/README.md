@@ -25,7 +25,12 @@
    - **PREFIX 는 컴포지션 id 가 됩니다**(`<PREFIX>-Episode` 등). 템플릿은 계속 등록돼 있으므로 `TEMPLATE` 을 그대로 두면 id 가 겹쳐 `remotion compositions` 가 죽습니다
    - 소재 경로는 전부 `slug.ts` 의 `asset()` 을 지나므로 `SLUG` 한 줄이면 따라옵니다. **경로에 slug 를 직접 적지 마세요**
 3. `scenes.tsx` 에서 씬 id 별 화면 지정 — 소재는 `asset("clip.mp4")` 처럼 **파일명만** 넘깁니다(`public/<slug>/clip.mp4` 를 가리킵니다). 실제 파일 이름과 달라지면 렌더가 404 로 죽습니다
-4. `compositions.tsx` 에서 **편마다 바꿀 것**: 썸네일 소재·문구(`failSrc`/`fixSrc`/`headline`/`sub`/`badge`), 쇼츠에 쓸 씬(`sceneIds`)과 제목. 없는 씬 id 는 조용히 건너뜁니다
+4. `compositions.tsx` 에서 **편마다 바꿀 것**: 썸네일의 두 칸(`left`/`right`)과 문구(`headline`/`sub`/`badge`), 쇼츠에 쓸 씬(`sceneIds`)과 제목. 없는 씬 id 는 조용히 건너뜁니다
+   - **썸네일 좌우가 무엇 대 무엇인지는 편이 정합니다.** 칸마다 `{src, label, color, labelColor, edgeColor, focusX, focusY}` 를 줍니다 — "실패 대 수정"인 편도 있고 "원본 대 클론"인 편도 있어서 부품이 정할 수 없습니다. **붉은/초록을 기본값처럼 쓰지 마세요**: 원본을 왼쪽에 두는 편에서 붉은 배지·붉은 윗줄은 "원본이 실패했다"로 읽힙니다
+   - `color`(배지 바탕)와 `edgeColor`(칸 윗줄)는 **다른 값입니다.** 배지가 반투명 검정인 편에서 같은 값을 윗줄에 쓰면 어두운 그림 위에서 사라집니다
+   - `focusX`/`focusY` 는 **잘려 나가는 쪽을 고르는 값**입니다(`objectPosition`). 소재의 비는 묻지 않습니다 — 어떤 비가 와도 칸을 채우고 넘치는 쪽만 잘립니다
+   - `badge`(시리즈 배지)는 `""` 면 안 그립니다. 첫 편처럼 아직 시리즈가 없으면 비웁니다
+   - **쇼츠에서 세로로 다시 앉힐 씬이 있으면** `scenes.tsx` 에 `shortsVisualFor` 를 만들어 `makeShorts(..., shortsVisualFor)` 로 넘깁니다. 그 씬만 돌려주고 나머지는 `null` — 기본은 16:9 를 그대로 줄여 놓습니다. 좌우로 붙은 대조 소재처럼 **가로로 납작한 화면은 폭 1080 에서 높이가 200px 대로 떨어져** 훅이 서지 않습니다
    - **BGM 을 넣으려면** `bgm: asset("bgm_lofi.mp3")` — 기본값 `""` 는 음악 없음입니다. 파일은 `pipeline/18_bgm_prep.sh` 가 `public/<slug>/` 에 -27 LUFS 로 만들어 둡니다
 5. `src/Root.tsx` 에 두 줄 추가 — 복사본은 export 이름이 템플릿과 같으므로 import 에서 바꿔 줍니다. 아래는 slug 가 `e01` 일 때의 **예시**이니 `e01`·`E01` 을 이 편 것으로 바꾸세요
    ```tsx
