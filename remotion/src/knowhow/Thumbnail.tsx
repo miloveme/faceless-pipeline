@@ -151,6 +151,9 @@ const Text: React.FC<{ headline: string; sub: string; align: "left" | "center"; 
   </div>
 );
 
+/** split 헤드라인의 윗선. 미술이 360px 축소본에서 잡은 값 — 이 위로 두 얼굴이 거의 온전히 남는다. */
+const HEAD_TOP = 530;
+
 export const Thumbnail: React.FC<Props> = (p) => {
   const W = 1280;
   const H = 720;
@@ -167,7 +170,16 @@ export const Thumbnail: React.FC<Props> = (p) => {
           <Badge side={p.right} left={W / 2 + 26} top={22} />
           {/* 시리즈 배지는 좌우 배지가 차지한 위 두 자리를 피해 오른쪽 위 구석에 둔다 */}
           <Series text={p.badge} at={{ right: 26, top: 78 }} />
-          <div style={{ position: "absolute", left: 40, bottom: 44 }}>
+          {/**
+            * 헤드라인은 **두 칸에 걸쳐 하단 한 줄**로 간다. 한쪽 칸에만 얹으면 그 칸의 얼굴만
+            * 가려서, 두 칸을 같은 크기로 맞춰 놔도 **보이는 크기**가 갈린다.
+            * 실제로 이 편에서 얼굴을 502 대 500 으로 맞췄는데 가려지고 남은 것이 294 대 500 이었다.
+            * 시청자가 보는 것은 얼굴이 아니라 **가려지지 않은 얼굴**이다.
+            *
+            * `HEAD_TOP` 아래로 190px 뿐이라 **헤드라인은 한 줄 기준**이다. 두 줄을 넣으면
+            * 블록이 250px 가까이 되어 아래로 넘치고, 넘친 부분은 잘려도 렌더가 안 죽는다.
+            */}
+          <div style={{ position: "absolute", left: 40, top: HEAD_TOP, width: W - 80 }}>
             <Text headline={p.headline} sub={p.sub} align="left" size={84} />
           </div>
         </>
