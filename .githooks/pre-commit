@@ -1,3 +1,6 @@
 #!/bin/bash
-# 개인 자산이 커밋에 들어가는 것을 막는다. 연결: git config core.hooksPath .githooks (check_setup.py 가 한다)
-exec python3 "$(git rev-parse --show-toplevel)/pipeline/check_private.py" --staged
+# 커밋에 들어가면 안 되는 것을 막는다. 연결: git config core.hooksPath .githooks (check_setup.py 가 한다)
+set -e
+ROOT=$(git rev-parse --show-toplevel)
+python3 "$ROOT/pipeline/check_private.py" --staged   # 개인 자산
+python3 "$ROOT/pipeline/check_imports.py" --staged   # 클론이 컴파일되는가
