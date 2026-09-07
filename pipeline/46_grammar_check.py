@@ -15,6 +15,8 @@ ap = argparse.ArgumentParser(); ap.add_argument("ep")
 ap.add_argument("--set", default="", help="이 편의 기조 문법을 정하고 저장한다")
 ap.add_argument("--except", dest="exc", default="",
                 help="씬 단위 예외. 예) s00=stage,s09=workshop")
+ap.add_argument("--verify", action="store_true",
+                help="계획서의 카드가 실제 scenes.tsx 와 같은지 대조한다")
 a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
 
 GRAMMARS_JSON = REMOTION_DIR / "src" / "knowhow" / "grammars.json"
@@ -97,5 +99,27 @@ if bad:
     print("    → 그 씬을 예외로 빼거나, 카드를 바꾸세요.")
     sys.exit(3)
 print("\n  ○ 씬마다 그 문법이 카드를 담습니다.")
+
+# 계획서는 만들고 나면 기록이 된다. 아무도 대조하지 않으면 조용히 거짓말이 된다.
+# 실제로 그런 일이 있었다 — 계획서·grammar.json·구현이 s00 에서 셋 다 달랐다.
+# scenes.tsx 의 각 씬 위에 붙인 `// card: <이름>` 이 구현 쪽의 답이다.
+if a.verify:
+    src = REMOTION_DIR / "src" / slug(ep) / "scenes.tsx"
+    if not src.exists(): die(f"구현이 없습니다: {src}")
+    impl = {sid: card for card, sid in
+            re.findall(r'//\s*card:\s*(\w+)\s*\n\s*case "(s\d\d)":',
+                       src.read_text(encoding="utf-8"))}
+    print(f"\n계획서 ↔ 구현 대조 ({src.name})")
+    miss = sorted(set(used) - set(impl))
+    extra = sorted(set(impl) - set(used))
+    diff = sorted((sid, used[sid], impl[sid]) for sid in set(used) & set(impl) if used[sid] != impl[sid])
+    if miss:  print("  ✕ 구현에 카드 선언이 없는 씬: " + ", ".join(miss))
+    if extra: print("  ✕ 계획서에 없는 씬이 구현에 있음: " + ", ".join(extra))
+    for sid, plan_c, impl_c in diff:
+        print(f"  ✕ {sid}  계획서 {plan_c} ≠ 구현 {impl_c}")
+    if miss or extra or diff:
+        print("    → 계획서를 실제에 맞추거나, 구현을 계획대로 바꾸세요.")
+        sys.exit(4)
+    print(f"  ○ {len(used)}개 씬이 계획서와 같습니다.")
 print(f"  자막: {G[base]['caption']['layer']} · 아래 {G[base]['caption']['bottom']}px · "
       f"{G[base]['caption']['align']} · 안전영역 {G[base]['safeBottom']}px  (편 안에서 바뀌지 않음)")
