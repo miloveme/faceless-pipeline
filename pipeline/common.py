@@ -107,17 +107,19 @@ def native(n: int) -> str:
 DIGITS = "영일이삼사오육칠팔구"
 
 def read_number(m):
-    """숫자를 한글 읽기로. 소수는 '영 점 삼오' 처럼 점 뒤를 한 자리씩 읽는다.
+    """숫자를 한글 읽기로. 소수는 '영 점 삼 오' 처럼 점 뒤를 한 자리씩 **띄어서** 읽는다.
     앞에 붙은 빼기표(-, −)는 '마이너스'로 읽는다: −16 → 마이너스 십육"""
     num, unit = m.group(1), m.group(2)
     sign = ""
     if num[0] in "-\u2212":
         sign, num = "마이너스 ", num[1:]
     if "." in num:
-        # 0.35초 → 영 점 삼오 초 (소수는 항상 한자어, 소수부는 자릿수 그대로)
+        # 0.35초 → 영 점 삼 오 초 (소수는 항상 한자어, 소수부는 자릿수 그대로)
+        # 붙여 쓰면 자음동화로 자릿수가 무너진다 — 9.167 의 '일육'[일륙]이 [이륙]으로 들려 9.267 이 됐다(E01 실측).
+        # 정수부는 안 띄운다. '백십팔'은 자릿값 읽기라 띄우면 뜻이 깨진다.
         head, frac = num.split(".", 1)
         n = int(head.replace(",", "")) if head else 0
-        return sign + sino(n) + " 점 " + "".join(DIGITS[int(c)] for c in frac if c.isdigit()) + (" " + unit if unit else "")
+        return sign + sino(n) + " 점 " + " ".join(DIGITS[int(c)] for c in frac if c.isdigit()) + (" " + unit if unit else "")
     n = int(num.replace(",", ""))
     if unit and unit.startswith(NATIVE_COUNTERS) and not unit.startswith("시간") and unit != "시간":
         return sign + native(n) + " " + unit
@@ -138,15 +140,34 @@ def split_emphasis(t: str):
     if i < len(t): out.append((t[i:], False))
     return out or [(t, False)]
 
-def tts_preprocess(text: str, readings: dict) -> tuple[str, list]:
-    """숫자·영문을 한글 읽기로. 반환: (전처리문, 사전에 없는 영문 토큰 목록)"""
-    t = strip_emphasis(text)
+NUM = re.compile(r"([-−]?\d{1,3}(?:,\d{3})+(?:\.\d+)?|[-−]?\d+(?:\.\d+)?)\s*([가-힣]+)?")
+RANGE = re.compile(r"(?<=\d)\s*[~〜～–-]\s*(?=\d)")     # 숫자 사이의 물결표·붙임표 = 범위. 숫자 **앞**의 -는 마이너스라 안 걸린다
+DASH = re.compile(r"\s*—\s*")                          # 줄표는 쉼을 뜻한다. TTS 는 그냥 무시하고 이어 읽는다(E01 실측)
+# 소리로 나갈 수 있는 글자. 이 밖의 것이 남으면 10단계가 멈춘다 — 기호를 사전으로 하나씩 막으면 다음 편에서 샌다
+SPEAKABLE = re.compile(r"[가-힣0-9 .,?!]")
+
+def tts_preprocess(text: str, readings: dict):
+    """숫자·영문·기호를 한글 읽기로.
+    반환: (전처리문, 사전에 없는 영문 토큰, 소리로 못 내는 문자, 무엇을 무엇으로 바꿨는지)
+    subs 한 항목: {"kind": "reading|range|dash|number", "from": 원문, "to": 읽기}
+    number 항목은 30단계가 받아쓰기와 완전일치로 대조한다(CER 로는 한 자리 오독을 못 잡는다)."""
+    t, subs = strip_emphasis(text), []
+
+    def record(kind, frm, to):
+        subs.append({"kind": kind, "from": frm, "to": to}); return to
+
     for k in sorted(readings, key=len, reverse=True):
         if k.startswith("_"): continue
-        t = re.sub(r"(?<![A-Za-z])" + re.escape(k) + r"(?![A-Za-z])", readings[k], t)
-    t = re.sub(r"([-−]?\d{1,3}(?:,\d{3})+(?:\.\d+)?|[-−]?\d+(?:\.\d+)?)\s*([가-힣]+)?", read_number, t)
+        t = re.sub(r"(?<![A-Za-z])" + re.escape(k) + r"(?![A-Za-z])",
+                   lambda m, v=readings[k]: record("reading", m.group(0), v), t)
+    t = RANGE.sub(lambda m: record("range", m.group(0), " 에서 "), t)
+    t = DASH.sub(lambda m: record("dash", m.group(0), ", "), t)
+    t = NUM.sub(lambda m: record("number", m.group(0), read_number(m)), t)
+
     left = sorted(set(re.findall(r"[A-Za-z][A-Za-z0-9/\-]*", t)))
-    return t, left
+    # 영문 글자는 left 로 따로 보고하므로 여기서 뺀다
+    bad = sorted({c for c in t if not SPEAKABLE.match(c) and not (c.isascii() and c.isalpha())})
+    return t, left, bad, subs
 
 def big_diffs(ref: str, hyp: str, min_len=4):
     """정규화 문자열 비교. 반환 (cer, [(ref조각,hyp조각), ...] 길이 min_len 이상만). 3자 이하는 whisper 오타 대역이라 무시."""
@@ -297,10 +318,16 @@ def whisper_fixes_for(ep):
     if f.exists(): r.update(jload(f))
     return {k: v for k, v in r.items() if not k.startswith("_")}
 
-def check_scene(f, ref_text, readings, fixes=None):
-    """whisper 검사 한 씬.
-    반환 dict(cer, big, kind, text, first_word, last_word_end, suggest_last_word_end, tail_insert, dur)
-    kind: 'ok' | 'tail'(끝에만 없는 문장이 붙음 = 꼬리 잡음, 트림 대상) | 'content'(누락·반복·오독, 재생성 대상)"""
+def check_scene(f, ref_text, readings, fixes=None, num_tokens=None):
+    """whisper 검사 한 씬. num_tokens 는 전처리가 숫자에서 만든 읽기들(10단계의 subs).
+    반환 dict(cer, big, kind, text, hyp, num_missing, first_word, last_word_end, suggest_last_word_end, tail_insert, dur)
+    kind: 'ok' | 'tail'(끝에만 없는 문장이 붙음 = 꼬리 잡음, 트림 대상) | 'content'(누락·반복·오독, 재생성 대상)
+
+    content 로 올리는 조건 셋 (OR)
+    - big_diffs 가 잡은 내용 차이 (지금까지의 판정)
+    - **숫자 읽기가 하나라도 안 들림** — CER 로는 못 잡는다. 118자 문장에서 한 글자는 0.013 이고,
+      그만큼 조이면 정상 씬(최대 0.054 실측)이 먼저 걸린다
+    - **CER > CER_MAX** — 값을 출력만 하고 판정에 안 쓰던 것을 실제로 쓴다"""
     text, ws = transcribe(f, words=True)
     hyp = text
     for k, v in (fixes or {}).items(): hyp = hyp.replace(k, v)
@@ -323,8 +350,12 @@ def check_scene(f, ref_text, readings, fixes=None):
                     prev_end = ws[k-1]["end"] if k > 0 else 0.0
                     suggest = round(min(prev_end + 0.4, ws[k]["start"]), 2); break
     content = [b for b in big if b[0] != ""] or ([b for b in big if b[0] == "" and norm(b[1]) not in tail_insert])
-    kind = "content" if content else ("tail" if tail_insert else "ok")
-    return {"cer": cer, "big": big, "kind": kind, "text": text, "first_word": round(ws[0]["start"],2) if ws else 0.0,
+    # 숫자는 완전일치로 본다. 공백·문장부호 차이는 무시하려고 양쪽 다 norm 을 거친다
+    H = norm(hyp)
+    num_missing = [t for t in (num_tokens or []) if norm(t) and norm(t) not in H]
+    kind = "content" if (content or num_missing or cer > CER_MAX) else ("tail" if tail_insert else "ok")
+    return {"cer": cer, "big": big, "kind": kind, "text": text, "hyp": hyp, "num_missing": num_missing,
+            "first_word": round(ws[0]["start"],2) if ws else 0.0,
             "last_word_end": round(ws[-1]["end"],2) if ws else d, "suggest_last_word_end": suggest, "tail_insert": tail_insert,
             "last_words": "".join(w["word"] for w in ws[-3:]), "dur": round(d,2)}
 

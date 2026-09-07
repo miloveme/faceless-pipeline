@@ -15,11 +15,11 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 | 00 | `00_new_episode.sh E01_slug "제목"` | — | 에피소드 폴더 골격 + 템플릿 | |
 | 01 | `01_status.py [<EP>]` | — | 서버 연결·큐·남은 작업·예상 시간 | **작업 전 먼저** |
 | 05 | `05_script_to_scenes.py [--md] [--renumber] [--force]` | 가장 최신 `script/script_v<N>.md` ([형식](../docs/SCRIPT_FORMAT.md)) | `script/scenes_v1.json` | 씬 번호·`[N]` 누락 검사, 옛 판본이면 exit 2 |
-| 10 | `10_tts_prep.py` | `script/scenes_v1.json` | `narration_tts` 필드, `audio/narration_tts_input.json` | 사전에 없는 영문 남으면 exit 2 |
+| 10 | `10_tts_prep.py [--ids]` | `script/scenes_v1.json` | `narration_tts` 필드, `audio/narration_tts_input.json`(무엇을 무엇으로 바꿨는지 `subs` 포함) | 소리로 못 내는 것(영문·기호)이 남으면 exit 2 |
 | 15 | `15_clip_prep.py` | `source/` 의 영상·이미지, `script/visual_prep.json` | `public/<slug>/` 클립·이미지·스틸·컨택트 시트 | 소재 출처는 [VISUALS](../docs/VISUALS.md) |
 | 18 | `18_bgm_prep.sh EP bgm.mp3` | BGM 원본 | `public/<slug>/bgm_lofi.mp3` (-27 LUFS) | |
 | 20 | `20_tts_generate.py [--ids] [--seed] [--host] [--serial]` | tts_input, `voice.json` | `audio/nar_raw/<id>.mp3` | 서버 여러 대면 나눠서 동시에 |
-| 30 | `30_nar_check.py [--ids]` | nar_raw | `whisper_cer.json`, `speech_bounds.json` | BAD 씬 있으면 exit 3 |
+| 30 | `30_nar_check.py [--ids] [--quiet-text]` | nar_raw, tts_input 의 `subs` | `whisper_cer.json`, `speech_bounds.json` | 숫자 누락·CER>0.06·내용 차이면 BAD → exit 3 |
 | 35 | `35_nar_retry.py --ids` | BAD 씬 | 시드 순회 교체 | 교체 후 30 재실행 |
 | 40 | `40_nar_finalize.py` | nar_raw + bounds | `narration_final/*.wav`, `script/scenes_v2.json` | 트랙을 사람이 들음 |
 | 45 | `45_visual_plan.py [--force]` | scenes_v2, scenes_v1 | `script/visual_plan.md` | 카드·이유는 사람이 채우고 승인 |
@@ -65,6 +65,14 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 - 서버 선택은 `hosts.py` — `hosts` 순서대로, 막히면 다음, 여럿이면 동시에.
 - 목소리 설정은 `pipeline/voice.json` (`voice.example.json`을 복사해 작성). 어느 서비스로 만들지는 `provider` 가 정하고 어댑터는 `providers/` 에 있습니다 → `docs/VOICE_PROVIDERS.md`. 재시도는 시드만 바꿉니다.
 - 읽기 사전 `tts_readings.json`(공통) + `<EP>/script/tts_overrides.json`(에피소드별).
+- **소수는 자릿수를 띄어 읽습니다** — `9.167` → `구 점 일 육 칠`. 붙여 쓰면 자음동화로 자릿수가 무너집니다
+  (`일육`[일륙] → [이륙] → `9.267`, E01 실측). 정수부는 자릿값 읽기라 안 띄웁니다.
+- **10단계를 통과하는 글자는 한글·숫자·공백·`.` `,` `?` `!` 뿐입니다.** 그 밖의 것이 남으면 멈춥니다 —
+  기호를 사전으로 하나씩 막으면 다음 편에서 `%`·`±`·`→`·괄호가 같은 구멍으로 지나갑니다.
+  숫자 사이의 `~`·`-` 는 `에서`, 줄표 `—` 는 쉼표로 바뀝니다(숫자 **앞**의 `-` 는 그대로 마이너스).
+- **숫자는 CER 과 별개로 완전일치로 봅니다.** 118자 문장에서 한 글자는 CER 0.013 이라 문턱을 낮춰도
+  못 잡고, 그만큼 조이면 정상 씬(최대 0.054 실측)이 먼저 걸립니다. 10단계가 남긴 `subs` 의 숫자 읽기가
+  받아쓰기에 그대로 있는지 30단계가 대조합니다.
 - whisper 오타 사전 `whisper_fixes.json` + `<EP>/script/whisper_fixes.json`. 3자 이하 차이는 무시합니다.
 - 꼬리 잡음은 30단계가 실제 끝을 제안하고 40단계가 적용합니다. 다르면 `<EP>/audio/bounds_override.json`이 우선입니다.
 - Remotion 위치는 `REMOTION_DIR` 환경변수, 없으면 저장소의 `remotion/`.

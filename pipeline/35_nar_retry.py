@@ -13,7 +13,9 @@ a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
 cfg = voice_cfg(); pname = provider_name(cfg); provider_cfg(cfg, pname)   # 생성 전에 설정을 검증한다
 readings = readings_for(ep); fixes = whisper_fixes_for(ep)
 if not p["tts_input"].exists(): die(f"읽기 전처리 결과가 없습니다: {p['tts_input']}")
-ref = {x["id"]: x["text"] for x in jload(p["tts_input"])}
+_tts = jload(p["tts_input"])
+ref = {x["id"]: x["text"] for x in _tts}
+nums = {x["id"]: [s["to"] for s in x.get("subs", []) if s["kind"] == "number"] for x in _tts}   # 30단계와 같은 잣대로 본다
 ids = sorted(pick_ids(a.ids, set(ref)))
 print(f"제공자: {pname}")
 fixed = []
@@ -22,8 +24,9 @@ for sid in ids:
     for attempt in range(1, a.tries + 1):
         out = p["nar_raw"]/f"{sid}_try{attempt}.mp3"
         tts_generate(ref[sid], out, cfg, attempt=attempt)
-        r = check_scene(out, ref[sid], readings, fixes)
-        print(f"  {sid} 시도 {attempt}: {r['kind']} cer {r['cer']} {r['big'] if r['big'] else ''}")
+        r = check_scene(out, ref[sid], readings, fixes, num_tokens=nums.get(sid))
+        miss = f" 숫자 안 들림: {', '.join(r['num_missing'])}" if r["num_missing"] else ""
+        print(f"  {sid} 시도 {attempt}: {r['kind']} cer {r['cer']}{miss} {r['big'] if r['big'] else ''}")
         if r["kind"] != "content":
             cur = p["nar_raw"]/f"{sid}.mp3"
             if cur.exists(): shutil.move(cur, p["nar_raw"]/f"{sid}_dropped_0.mp3")

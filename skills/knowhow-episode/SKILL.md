@@ -35,9 +35,11 @@ Remotion: `remotion/` — 공용 컴포넌트 `src/knowhow/`, 에피소드는 `s
 ## 2단계 내레이션
 ```
 01_status.py EP            # 먼저: 서버 연결·큐·남은 작업·예상 시간
-10_tts_prep.py EP          # 사전에 없는 영문 → <EP>/script/tts_overrides.json에 읽기 추가 후 재실행
+10_tts_prep.py EP          # 영문·기호가 남으면 exit 2 → <EP>/script/tts_overrides.json에 읽기 추가 후 재실행
 20_tts_generate.py EP      # hosts 순서대로 고름. 막히면 다음 서버, 여럿이면 나눠서 동시에
 30_nar_check.py EP         # 백그라운드. BAD → 35_nar_retry.py EP --ids ... → 30을 그 씬만 재실행
+                           # 숫자 누락·CER>0.06 도 BAD 다. 재시도는 자동이 아니다 — 원인을 보고 사람이 건다
+                           # 씬마다 "넣은 것 / 들린 것"이 나란히 찍힌다. 1자 오독은 여기서 눈으로 잡는다
 40_nar_finalize.py EP      # 30이 TAIL로 잡은 씬은 제안된 끝을 자동 적용
 ```
 통과 기준: BAD(content) 없음, TAIL은 트림으로 처리(재생성 아님), whisper 오타는 사전에 추가, 트랙 -16 LUFS 근처.
