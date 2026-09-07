@@ -62,27 +62,31 @@ export const Captions: React.FC<{
           maxWidth,
           textAlign: "center",
           lineHeight: 1.35,
+          wordBreak: "keep-all",   // 한글이 낱말 중간에서 끊기지 않게
           textShadow: "0 2px 6px rgba(0,0,0,0.6)",
         }}
       >
         {karaoke && cur.words
           ? captionRuns(cur.words).map((run, ri) => {
-              const on = t >= run.words[0].s - 0.02;
-              const body = run.words.map((w, i) => (
-                <span key={i} style={{
-                  color: run.hl
-                    ? (t >= w.s - 0.02 ? "#12141a" : "rgba(18,20,26,0.45)")
-                    : (t >= w.s - 0.02 ? T.capColor : "rgba(255,255,255,0.36)"),
-                }}>{i ? " " : ""}{w.t}</span>
-              ));
+              const boxOn = run.hl && t >= run.words[0].s - 0.02;
+              const body = run.words.map((w, i) => {
+                const spoken = t >= w.s - 0.02;
+                return (
+                  <span key={i} style={{
+                    color: boxOn
+                      ? (spoken ? "#12141a" : "rgba(18,20,26,0.45)")
+                      : (spoken ? T.capColor : "rgba(255,255,255,0.36)"),
+                  }}>{i ? " " : ""}{w.t}</span>
+                );
+              });
               return (
                 <React.Fragment key={ri}>
                   {ri ? " " : ""}
                   {run.hl ? (
                     <span style={{
-                      backgroundColor: on ? T.accent : "transparent",
-                      padding: on ? "2px 10px" : 0,
-                      margin: on ? "0 3px" : 0,
+                      backgroundColor: boxOn ? T.accent : "transparent",
+                      padding: "2px 10px",
+                      margin: "0 3px",
                       borderRadius: 8,
                       boxDecorationBreak: "clone",
                       WebkitBoxDecorationBreak: "clone",

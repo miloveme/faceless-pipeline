@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, Easing, Img, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Video } from "@remotion/media";
 import { T, EASE_OUT } from "./theme";
-import { CaptionChunk } from "./Captions";
+import { CaptionChunk, captionRuns } from "./Captions";
 import { getGrammar } from "./grammar";
 import { LiveGround } from "./Stage";
 
@@ -242,20 +242,31 @@ export const WorkshopCaptions: React.FC<{
       <div style={{ width: 4, alignSelf: "stretch", backgroundColor: T.accent, borderRadius: 2, flexShrink: 0 }} />
       <div style={{
         fontFamily: T.sans, fontSize, fontWeight: 700, color: T.text, lineHeight: 1.32,
+        wordBreak: "keep-all",   // 한글이 낱말 중간에서 끊기지 않게
         textAlign: "left",
       }}>
         {karaoke && cur.words
-          ? cur.words.map((w, i) => {
-              const on = t >= w.s - 0.02;
-              const hl = w.hl && on;
+          ? captionRuns(cur.words).map((run, ri) => {
+              const boxOn = run.hl && t >= run.words[0].s - 0.02;
+              const body = run.words.map((w, i) => {
+                const spoken = t >= w.s - 0.02;
+                return (
+                  <span key={i} style={{
+                    color: boxOn
+                      ? (spoken ? "#12141a" : "rgba(18,20,26,0.45)")
+                      : (spoken ? T.text : "rgba(232,232,234,0.34)"),
+                  }}>{i ? " " : ""}{w.t}</span>
+                );
+              });
               return (
-                <React.Fragment key={i}>
-                  {i ? " " : ""}
-                  <span style={{
-                    color: hl ? "#12141a" : on ? T.text : "rgba(232,232,234,0.34)",
-                    backgroundColor: hl ? T.accent : "transparent",
-                    padding: hl ? "2px 10px" : 0, borderRadius: 8,
-                  }}>{w.t}</span>
+                <React.Fragment key={ri}>
+                  {ri ? " " : ""}
+                  {run.hl ? (
+                    <span style={{
+                      backgroundColor: boxOn ? T.accent : "transparent",
+                      padding: "2px 10px", margin: "0 3px", borderRadius: 8,
+                    }}>{body}</span>
+                  ) : body}
                 </React.Fragment>
               );
             })

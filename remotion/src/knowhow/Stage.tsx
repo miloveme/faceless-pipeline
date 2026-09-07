@@ -188,25 +188,28 @@ export const StageCaptions: React.FC<{
       display: "flex", justifyContent: "center", opacity: a, pointerEvents: "none",
     }}>
       <div style={{
-        display: "flex", flexWrap: "wrap", justifyContent: "center", gap: `2px ${Math.round(fontSize * 0.3)}px`,
-        maxWidth, padding: "0 40px",
+        textAlign: "center", maxWidth, padding: "0 40px", lineHeight: 1.34,
+        wordBreak: "keep-all",   // 한글이 낱말 중간에서 끊기지 않게
       }}>
         {captionRuns(ws).map((run, ri) => {
-          const on = t >= run.words[0].s - 0.02;
-          const body = run.words.map((w, i) => (
-            <span key={i} style={{
-              color: run.hl
-                ? (t >= w.s - 0.02 ? "#12141a" : "rgba(18,20,26,0.45)")
-                : (t >= w.s - 0.02 ? "#ffffff" : "rgba(255,255,255,0.34)"),
-            }}>{i ? " " : ""}{w.t}</span>
-          ));
+          // 상자는 그 구의 첫 낱말에서 켜진다. 켜지기 전에는 보통 낱말과 똑같이 보여야 한다 —
+          // 상자 안에서 읽힐 어두운 색을 미리 쓰면 어두운 바탕에 묻혀 문장에 구멍이 난다.
+          const boxOn = run.hl && t >= run.words[0].s - 0.02;
+          const body = run.words.map((w, i) => {
+            const spoken = t >= w.s - 0.02;
+            const color = boxOn
+              ? (spoken ? "#12141a" : "rgba(18,20,26,0.45)")
+              : (spoken ? "#ffffff" : "rgba(255,255,255,0.34)");
+            return <span key={i} style={{ color }}>{i ? " " : ""}{w.t}</span>;
+          });
           return (
             <span key={ri} style={{
               fontFamily: T.sans, fontSize, fontWeight: 700, lineHeight: 1.34,
-              backgroundColor: run.hl && on ? T.accent : "transparent",
-              padding: run.hl && on ? "2px 10px" : 0,
+              backgroundColor: boxOn ? T.accent : "transparent",
+              // 여백을 늘 잡아 둔다. 켜질 때 생기면 줄 폭이 변해 문장 전체가 옆으로 튄다.
+              padding: run.hl ? "2px 10px" : 0,
               borderRadius: 8,
-              textShadow: run.hl ? "none" : "0 3px 14px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9)",
+              textShadow: boxOn ? "none" : "0 3px 14px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9)",
             }}>{body}</span>
           );
         })}

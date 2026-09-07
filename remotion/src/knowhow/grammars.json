@@ -26,7 +26,7 @@
     "caption": {
       "unit": "episode",
       "layer": "karaoke",
-      "bottom": 56,
+      "bottom": 84,
       "align": "center",
       "size": 40,
       "maxWidth": 1500,
@@ -37,7 +37,7 @@
       "kind": "kicker",
       "at": "top-left"
     },
-    "safeBottom": 190,
+    "safeBottom": 218,
     "carries": [
       "clip",
       "still",
@@ -69,7 +69,7 @@
     "caption": {
       "unit": "episode",
       "layer": "karaoke",
-      "bottom": 64,
+      "bottom": 84,
       "align": "center",
       "size": 44,
       "maxWidth": 1560,
@@ -80,7 +80,7 @@
       "kind": "mark",
       "at": "top-right"
     },
-    "safeBottom": 150,
+    "safeBottom": 218,
     "carries": [
       "beats",
       "clip",
@@ -106,7 +106,7 @@
     "caption": {
       "unit": "episode",
       "layer": "desk",
-      "bottom": 74,
+      "bottom": 84,
       "align": "left",
       "size": 42,
       "maxWidth": 1728,
