@@ -16,14 +16,33 @@ export type VisualFor = (s: Scene) => React.ReactNode;
 /** 자막을 그리는 층. grammars.json 의 caption.layer 이름이 이걸로 풀린다. */
 export type CaptionLayer = React.FC<{ chunks: CaptionChunk[]; offsetSec: number }>;
 
-// 원본 클립 재생 + 코너 라벨 (훅 씬용)
-export const ClipPlayer: React.FC<{ src: string; fromSec: number; label: string }> = ({ src, fromSec, label }) => {
+/**
+ * 원본 클립 재생 + 코너 라벨 (훅 씬용)
+ *
+ * framed — 자막 안전영역만큼 아래를 비우고 액자에 넣는다.
+ *   완성본을 보여줄 때는 그 영상에도 자막이 구워져 있다.
+ *   화면을 꽉 채우면 그 자막과 우리 자막이 같은 자리에서 겹쳐 둘 다 못 읽는다.
+ *   액자에 넣으면 겹칠 자리가 없어진다.
+ */
+export const ClipPlayer: React.FC<{
+  src: string; fromSec: number; label: string; framed?: boolean; safeBottom?: number;
+}> = ({ src, fromSec, label, framed = false, safeBottom = 190 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const fade = interpolate(frame, [0, 0.4 * fps], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
     <AbsoluteFill style={{ backgroundColor: "#000", opacity: fade }}>
-      <Video src={staticFile(src)} trimBefore={Math.round(fromSec * fps)} muted style={{ width: 1920, height: 1080, objectFit: "cover" }} />
+      <div
+        style={
+          framed
+            ? { position: "absolute", left: 96, right: 96, top: 84, bottom: safeBottom,
+                borderRadius: 14, overflow: "hidden", boxShadow: "0 30px 70px rgba(0,0,0,0.6)" }
+            : { position: "absolute", inset: 0 }
+        }
+      >
+        <Video src={staticFile(src)} trimBefore={Math.round(fromSec * fps)} muted
+          style={{ width: "100%", height: "100%", objectFit: framed ? "contain" : "cover" }} />
+      </div>
       <div style={{ position: "absolute", right: 40, top: 34, fontFamily: T.mono, fontSize: 26, color: T.muted, backgroundColor: "rgba(0,0,0,0.55)", padding: "8px 16px", borderRadius: 8 }}>
         {label}
       </div>

@@ -6,6 +6,18 @@ export type CaptionWord = { s: number; e: number; t: string; hl?: boolean };
 // words 는 50_captions_build.py 가 넣는다. 낱말 단위로 켜는 문법(무대)이 쓴다.
 export type CaptionChunk = { start: number; end: number; text: string; words?: CaptionWord[] };
 
+/** 붙어 있는 강조 낱말을 한 덩어리로 묶는다.
+ *  낱말마다 상자를 씌우면 "씬 단위" 가 상자 두 개로 쪼개져 한 구로 안 읽힌다. */
+export const captionRuns = (words: CaptionWord[]) => {
+  const runs: { hl: boolean; words: CaptionWord[] }[] = [];
+  for (const w of words) {
+    const last = runs[runs.length - 1];
+    if (last && last.hl === !!w.hl) last.words.push(w);
+    else runs.push({ hl: !!w.hl, words: [w] });
+  }
+  return runs;
+};
+
 // 씬 로컬 시간 기준 자막. offsetSec = 씬 안에서 내레이션이 시작되는 시각(LEAD 0.5s)
 export const Captions: React.FC<{
   chunks: CaptionChunk[];
@@ -54,28 +66,28 @@ export const Captions: React.FC<{
         }}
       >
         {karaoke && cur.words
-          ? cur.words.map((w, i) => {
-              const on = t >= w.s - 0.02;
+          ? captionRuns(cur.words).map((run, ri) => {
+              const on = t >= run.words[0].s - 0.02;
+              const body = run.words.map((w, i) => (
+                <span key={i} style={{
+                  color: run.hl
+                    ? (t >= w.s - 0.02 ? "#12141a" : "rgba(18,20,26,0.45)")
+                    : (t >= w.s - 0.02 ? T.capColor : "rgba(255,255,255,0.36)"),
+                }}>{i ? " " : ""}{w.t}</span>
+              ));
               return (
-                <React.Fragment key={i}>
-                  {i ? " " : ""}
-                  <span
-                    style={
-                      w.hl
-                        ? {
-                            // 대본에 **강조** 로 표시한 낱말. 말한 뒤에 색이 든다.
-                            color: on ? "#12141a" : "rgba(255,255,255,0.36)",
-                            backgroundColor: on ? T.accent : "transparent",
-                            padding: on ? "2px 10px" : 0,
-                            borderRadius: 8,
-                            boxDecorationBreak: "clone",
-                            WebkitBoxDecorationBreak: "clone",
-                          }
-                        : { color: on ? T.capColor : "rgba(255,255,255,0.36)" }
-                    }
-                  >
-                    {w.t}
-                  </span>
+                <React.Fragment key={ri}>
+                  {ri ? " " : ""}
+                  {run.hl ? (
+                    <span style={{
+                      backgroundColor: on ? T.accent : "transparent",
+                      padding: on ? "2px 10px" : 0,
+                      margin: on ? "0 3px" : 0,
+                      borderRadius: 8,
+                      boxDecorationBreak: "clone",
+                      WebkitBoxDecorationBreak: "clone",
+                    }}>{body}</span>
+                  ) : body}
                 </React.Fragment>
               );
             })

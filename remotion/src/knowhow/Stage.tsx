@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Video } from "@remotion/media";
 import { T, EASE_OUT } from "./theme";
-import { CaptionChunk } from "./Captions";
+import { CaptionChunk, captionRuns } from "./Captions";
 import { getGrammar } from "./grammar";
 
 /**
@@ -81,110 +81,14 @@ export const Ground: React.FC<{
   );
 };
 
-/* ─────────── 살아 있는 바탕 ───────────
- * 소재 없이 매 프레임 그린다. 정지 이미지를 확대하는 것과 다르다.
- *
- * 무엇으로 만드느냐가 중요하다. 다른 채널의 화면을 재서 그 장치(격자·레이저·청록)를
- * 옮겨 오면 그 채널처럼 보인다. 그래서 이 채널의 것으로 만든다.
- *   시간 눈금 — 이 공정의 뼈대가 "음성 길이가 영상 길이를 정한다"이다
- *   파형 띠   — 이 채널은 음성과 음악에서 왔다
- *   호박색    — theme 의 accent. 남의 팔레트를 가져오지 않는다
- */
-
-/** 결정적 의사난수. 프레임마다 같은 모양이 나와야 한다(랜덤을 쓰면 화면이 지직거린다). */
-const rnd = (i: number) => {
-  const x = Math.sin(i * 127.1 + 311.7) * 43758.5453;
-  return x - Math.floor(x);
-};
-
-/** 파형 한 줄. 시간에 따라 옆으로 흐른다. */
-const waveBand = (t: number, n: number, seed: number) => {
-  const pts: string[] = [];
-  for (let i = 0; i <= n; i++) {
-    const u = i / n;
-    const k = i + seed * 1000;
-    // 봉우리 몇 개가 겹쳐 사람 목소리 같은 들쭉날쭉함이 나오게
-    const amp =
-      (0.35 + 0.65 * rnd(k)) *
-      (0.5 + 0.5 * Math.sin(u * Math.PI * 3 + t * 0.35 + seed)) *
-      (0.4 + 0.6 * Math.sin(u * Math.PI * 11 + seed * 3));
-    pts.push(`${(u * 100).toFixed(2)},${(50 - amp * 46).toFixed(2)}`);
-  }
-  for (let i = n; i >= 0; i--) {
-    const u = i / n;
-    const k = i + seed * 1000;
-    const amp =
-      (0.35 + 0.65 * rnd(k)) *
-      (0.5 + 0.5 * Math.sin(u * Math.PI * 3 + t * 0.35 + seed)) *
-      (0.4 + 0.6 * Math.sin(u * Math.PI * 11 + seed * 3));
-    pts.push(`${(u * 100).toFixed(2)},${(50 + amp * 46).toFixed(2)}`);
-  }
-  return pts.join(" ");
-};
-
-export const LiveGround: React.FC<{
-  speed?: number;
-  tint?: string;
-}> = ({ speed = 1, tint = "#0c0d10" }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const t = (frame / fps) * speed;
-
-  // 시간 눈금: 일정 간격의 세로 실선. 통째로 아주 느리게 흐른다.
-  const TICK = 46;                       // px
-  const shift = ((t * 5.5) % TICK) - TICK;
-
-  return (
-    <AbsoluteFill style={{ backgroundColor: tint, overflow: "hidden" }}>
-      {/* 바탕 색조 — 채널 강조색을 아주 옅게 깔아 중립 회색을 면한다 */}
-      <AbsoluteFill style={{
-        background: `radial-gradient(130% 100% at 50% 6%, rgba(245,185,66,0.035) 0%, rgba(14,14,16,0.5) 40%, ${tint} 100%)`,
-      }} />
-
-      {/* 시간 눈금 */}
-      <AbsoluteFill style={{
-        opacity: 0.075,
-        transform: `translateX(${shift}px)`,
-        backgroundImage: `linear-gradient(90deg, rgba(245,185,66,0.9) 1px, transparent 1px)`,
-        backgroundSize: `${TICK}px 100%`,
-        maskImage: "linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.35) 42%, transparent 78%)",
-      }} />
-      {/* 다섯 칸마다 긴 눈금 하나 */}
-      <AbsoluteFill style={{
-        opacity: 0.115,
-        transform: `translateX(${shift}px)`,
-        backgroundImage: `linear-gradient(90deg, rgba(245,185,66,1) 1px, transparent 1px)`,
-        backgroundSize: `${TICK * 5}px 100%`,
-        maskImage: "linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.5) 55%, transparent 88%)",
-      }} />
-
-      {/* 파형 띠 둘 — 아래쪽에 낮게 깔린다. 글자를 방해하지 않는 밝기 */}
-      {[
-        { y: 71, h: 17, o: 0.042, sp: 1.0, seed: 1 },
-        { y: 80, h: 12, o: 0.028, sp: 0.62, seed: 2 },
-      ].map((w, i) => (
-        <svg key={i} viewBox="0 0 100 100" preserveAspectRatio="none"
-          style={{
-            position: "absolute", left: `${-8 + Math.sin(t * 0.06 * w.sp + i) * 3}%`,
-            top: `${w.y}%`, width: "116%", height: `${w.h}%`, opacity: w.o,
-          }}>
-          <polygon points={waveBand(t * w.sp, 150, w.seed)} fill="#f5b942" />
-        </svg>
-      ))}
-
-      {/* 지금 지나는 자리 — 재생 헤드처럼 한 줄이 천천히 오른쪽으로 */}
-      <div style={{
-        position: "absolute", top: 0, bottom: 0,
-        left: `${((t * 1.1) % 118) - 9}%`,
-        width: 2,
-        background: "linear-gradient(to bottom, transparent, rgba(245,185,66,0.42) 30%, rgba(245,185,66,0.42) 70%, transparent)",
-        opacity: 0.5,
-      }} />
-
-      <AbsoluteFill style={{ boxShadow: "inset 0 0 170px 40px rgba(0,0,0,0.55)" }} />
-    </AbsoluteFill>
-  );
-};
+/* ─────────── 바탕 ───────────
+ * 결이나 무늬를 옅게 깔면 h264 가 어두운 영역에서 그걸 뭉개서
+ * 화질이 떨어진 것처럼 보인다. 단색에 위아래 그라데이션만 둔다. */
+export const LiveGround: React.FC<{ speed?: number; tint?: string }> = () => (
+  <AbsoluteFill style={{
+    background: "linear-gradient(180deg, #171b24 0%, #10131a 46%, #0a0c11 100%)",
+  }} />
+);
 
 /* ─────────── 채널 표식: 매 씬에 붙어 하나의 물건처럼 보이게 ─────────── */
 export const Mark: React.FC<{ text: string }> = ({ text }) => {
@@ -287,18 +191,23 @@ export const StageCaptions: React.FC<{
         display: "flex", flexWrap: "wrap", justifyContent: "center", gap: `2px ${Math.round(fontSize * 0.3)}px`,
         maxWidth, padding: "0 40px",
       }}>
-        {ws.map((w, i) => {
-          const spoken = t >= w.s - 0.02;
-          const hl = w.hl && spoken;
-          return (
+        {captionRuns(ws).map((run, ri) => {
+          const on = t >= run.words[0].s - 0.02;
+          const body = run.words.map((w, i) => (
             <span key={i} style={{
+              color: run.hl
+                ? (t >= w.s - 0.02 ? "#12141a" : "rgba(18,20,26,0.45)")
+                : (t >= w.s - 0.02 ? "#ffffff" : "rgba(255,255,255,0.34)"),
+            }}>{i ? " " : ""}{w.t}</span>
+          ));
+          return (
+            <span key={ri} style={{
               fontFamily: T.sans, fontSize, fontWeight: 700, lineHeight: 1.34,
-              color: hl ? "#12141a" : spoken ? "#ffffff" : "rgba(255,255,255,0.34)",
-              backgroundColor: hl ? T.accent : "transparent",
-              padding: hl ? "2px 10px" : 0,
+              backgroundColor: run.hl && on ? T.accent : "transparent",
+              padding: run.hl && on ? "2px 10px" : 0,
               borderRadius: 8,
-              textShadow: hl ? "none" : "0 3px 14px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9)",
-            }}>{w.t}</span>
+              textShadow: run.hl ? "none" : "0 3px 14px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9)",
+            }}>{body}</span>
           );
         })}
       </div>
