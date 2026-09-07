@@ -17,8 +17,11 @@ GAP = 0.8         # 내레이션 끝 후 씬 끝까지
 PAD = 0.35        # 마지막 단어 끝 + PAD 에서 트림
 FADE = 0.08       # 트림 직전 페이드아웃
 NAR_LUFS = -16    # 씬 단위 내레이션
-NAR_LUFS_TOL = 1.5   # 씬 음량 허용 편차. Chatterbox 출력이 풀스케일에 붙어 있어 TP 한계가 게인을 막는다
-NAR_TP_MAX = -1.5    # 씬 true peak 상한
+NAR_LUFS_TOL = 1.5   # 씬 음량 허용 편차. "이 정도면 균일하다"의 선이지 "여기서 멈춰야 한다"의 선이 아니다
+                     # (실제로 균일성이 깨지는 것은 3 LU 부터). 그래서 종료코드를 걸지 않는다
+NAR_TP_MAX = 0       # 위험한 것은 클리핑이고 그 선은 0 dBFS 다. 전 씬이 -1.5 에 붙는 것은
+                     # TP 한계가 게인을 막은 구조적 결과라 거기에 문턱을 두면 반올림 한 자리에 멈춘다.
+                     # 판정은 아래 clipped() — 풀스케일 이상 샘플 수 0 (참조 음성 합격선과 같은 기준)
 MASTER_LUFS = -14 # 최종 마스터
 BGM_LUFS = -27    # 배경음악
 CER_MAX = 0.06    # 씬 단위 글자 오류율 상한(전처리 후 기준, 30단계가 판정에 쓴다)
@@ -81,6 +84,16 @@ def run(cmd, **kw):
 
 def dur(f) -> float:
     return float(subprocess.check_output(["ffprobe","-v","error","-show_entries","format=duration","-of","csv=p=0",str(f)]).decode())
+
+def clipped(f) -> int:
+    """풀스케일(|x| >= 1.0) 이상 샘플 수. ebur128 의 Peak 은 dBFS 로 반올림돼 -0.0 과 0.0 이 안 갈린다 —
+    클리핑 판정은 이 수로 한다. docs/RECORDING.md 의 참조 음성 검산과 같은 기준이다."""
+    import numpy as np
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(f), "-f", "f32le", "-"],
+                         capture_output=True).stdout
+    if not raw: return 0
+    x = np.frombuffer(raw, dtype="<f4")
+    return int((abs(x) >= 1.0).sum())
 
 def lufs(f):
     out = subprocess.run(["ffmpeg","-i",str(f),"-af","ebur128=peak=true","-f","null","-"],capture_output=True,text=True).stderr

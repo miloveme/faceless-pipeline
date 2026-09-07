@@ -46,21 +46,27 @@ for s in scenes["scenes"]:
     run(["ffmpeg","-v","error","-y","-i",str(src),"-af",af,"-ar","44100","-ac","1",str(out)])
     d = dur(out); s["narration_file"] = str(out.relative_to(ep)); s["narration_dur"] = round(d,2)
     li, lp = lufs(out)                      # 씬 음량은 여기서 확정된다. 눈으로 볼 수 있게 표에 싣는다
+    lc = clipped(out)                       # 클리핑 판정은 TP 값이 아니라 풀스케일 이상 샘플 수로 본다
     s["t_start"] = round(t,2); s["t_end"] = round(t+LEAD+d+GAP,2)
-    rows.append((sid, info[sid]["dur"], d, s["t_start"], s["t_end"], li, lp)); t = s["t_end"]
+    rows.append((sid, info[sid]["dur"], d, s["t_start"], s["t_end"], li, lp, lc)); t = s["t_end"]
 _bits = [pname] + [f"{k}={pcfg[k]}" for k in ("ref_file", "voice_id", "voice", "model", "seed") if pcfg.get(k) is not None]
 scenes["narration_voice"] = " ".join(str(b) for b in _bits)
 scenes["lead"] = LEAD; scenes["gap"] = GAP; scenes["target_duration_sec"] = round(t,1)
 jdump(scenes, p["scenes_v2"])
-print("scene   raw  final  t_start   t_end     LUFS   peak")
-for a,b,c,d,e,li,lp in rows:
-    off = "" if li is None else ("  ←" if abs(li - NAR_LUFS) > NAR_LUFS_TOL or (lp is not None and lp > NAR_TP_MAX) else "")
-    print(f"{a}  {b:5.1f}  {c:5.1f}  {d:7.2f}  {e:7.2f}  {'    ?' if li is None else f'{li:7.1f}'}  {'    ?' if lp is None else f'{lp:5.1f}'}{off}")
+# raw = 트림 전 원본 길이, final = 트림·정규화 뒤 내레이션 파일 길이(초). 씬 슬롯은 t_end - t_start 이고
+# final 보다 여백 1.3초(앞 LEAD 0.5 + 뒤 GAP 0.8)만큼 길다 — 화면이 쓰는 것은 슬롯 쪽이다.
+print("scene   raw  final  t_start   t_end     LUFS   peak  clip   (raw=트림 전, final=내레이션 파일, 슬롯=t_end-t_start)")
+for a,b,c,d,e,li,lp,lc in rows:
+    off = "" if li is None else ("  ←" if abs(li - NAR_LUFS) > NAR_LUFS_TOL or lc > 0 else "")
+    print(f"{a}  {b:5.1f}  {c:5.1f}  {d:7.2f}  {e:7.2f}  {'    ?' if li is None else f'{li:7.1f}'}  {'    ?' if lp is None else f'{lp:5.1f}'}  {lc:4d}{off}")
 print(f"{len(rows)}/{len(scenes['scenes'])}씬 · total {round(t,1)}s = {round(t/60,2)}min · {pname}")
 # 음량 기준은 음악 감독의 값이다(common.py). 여기서는 재서 보여만 준다 — 판정은 트랙과 마스터에서 한다
-_off = [a for a,_,_,_,_,li,lp in rows if li is not None and (abs(li - NAR_LUFS) > NAR_LUFS_TOL or (lp is not None and lp > NAR_TP_MAX))]
-print(f"음량: 목표 {NAR_LUFS} LUFS ±{NAR_LUFS_TOL} · peak {NAR_TP_MAX} dBFS 이하 · 벗어난 씬 {len(_off)}/{len(rows)}"
-      + (f" ({', '.join(_off)})" if _off else ""))
+_loud = [a for a,_,_,_,_,li,_,_ in rows if li is not None and abs(li - NAR_LUFS) > NAR_LUFS_TOL]
+_clip = [a for a,_,_,_,_,_,_,lc in rows if lc > 0]
+print(f"음량: 목표 {NAR_LUFS} LUFS ±{NAR_LUFS_TOL} · 벗어난 씬 {len(_loud)}/{len(rows)}"
+      + (f" ({', '.join(_loud)})" if _loud else "")
+      + f" · 클리핑(풀스케일 이상 샘플) {len(_clip)}/{len(rows)}씬" + (f" ({', '.join(_clip)})" if _clip else ""))
+print("  종료코드는 걸지 않습니다 — 편차 기준은 '균일한가'의 선이지 '멈춰야 하는가'의 선이 아닙니다(음악 감독).")
 sc = scenes["scenes"]
 cmd = ["ffmpeg","-v","error","-y","-f","lavfi","-i",f"anullsrc=r=44100:cl=mono:d={t}"]; filt = []
 for i, s in enumerate(sc, 1):
