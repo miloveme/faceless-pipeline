@@ -18,8 +18,16 @@ const SideSchema = z.object({
   labelColor: z.string(), // 배지 글자
   edgeColor: z.string(), // 프레임 윗줄 — 배지와 **다른 값이다.** 배지 바탕이 반투명 검정이면
                          // 같은 값을 윗줄에 쓸 때 어두운 그림 위에서 사라진다(미술 실측)
-  focusX: z.number(), // 0~1 확대 중심 (칸 기준)
+  focusX: z.number(), // 0~1 잘려 나가는 쪽을 고른다 (칸 기준)
   focusY: z.number(),
+  /**
+   * 확대 배율. **칸마다 따로다** — 맞춰야 하는 것은 배율이 아니라 **비교 대상의 크기**다.
+   * 원본과 클론은 같은 순간이어도 프레이밍이 달라 얼굴 크기가 몇 배씩 차이 난다.
+   * 배율을 묶으면 그 차이가 그대로 화면에 남아 한쪽이 "더 중요한 쪽"으로 읽히고,
+   * 흐린 쪽/선명한 쪽이 갈려 **"이 둘을 구별할 수 있나"라는 물음에 답을 미리 알려 준다.**
+   * 1 이면 칸을 채우는 최소 배율(cover)이고 그보다 작게 두면 여백이 생긴다.
+   */
+  zoom: z.number(),
 });
 
 export const ThumbnailSchema = z.object({
@@ -29,7 +37,6 @@ export const ThumbnailSchema = z.object({
   headline: z.string(), // 큰 글씨 (2줄까지, \n)
   sub: z.string(), // 작은 글씨
   badge: z.string(), // 시리즈 배지 (우상단)
-  zoom: z.number(), // 프레임 확대 배율 (핵심 부분이 크게 보이도록)
 });
 type Props = z.infer<typeof ThumbnailSchema>;
 type Side = z.infer<typeof SideSchema>;
@@ -46,7 +53,7 @@ type Side = z.infer<typeof SideSchema>;
  * 실제로 그렇게 짰다가 좌측 칸에 미술이 고른 인물 대신 가운데 등이 잡혔다.
  * 확대까지 하면 `scale` 이 겹치고, 그때 기준점도 같은 자리여야 한다.
  */
-const Frame: React.FC<{ side: Side; w: number; h: number; zoom: number }> = ({ side, w, h, zoom }) => (
+const Frame: React.FC<{ side: Side; w: number; h: number }> = ({ side, w, h }) => (
   <div
     style={{
       width: w,
@@ -64,7 +71,7 @@ const Frame: React.FC<{ side: Side; w: number; h: number; zoom: number }> = ({ s
         objectFit: "cover",
         objectPosition: `${side.focusX * 100}% ${side.focusY * 100}%`,
         transformOrigin: `${side.focusX * 100}% ${side.focusY * 100}%`,
-        scale: String(zoom),
+        scale: String(side.zoom),
       }}
     />
   </div>
@@ -152,8 +159,8 @@ export const Thumbnail: React.FC<Props> = (p) => {
       {p.variant === "split" && (
         <>
           <div style={{ display: "flex" }}>
-            <Frame side={p.left} w={W / 2} h={H} zoom={p.zoom} />
-            <Frame side={p.right} w={W / 2} h={H} zoom={p.zoom} />
+            <Frame side={p.left} w={W / 2} h={H} />
+            <Frame side={p.right} w={W / 2} h={H} />
           </div>
           <div style={{ position: "absolute", left: W / 2 - 3, top: 0, width: 6, height: H, backgroundColor: "#fff" }} />
           <Badge side={p.left} left={26} top={22} />
@@ -167,7 +174,7 @@ export const Thumbnail: React.FC<Props> = (p) => {
       )}
       {p.variant === "fail-only" && (
         <>
-          <Frame side={p.left} w={W} h={H} zoom={p.zoom} />
+          <Frame side={p.left} w={W} h={H} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.15) 55%, rgba(0,0,0,0) 100%)" }} />
           <Series text={p.badge} at={{ left: 40, top: 40 }} />
           <div style={{ position: "absolute", left: 40, bottom: 60 }}>
@@ -180,8 +187,8 @@ export const Thumbnail: React.FC<Props> = (p) => {
       {p.variant === "text-first" && (
         <>
           <div style={{ position: "absolute", right: 0, top: 0, width: W * 0.5, height: H, display: "flex", flexDirection: "column" }}>
-            <Frame side={p.left} w={W * 0.5} h={H / 2} zoom={p.zoom} />
-            <Frame side={p.right} w={W * 0.5} h={H / 2} zoom={p.zoom} />
+            <Frame side={p.left} w={W * 0.5} h={H / 2} />
+            <Frame side={p.right} w={W * 0.5} h={H / 2} />
           </div>
           <Series text={p.badge} at={{ left: 40, top: 44 }} />
           <div style={{ position: "absolute", left: 40, top: H / 2 - 120, width: W * 0.48 }}>

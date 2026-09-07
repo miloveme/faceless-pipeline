@@ -23,9 +23,9 @@ export const TemplateCompositions: React.FC = () => (
       <Still id={`${PREFIX}-Thumb-A`} component={Thumbnail} width={1280} height={720}
         schema={ThumbnailSchema}
         defaultProps={{ variant: "split",
-          left:  { src: asset("before.png"), label: "왼쪽 라벨",   color: T.muted, labelColor: "#12141a", edgeColor: T.text, focusX: 0.1, focusY: 0.2 },
-          right: { src: asset("after.png"),  label: "오른쪽 라벨", color: T.muted, labelColor: "#12141a", edgeColor: T.text, focusX: 0.1, focusY: 0.2 },
-          headline: "제목 두 줄로\n짧게", sub: "부제", badge: "시리즈", zoom: 1.6 }} />
+          left:  { src: asset("before.png"), label: "왼쪽 라벨",   color: T.muted, labelColor: "#12141a", edgeColor: T.text, focusX: 0.1, focusY: 0.2, zoom: 1 },
+          right: { src: asset("after.png"),  label: "오른쪽 라벨", color: T.muted, labelColor: "#12141a", edgeColor: T.text, focusX: 0.1, focusY: 0.2, zoom: 1 },
+          headline: "제목 두 줄로\n짧게", sub: "부제", badge: "시리즈" }} />
       <Composition id={`${PREFIX}-Shorts-1`} component={Shorts}
         durationInFrames={shortsFrames(["s00", "s04"])} fps={FPS} width={1080} height={1920}
         schema={ShortsSchema}
