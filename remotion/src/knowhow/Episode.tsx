@@ -66,8 +66,10 @@ export const makeEpisode = (
   const EPISODE_FRAMES = Math.ceil(scenes[scenes.length - 1].t_end * FPS);
   const Episode: React.FC<{ bgm: string; bgmVolume: number }> = ({ bgm, bgmVolume }) => {
     const { fps } = useVideoConfig();
+    // word-break 는 상속되는 성질이라 **여기 한 번만** 걸면 그 아래 글자가 다 따라온다.
+    // 컴포넌트마다 적으면 다음에 또 빠진다 — 실제로 s08 인용에서 빠져 낱말이 중간에서 쪼개졌다.
     return (
-      <AbsoluteFill style={{ backgroundColor: T.bg }}>
+      <AbsoluteFill style={{ backgroundColor: T.bg, wordBreak: "keep-all" }}>
         {scenes.map((s) => {
           const from = Math.round(s.t_start * fps);
           const dur = Math.round((s.t_end - s.t_start) * fps);

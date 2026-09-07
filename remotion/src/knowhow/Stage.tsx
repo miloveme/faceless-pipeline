@@ -139,6 +139,9 @@ export const Lead: React.FC<{
             color: hit ? "#12141a" : T.text,
             backgroundColor: hit ? T.accent : "transparent",
             padding: hit ? `0 ${Math.round(size * 0.14)}px` : 0,
+            // 강조 상자가 줄 첫머리에 오면 padding 만큼 글자가 안으로 밀려 왼쪽 정렬선이 깨진다.
+            // 상자를 그만큼 당겨 **글자**를 정렬선에 맞춘다(상자가 아니라 글자가 기준이다).
+            marginLeft: hit ? -Math.round(size * 0.14) : 0,
             borderRadius: hit ? Math.round(size * 0.12) : 0,
             opacity: on,
             transform: `translateY(${(1 - on) * 26}px)`,

@@ -29,7 +29,7 @@ export const makeShorts = (slug: string, scenes: Scene[], caps: CaptionMap, visu
     const H16 = 1080 * SCALE; // 607.5
     const top = 470; // 제목(200~) 아래, 하단 UI 안전영역(~1600 이후) 위
     return (
-      <AbsoluteFill style={{ backgroundColor: T.bg }}>
+      <AbsoluteFill style={{ backgroundColor: T.bg, wordBreak: "keep-all" }}>   {/* 상속된다 — Episode.tsx 와 같은 이유 */}
         <div style={{ position: "absolute", top: 200, left: 0, width: W, textAlign: "center", fontFamily: T.sans, fontWeight: 700, fontSize: T.fsLead + 10, color: "#fff", lineHeight: 1.25, padding: "0 60px", whiteSpace: "pre-wrap" }}>
           {title}
         </div>
