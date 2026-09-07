@@ -32,11 +32,16 @@ const ease = (frame: number, fps: number, a: number, b: number) =>
 export const WIN = { left: 96, right: 96, top: 96, bottom: getGrammar("workshop").safeBottom };
 const G = getGrammar("workshop");
 export const WORKSHOP_CAPTION_BOTTOM = G.caption.bottom;
+// 표시줄 높이는 아래로 그은 1px 선을 **포함한** 값이다. remotion 이 화면에
+// * { box-sizing: border-box } 를 깔아 주기 때문이다(remotion/dist/.../default-css).
+// 창이 안쪽 칸을 이 값으로 빼므로, 표시줄이 실제로 이보다 높으면 안에 든 이미지와
+// 그 위 주석 상자가 그만큼 어긋난다. 실측: 창 위 테두리 96, 표시줄 아래 선 152 → 97~152 = 56.
+// (index.css 를 떼고 렌더해도 같은 값이 나온다 — tailwind 가 아니라 remotion 이 보장한다.)
 const TITLE_H = 56;   // 제목 표시줄
 const BROWSER_H = 60; // 주소 알약이 있는 표시줄은 조금 높다
 const BORDER = 1;     // 창 테두리. 안쪽 칸은 좌우·상하로 이만큼씩 좁다
-const PAD = 22;       // 창 안쪽 여백
-const CMD_H = 51;     // "$ 명령" 줄
+const PAD = 22;       // 창 안쪽 여백. Term 의 padding 과 같은 값이어야 한다
+const CMD_H = 51;     // "$ 명령" 줄 (fontSize 26 + marginBottom 14)
 
 /* ─────────── 책상: 창을 올려 둘 바닥 ─────────── */
 // 창을 올려 둘 바닥. 다른 문법의 바탕과 같은 것을 써야 씬이 갈려도 한 편으로 읽힌다.
@@ -84,9 +89,11 @@ const TitleBar: React.FC<{ chrome: Chrome; title: string }> = ({ chrome, title }
     );
   }
   // terminal — 제목만 가운데. 주소 알약도 화살표도 없다.
+  // height 는 반드시 TITLE_H 다. 56 을 손으로 적어 두면 창이 안쪽 칸을 TITLE_H 로 빼는데
+  // 실제 표시줄은 다른 높이가 되어, 안에 든 이미지와 그 위 주석 상자가 그 차이만큼 어긋난다.
   return (
     <div style={{
-      height: 56, flexShrink: 0, display: "flex", alignItems: "center", gap: 13,
+      height: TITLE_H, flexShrink: 0, display: "flex", alignItems: "center", gap: 13,
       padding: "0 18px", backgroundColor: "#161a21", borderBottom: `1px solid ${T.panelLine}`,
       position: "relative",
     }}>
@@ -157,12 +164,16 @@ export const Term: React.FC<{
   const shown = Math.floor(interpolate(frame, [st.startSec * fps, (st.startSec + lines.length * st.everySec) * fps],
     [0, lines.length], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }));
   // 창 안에 실제로 몇 줄이 들어가는지 계산한다. 매직넘버를 두면 로그가 길어질 때 조용히 잘린다.
+  // 담긴 칸의 높이는 창이 FitBoxCtx 로 내려 준다 — 여기서 다시 빼면 항을 하나 흘린다.
+  // (실제로 그랬다: 테두리 2px 을 안 뺀 판본이 나갔다. 창이 이미 뺀 값을 받아 쓰면 그럴 일이 없고,
+  //  browser 표시줄처럼 높이가 다른 창에 넣어도 저절로 맞는다.)
+  const ctx = React.useContext(FitBoxCtx);
   const LINE = 35.5;                                   // fontSize 25 × lineHeight 1.42
-  const inner = height - WIN.top - WIN.bottom - BORDER * 2 - TITLE_H - PAD * 2 - CMD_H;
-  const rows = Math.max(4, Math.floor(inner / LINE));
+  const boxH = ctx?.h ?? height - WIN.top - WIN.bottom - BORDER * 2 - TITLE_H;
+  const rows = Math.max(4, Math.floor((boxH - PAD * 2 - CMD_H) / LINE));
   const over = Math.max(0, shown - rows);              // 넘친 만큼 위로 밀어 올린다
   return (
-    <div style={{ padding: "22px 28px", fontFamily: T.mono, transform: `translateY(${-over * LINE}px)` }}>
+    <div style={{ padding: `${PAD}px 28px`, fontFamily: T.mono, transform: `translateY(${-over * LINE}px)` }}>
       <div style={{ color: T.ok, fontSize: 26, marginBottom: 14 }}>$ {cmd}</div>
       {lines.slice(0, shown).map((l, i) => {
         const bad = badPrefix && l.startsWith(badPrefix);
@@ -209,10 +220,15 @@ export const Boxes: React.FC<{ boxes: Box[]; dim?: number; fade?: number }> = ({
 }) => {
   const frame = useCurrentFrame(); const { fps } = useVideoConfig();
   const bound = React.useContext(BoundCtx);
-  if (process.env.NODE_ENV !== "production" && boxes.length > 0 && !bound) {
-    // 산문으로 적은 규칙은 재발한다. 칸을 손으로 잡는 컴포넌트가 또 생기면 여기서 걸린다.
-    // eslint-disable-next-line no-console
-    console.warn("[Boxes] 칸이 이미지 크기로 안 맞춰졌다. FitFrame 안에 넣어라 — 좌표가 레터박스만큼 어긋난다.");
+  // 산문으로 적은 규칙은 재발한다. 칸을 손으로 잡는 컴포넌트가 또 생기면 여기서 걸린다.
+  // NODE_ENV 로 감싸지 않는다 — 렌더 번들은 production 이라 그렇게 두면 스튜디오에서만 돌고
+  // 정작 마스터를 뽑을 때는 아무 말도 안 한다. 그리고 경고가 아니라 던진다:
+  // 안 묶인 칸에 찍은 상자는 "조금 어긋난 그림"이 아니라 틀린 그림이다. 조용히 나가면 안 된다.
+  if (boxes.length > 0 && !bound) {
+    throw new Error(
+      "[Boxes] 칸이 이미지 크기로 안 맞춰졌다. FitFrame 안에 넣어라 — " +
+      "좌표가 레터박스만큼 통째로 어긋난다. (Shot 이면 aspect 를 줘라)",
+    );
   }
   return (
     <>
@@ -226,6 +242,9 @@ export const Boxes: React.FC<{ boxes: Box[]; dim?: number; fade?: number }> = ({
         return (
           <div key={i} style={{
             position: "absolute", left: `${b.x}%`, top: `${b.y}%`, width: `${b.w}%`, height: `${b.h}%`,
+            // 좌표는 "테두리를 포함한 사각형"이다 — remotion 이 * { box-sizing: border-box }
+            // 를 깔아 주므로 3px 테두리가 % 안쪽으로 그려진다. 씬은 그 전제로 좌표를 찍는다
+            // (테두리가 패널을 물지 않게 사방 3px 넓혀서).
             border: `3px solid ${c}`, borderRadius: 6, opacity: on,
             ...(k > 0 ? { boxShadow: `0 0 0 9999px rgba(7,8,11,${k * on})` } : null),
           }}>
@@ -333,7 +352,11 @@ export const Shot: React.FC<{
 export const WorkshopCaptions: React.FC<{
   chunks: CaptionChunk[]; offsetSec: number;
   bottom?: number; fontSize?: number; maxWidth?: number; karaoke?: boolean;
-}> = ({ chunks, offsetSec, bottom = WORKSHOP_CAPTION_BOTTOM, fontSize = 42, karaoke = false }) => {
+  // maxWidth 를 받아 놓고 안 쓰고 있었다. captionRegistry 는 grammars.json 의 값을
+  // 꼬박꼬박 넘기는데 여기서 조용히 버려져, 문법 파일의 그 줄이 장식이 되어 있었다.
+  // 지금 값(1728)은 창 폭과 같아 화면이 안 바뀐다 — 줄여야 비로소 듣는다.
+}> = ({ chunks, offsetSec, bottom = WORKSHOP_CAPTION_BOTTOM, fontSize = 42,
+        maxWidth = 1920 - WIN.left - WIN.right, karaoke = false }) => {
   const frame = useCurrentFrame(); const { fps } = useVideoConfig();
   const t = frame / fps - offsetSec;
   const cur = chunks.find((c) => t >= c.start - 0.05 && t < c.end + 0.25);
@@ -348,6 +371,7 @@ export const WorkshopCaptions: React.FC<{
       <div style={{ width: 4, alignSelf: "stretch", backgroundColor: T.accent, borderRadius: 2, flexShrink: 0 }} />
       <div style={{
         fontFamily: T.sans, fontSize, fontWeight: 700, color: T.text, lineHeight: 1.32,
+        maxWidth,
         wordBreak: "keep-all",   // 한글이 낱말 중간에서 끊기지 않게
         textAlign: "left",
       }}>
