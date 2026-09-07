@@ -38,8 +38,17 @@ ffmpeg -i 녹음.m4a -af "silencedetect=noise=-50dB:d=0.4" -f null -
 1. 60Hz 이하 럼블 제거 — 목소리 대역이 아니라 방·책상 진동이다.
 2. 라우드니스를 **-18 LUFS**로 맞춘다 — 클론은 입력 레벨에 영향을 받는다.
 ```bash
-ffmpeg -i 녹음.m4a -af "highpass=f=60,loudnorm=I=-18:TP=-1.5:LRA=11" \
+ffmpeg -i 녹음.m4a -af "aformat=channel_layouts=mono,aresample=44100,highpass=f=60,loudnorm=I=-18:TP=-1.5:LRA=11" \
   -ar 44100 -ac 1 -b:a 192k channel_voice_ref.mp3
+```
+
+**채널·샘플레이트 변환은 `loudnorm` 앞에 둡니다.** 뒤에 두면 스테레오→모노 다운믹스가 채널당 0.7071 계수로 합쳐지는데, 좌우가 같은 신호(마이크 하나로 녹음하면 그렇습니다)면 √2 = **+3.01 dB** 가 리미터 **뒤에** 얹힙니다. TP=-1.5 로 지시해도 결과는 +1.5 가 됩니다. `loudnorm` 은 자기가 본 신호 기준으로 `output_tp: -1.50` 이라고 보고하므로 **로그만 봐서는 안 걸립니다.**
+
+만든 뒤 검산합니다:
+```bash
+ffmpeg -i channel_voice_ref.mp3 -af ebur128=peak=true -f null - 2>&1 | grep -E " I:| Peak:" | tail -2
+# I: -18 근처. Peak 이 0 을 넘으면(=클리핑) 위 명령의 필터 순서가 틀린 것입니다 — 다운믹스가 리미터 뒤에 붙으면 -1.5 지시가 +1.5 로 나옵니다.
+# TP 지시는 -1.5 지만 mp3 인코딩 오버슛으로 0.1~0.2 dB 는 올라올 수 있습니다(실측 -1.4 ~ -1.8).
 ```
 
 ## 참조 길이 — 실측

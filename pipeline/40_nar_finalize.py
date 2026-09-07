@@ -39,7 +39,10 @@ for s in scenes["scenes"]:
     end = min(info[sid]["last_word_end"] + PAD, info[sid]["dur"])
     # 직접 녹음본은 첫 단어 앞 여백이 길 수 있어 앞도 자른다(0.15s 여유). TTS는 first_word가 0에 가까워 영향 없음.
     start = max(0.0, info[sid]["first_word"] - 0.15)
-    af = f"atrim={start:.3f}:{end:.3f},asetpts=PTS-STARTPTS,afade=t=out:st={max(0,end-FADE):.3f}:d={FADE},loudnorm=I={NAR_LUFS}:TP=-1.5:LRA=11"
+    # 채널·샘플레이트 변환은 loudnorm **앞**에 둔다. 뒤에 두면 스테레오→모노 다운믹스(채널당 0.7071)가
+    # 좌우 같은 신호에 +3.01 dB 를 리미터 뒤에 얹어 TP=-1.5 지시가 +1.5 가 된다(직접 녹음본이 스테레오일 때).
+    af = (f"aformat=channel_layouts=mono,aresample=44100,atrim={start:.3f}:{end:.3f},asetpts=PTS-STARTPTS,"
+          f"afade=t=out:st={max(0,end-FADE):.3f}:d={FADE},loudnorm=I={NAR_LUFS}:TP=-1.5:LRA=11")
     run(["ffmpeg","-v","error","-y","-i",str(src),"-af",af,"-ar","44100","-ac","1",str(out)])
     d = dur(out); s["narration_file"] = str(out.relative_to(ep)); s["narration_dur"] = round(d,2)
     s["t_start"] = round(t,2); s["t_end"] = round(t+LEAD+d+GAP,2); rows.append((sid, info[sid]["dur"], d, s["t_start"], s["t_end"])); t = s["t_end"]
