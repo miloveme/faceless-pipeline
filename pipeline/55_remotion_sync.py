@@ -38,6 +38,25 @@ for s in sc["scenes"]:
 shutil.copy(p["scenes_v2"], data/"scenes_v2.json"); jdump(jload(p["caps"]), data/"captions.json", indent=None)
 print("synced", len(sc["scenes"]), "nar →", pub/"nar", "| data →", data)
 
+# 소재가 변환본보다 나중이면 그 렌더는 옛것이다 — 남이 소재를 바꾸면 더 놓치기 쉽다.
+# 화면이 깨지지 않고 **옛 그림이 멀쩡하게** 나오므로 사람 눈에 안 걸린다.
+if p["visual_prep"].exists():
+    vp = jload(p["visual_prep"]); stale = []
+    for kind, ext in (("clips", ".mp4"), ("images", ".png")):
+        for key, fname in vp.get(kind, {}).items():
+            src_f, out_f = ep/"source"/fname, pub/f"{key}{ext}"
+            if not src_f.exists(): continue
+            if not out_f.exists():
+                stale.append((key, fname, "변환본이 없습니다")); continue
+            if src_f.stat().st_mtime > out_f.stat().st_mtime:
+                stale.append((key, fname, f"소재가 더 새것입니다 (소재 {time.strftime('%H:%M:%S', time.localtime(src_f.stat().st_mtime))}"
+                                          f" > 변환본 {time.strftime('%H:%M:%S', time.localtime(out_f.stat().st_mtime))})"))
+    if stale:
+        lines = "\n".join(f"  {k:22} {f}\n    {why}" for k, f, why in stale)
+        die(f"소재가 변환본보다 나중입니다 — {len(stale)}건:\n{lines}\n"
+            f"  15_clip_prep.py {a.ep} 를 먼저 돌리세요. 안 돌리면 렌더에 옛 그림이 그대로 나옵니다.", 3)
+    print(f"소재 최신 검사: {sum(len(vp.get(k, {})) for k in ('clips', 'images'))}개 · 뒤처진 것 0건")
+
 # 소재 경로 검사. asset() 을 안 지난 경로는 남의 편을 가리켜도 tsc·remotion 이 통과시킨다.
 src_dir = REMOTION_DIR/"src"/sl
 tsx = [f for f in src_dir.rglob("*.ts*") if "data" not in f.relative_to(src_dir).parts] if src_dir.is_dir() else []

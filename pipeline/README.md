@@ -24,7 +24,7 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 | 40 | `40_nar_finalize.py` | nar_raw + bounds | `narration_final/*.wav`, `script/scenes_v2.json` | 트랙을 사람이 들음 |
 | 45 | `45_visual_plan.py [--force]` | scenes_v2, scenes_v1 | `script/visual_plan.md` | 카드·이유는 사람이 채우고 승인 |
 | 50 | `50_captions_build.py` | narration_final | `captions.json` | 자막 텍스트는 원문 |
-| 55 | `55_remotion_sync.py [--skip-src-check]` | scenes_v2, captions | Remotion `public/`·`src/<slug>/data/` | 소재 경로가 `asset()` 을 지나는가·`SLUG` 가 이 편인가 → exit 3 |
+| 55 | `55_remotion_sync.py [--skip-src-check]` | scenes_v2, captions, visual_prep | Remotion `public/`·`src/<slug>/data/` | 소재가 변환본보다 나중인가·`asset()` 을 지나는가·`SLUG` 가 이 편인가 → exit 3 |
 | 60 | `60_render_master.sh EP Comp vX` | 컴포지션 | `edit/*_master.mp4` + 720p 프리뷰 | 사람이 프리뷰 검수 |
 | 65 | `65_render_derived.sh EP` | Thumb/Shorts 컴포지션 | 썸네일·쇼츠 | |
 | 70 | `70_srt_build.py` | captions(+captions_en) | `edit/*_ko.srt`, `*_en.srt` | |
@@ -77,6 +77,9 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 - **10단계를 통과하는 글자는 한글·숫자·공백·`.` `,` `?` `!` 뿐입니다.** 그 밖의 것이 남으면 멈춥니다 —
   기호를 사전으로 하나씩 막으면 다음 편에서 `%`·`±`·`→`·괄호가 같은 구멍으로 지나갑니다.
   숫자 사이의 `~`·`-` 는 `에서`, 줄표 `—` 는 쉼표로 바뀝니다(숫자 **앞**의 `-` 는 그대로 마이너스).
+- **소재를 바꾸면 15단계를 다시 돌립니다.** 안 돌리면 렌더에 **옛 그림이 멀쩡하게** 나옵니다 —
+  화면이 안 깨지므로 사람 눈에 안 걸립니다. 55단계가 `source/` 와 `public/<slug>/` 의 시각을 대조해
+  뒤처진 것이 있으면 멈춥니다(exit 3). 남이 소재를 바꿨을 때가 특히 놓치기 쉽습니다.
 - **숫자는 CER 과 별개로 완전일치로 봅니다.** 118자 문장에서 한 글자는 CER 0.013 이라 문턱을 낮춰도
   못 잡고, 그만큼 조이면 정상 씬(최대 0.054 실측)이 먼저 걸립니다. 10단계가 남긴 `subs` 의 숫자 읽기가
   받아쓰기에 그대로 있는지 30단계가 대조합니다.
