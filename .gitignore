@@ -31,6 +31,9 @@ assets/**/*
 !assets/*/.gitkeep
 out/
 
+# Remotion 이 브라우저를 여기 내려받는다(openBrowser · 검사·렌더). 기계마다 다른 실행파일이다.
+.remotion/
+
 __pycache__/
 *.pyc
 .venv/
