@@ -3,6 +3,7 @@
 소재 경로도 함께 검사한다 — 남의 편 소재를 가리켜도 컴파일과 렌더는 되기 때문에 여기서 센다.
 사용: 55_remotion_sync.py <EP> [--skip-src-check]"""
 import argparse, shutil, re
+import hashlib
 from common import *
 ap = argparse.ArgumentParser(); ap.add_argument("ep")
 ap.add_argument("--skip-src-check", action="store_true", help="소재 경로 검사를 건너뛴다(컴포넌트를 아직 쓰는 중이거나, 검사가 잘못 잡을 때)")
@@ -96,6 +97,11 @@ if blocks:
     lv = [(c, lufs(pub/f"{c}.mp4"), clipped(pub/f"{c}.mp4")) for c in sorted({b["clip"] for b in blocks})]
     print(f"씬 밖 구간 검사: 클립이 붙은 구간 {len(blocks)}개 · 클립 {len(lv)}종 다 있고 소리도 있습니다")
     print("  음량:", " · ".join(f"{c} {('?' if i is None else f'{i:.1f}')} LUFS 클립 {n}" for c, (i, _), n in lv))
+    # **이름이 같은데 안이 바뀐다.** 이 편에서 `intro_orig` 이 하루에 세 번 다시 구워졌고
+    # 그때마다 미술이 잰 값이 어느 판인지 갈렸다(가림 178px → 239px → 크롭으로 없앰).
+    # 지문을 찍으면 「내가 잰 것이 이것인가」를 파일 이름이 아니라 **내용**으로 댈 수 있다.
+    print("  지문:", " · ".join(
+        f"{c} {hashlib.sha1((pub / f'{c}.mp4').read_bytes()).hexdigest()[:8]}" for c, _, _ in lv))
     # 음량 차이는 **의도일 수 있다** — 이 편의 꼬리(-20.6)와 인트로(-18.0)가 2.6 LU 갈리고 그게 의도다.
     # 그래서 재서 보여만 준다. 반면 **클리핑은 언제나 사고다** — 그것만 멈춘다(음악 감독이 정한 문턱).
     # 판정은 ebur128 의 Peak 가 아니라 풀스케일 이상 샘플 수다. Peak 은 dBFS 로 반올림돼 -0.0 과 0.0 이 안 갈린다.
