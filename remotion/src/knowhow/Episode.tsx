@@ -4,6 +4,7 @@ import { Audio, Video } from "@remotion/media";
 import { T, faceFor } from "./theme";
 import { CaptionChunk } from "./Captions";
 import { captionLayerOf } from "./captionRegistry";
+import { Enter } from "./enter";
 
 // 채널 공용 에피소드 조립기. 에피소드는 (씬 시각표 JSON, 자막 JSON, visualFor)만 넘긴다.
 export const FPS = 30;
@@ -27,6 +28,8 @@ export type VisualFor = (s: Scene) => React.ReactNode;
  * 씬 시각표는 40 단계가 이미 밀어서 써 두므로 아래 어디에도 오프셋을 더하지 않는다.
  */
 export type Block = { t: number; sec: number; clip?: string };
+/** 씬 사이 전환. 키는 **경계 앞에 오는 것**의 id. 시각표는 이 값으로 안 바뀐다 — 앞 것을 늘려 겹친다. */
+export type Transition = { default: number; after: Record<string, number> };
 
 /** 자막을 그리는 층. grammars.json 의 caption.layer 이름이 이걸로 풀린다. */
 export type CaptionLayer = React.FC<{ chunks: CaptionChunk[]; offsetSec: number }>;
@@ -77,7 +80,21 @@ export const makeEpisode = (
   visualFor: VisualFor,
   grammar: string = "panel",
   blocks: Block[] = [],
+  transition: Transition = { default: 0, after: {} },
 ) => {
+  // 전환 길이는 **경계 앞에 오는 것**이 갖는다. 앞 것의 자리를 그만큼 늘려 겹치고,
+  // 들어오는 것이 그동안 움직인다. 시각표(t_start·t_end)는 안 건드린다.
+  const holdOf = (id: string) => transition.after[id] ?? transition.default;
+  // 들어오는 것이 움직이는 길이는 **바로 앞에 오는 것**의 값이다. 씬과 구간을 시각으로 한 줄에
+  // 세워 앞뒤를 잡는다 — 구간이 씬 사이에 끼면 경계가 둘로 늘어나므로 씬만 봐서는 안 된다.
+  const ORDER = [
+    ...scenes.map((s) => ({ id: s.id, t: s.t_start })),
+    ...blocks.map((b) => ({ id: b.clip ?? `빈화면@${b.t}`, t: b.t })),
+  ].sort((a, b) => a.t - b.t);
+  const enterOf = (id: string) => {
+    const i = ORDER.findIndex((x) => x.id === id);
+    return i > 0 ? holdOf(ORDER[i - 1].id) : 0;      // 편의 첫 것은 들어올 데가 없다
+  };
   const CaptionsLayer = captionLayerOf(grammar);
   // 마지막 구간이 마지막 씬 뒤에 올 수 있다 — 둘 중 늦은 쪽이 편의 끝이다.
   const lastT = Math.max(scenes[scenes.length - 1].t_end, ...blocks.map((b) => b.t + b.sec), 0);
@@ -93,13 +110,16 @@ export const makeEpisode = (
         {blocks.map((b, i) => (
           <Sequence key={`blk${i}`} name={b.clip ? `구간:${b.clip}` : "구간:빈 화면"}
                     from={Math.round(b.t * fps)}
-                    durationInFrames={Math.round((b.t + b.sec) * fps) - Math.round(b.t * fps)}
+                    durationInFrames={Math.round((b.t + b.sec) * fps) - Math.round(b.t * fps)
+                                      + Math.round(holdOf(b.clip ?? `빈화면@${b.t}`) * fps)}
                     premountFor={1 * fps}>
-            <AbsoluteFill style={{ backgroundColor: "#000" }}>
-              {b.clip && (
-                <Video src={staticFile(`${slug}/${b.clip}.mp4`)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-              )}
-            </AbsoluteFill>
+            <Enter sec={enterOf(b.clip ?? `빈화면@${b.t}`)}>
+              <AbsoluteFill style={{ backgroundColor: "#000" }}>
+                {b.clip && (
+                  <Video src={staticFile(`${slug}/${b.clip}.mp4`)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                )}
+              </AbsoluteFill>
+            </Enter>
           </Sequence>
         ))}
         {scenes.map((s) => {
@@ -109,8 +129,9 @@ export const makeEpisode = (
           const from = Math.round(s.t_start * fps);
           const dur = Math.round(s.t_end * fps) - from;
           return (
-            <Sequence key={s.id} name={s.id} from={from} durationInFrames={dur} premountFor={1 * fps}>
-              {visualFor(s)}
+            <Sequence key={s.id} name={s.id} from={from}
+                      durationInFrames={dur + Math.round(holdOf(s.id) * fps)} premountFor={1 * fps}>
+              <Enter sec={enterOf(s.id)}>{visualFor(s)}</Enter>
               <Sequence from={Math.round(SCENE_LEAD * fps)} layout="none">
                 <Audio src={staticFile(`${slug}/nar/${s.id}.mp3`)} />
               </Sequence>

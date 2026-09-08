@@ -139,9 +139,13 @@ if _ep_tsx.exists():
             "    const dur  = Math.round(s.t_end * fps) - from;\n"
             "  E01 v2 마스터에 이렇게 해서 틈 2곳·겹침 2곳이 났고 24장을 다 보고도 안 걸렸습니다.\n"
             "  (Shorts.tsx 는 씬을 이어 붙이며 자기 커서를 쓰므로 해당 없습니다.)", 3)
+_tr = sc.get("transition") or {"default": 0.0, "after": {}}
+_hold = lambda i: _tr["after"].get(i, _tr["default"])
 _iv = [(round(s0["t_start"]*FPS), round(s0["t_end"]*FPS), s0["id"]) for s0 in sc["scenes"]] \
-    + [(round(b["t"]*FPS), round((b["t"]+b["sec"])*FPS), f'구간@{b["t"]}s') for b in sc.get("blocks", [])]
+    + [(round(b["t"]*FPS), round((b["t"]+b["sec"])*FPS), b.get("clip") or f'빈화면@{b["t"]}') for b in sc.get("blocks", [])]
 _iv.sort()
+# 전환이 있으면 경계는 **한 점이 아니라 구간**이다. 앞 것이 전환 길이만큼 더 남아 있어야 한다 —
+# 덜 남으면 그 사이에 바탕만 나오고, 더 남으면 다음 것이 늦게 덮인다. 둘 다 렌더는 안 죽는다.
 _bad = []
 for (a0, a1, an), (b0, b1, bn) in zip(_iv, _iv[1:]):
     if a1 != b0:
@@ -151,7 +155,9 @@ if _iv and _iv[0][0] != 0:
 if _bad:
     die(f"이음매가 안 맞습니다 — {len(_bad)}곳 (프레임, {FPS}fps):\n" + "\n".join(_bad) +
         "\n  그 프레임에 바탕색만 나오거나 두 장이 겹칩니다. 눈에 안 걸리고 렌더도 통과합니다.", 3)
-print(f"이음매 검사: 씬 {len(sc['scenes'])}개 + 구간 {len(sc.get('blocks', []))}개 · 경계 {max(0,len(_iv)-1)}곳 · 어긋난 것 0곳")
+_ov = sum(1 for (_, _, an), _ in zip(_iv, _iv[1:]) if _hold(an) > 0)
+print(f"이음매 검사: 씬 {len(sc['scenes'])}개 + 구간 {len(sc.get('blocks', []))}개 · 경계 {max(0,len(_iv)-1)}곳 · 어긋난 것 0곳"
+      + (f" · 전환이 붙는 경계 {_ov}곳(앞 것이 그만큼 더 남는다)" if _ov else ""))
 
 # 소재 경로 검사. asset() 을 안 지난 경로는 남의 편을 가리켜도 tsc·remotion 이 통과시킨다.
 src_dir = REMOTION_DIR/"src"/sl

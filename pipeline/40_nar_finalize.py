@@ -41,7 +41,7 @@ if p["tts_input"].exists():
     if _drift:
         print(f"주의: 대본이 바뀐 뒤 다시 만들지 않은 씬 {len(_drift)}개 — {', '.join(_drift)}")
         print("  이 씬들의 시각표·자막이 옛 문장 기준으로 잡힙니다. 멈추지 않습니다.")
-BEFORE, AFTER, MIN = timing_of(p, [s["id"] for s in scenes["scenes"]])
+BEFORE, AFTER, MIN, TRANS = timing_of(p, [s["id"] for s in scenes["scenes"]])
 blocks = []          # 씬이 아닌 구간. 절대 시각으로 여기에 쌓는다
 def place(sid, tbl, t):
     for it in tbl.get(sid, []):
@@ -76,6 +76,9 @@ scenes["narration_voice"] = " ".join(str(b) for b in _bits)
 scenes["lead"] = LEAD; scenes["gap"] = GAP; scenes["target_duration_sec"] = round(t,1)
 if blocks: scenes["blocks"] = blocks                        # 씬이 아닌 구간 (절대 시각)
 else: scenes.pop("blocks", None)
+# 전환은 **시각표를 안 바꾼다.** 앞 것의 자리를 그만큼 늘려 겹치는 값이라 화면 쪽으로만 넘긴다.
+if TRANS["after"] or TRANS["default"]: scenes["transition"] = TRANS
+else: scenes.pop("transition", None)
 scenes.pop("intro", None)                                  # 옛 이름
 jdump(scenes, p["scenes_v2"])
 # raw = 트림 전 원본 길이, final = 트림·정규화 뒤 내레이션 파일 길이(초). 씬 슬롯은 t_end - t_start 이고

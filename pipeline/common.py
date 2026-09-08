@@ -123,10 +123,13 @@ def timing_of(paths, ids):
     `items` 의 `clip` 이 없으면 그 초만큼 화면이 빈다. `min_sec` 은 **씬 슬롯의 하한**이고
     내레이션이 그보다 길면 내레이션이 이긴다.
 
-    반환: (before, after, min_sec) — before/after 는 씬 id → 항목 목록.
+    반환: (before, after, min_sec, transition).
+    `transition` 은 씬 사이 전환 길이(초). **시각표는 이 값으로 안 바뀐다** — 앞 것의 자리를
+    그만큼 늘려 겹치고 들어오는 것이 그동안 움직인다. `TransitionSeries` 처럼 겹친 만큼
+    전체를 줄이면 소리와 어긋나고, 32곳에서 누적되는데 렌더는 안 죽는다.
     """
     f = paths["timing"]
-    if not f.exists(): return {}, {}, {}
+    if not f.exists(): return {}, {}, {}, {"default": 0.0, "after": {}}
     d = jload(f)
     before, after = {}, {}
     for i, ins in enumerate(d.get("inserts") or [], 1):
@@ -147,7 +150,8 @@ def timing_of(paths, ids):
         if sid not in ids: die(f'{f}: min_sec 의 "{sid}" 는 없는 씬입니다', 2)
         if not isinstance(mn[sid], (int, float)) or mn[sid] <= 0:
             die(f'{f}: min_sec["{sid}"] 가 초가 아닙니다 — {mn[sid]}', 2)
-    return before, after, mn
+    tr = d.get("transition") or {}
+    return before, after, mn, {"default": float(tr.get("default", 0.0)), "after": {k: float(v) for k, v in (tr.get("after") or {}).items()}}
 
 def jdump(obj, p, indent=1):
     pathlib.Path(p).parent.mkdir(parents=True, exist_ok=True)
