@@ -32,7 +32,14 @@ print('$LN:measured_I=%(input_i)s:measured_TP=%(input_tp)s:measured_LRA=%(input_
 ffmpeg -v error -y -i "$RAW" -vn -af "$LN2" -ar 48000 -c:a aac -b:a 192k "$OUT/_audio_norm.m4a"
 ffmpeg -v error -y -i "$RAW" -i "$OUT/_audio_norm.m4a" -map 0:v -map 1:a -c copy -shortest "$MASTER"
 ffmpeg -v error -y -i "$MASTER" -vf scale=1280:-2 -c:v libx264 -crf 24 -preset fast -c:a aac -b:a 128k "$PREV"
-echo "--- loudness"; ffmpeg -i "$MASTER" -af ebur128=peak=true -f null - 2>&1 | grep -E " I:|Peak:" | tail -2
+echo "--- loudness"
+LOUD=$(ffmpeg -nostdin -i "$MASTER" -af ebur128=peak=true -f null - 2>&1 | grep -E " I:|Peak:" | tail -2); echo "$LOUD"
+# 두 패스(linear)는 TP 한계에 걸리면 **게인을 스스로 낮춰** 목표에 못 닿는다. 그래도 멈추지 않는다 —
+# 그때는 목표 도달보다 구간 관계 보존이 더 중요하다(음악 감독). 다만 조용히 -15.2 로 나가면
+# 유튜브 정규화가 다시 올리면서 맞춰 놓은 관계가 흔들리므로, 벗어난 것을 한 줄 찍는다. 0.5 LU 는 음악 감독 값.
+printf '%s\n' "$LOUD" | sed -n 's/.*I:[[:space:]]*\(-\{0,1\}[0-9.]*\) LUFS.*/\1/p' | tail -1 \
+  | awk '{ d = $1 + 14; if (d < 0) d = -d;
+           if (d > 0.5) printf "  ← 목표 -14 에서 %.1f LU 벗어났습니다. linear 가 TP 한계에 걸려 게인을 낮춘 것입니다 — 음악 감독에게 알리세요\n", d }' 
 echo "--- duration $(ffprobe -v error -show_entries format=duration -of csv=p=0 "$MASTER")s"
 # 무음이 하나도 없으면 grep 이 1 을 돌려준다 — 그건 정상이므로 || true
 echo "--- silences >2.5s"; ffmpeg -i "$MASTER" -af "silencedetect=noise=-45dB:d=2.5" -f null - 2>&1 | grep -o "silence_start: [0-9.]*\|silence_duration: [0-9.]*" | paste - - | head || true
