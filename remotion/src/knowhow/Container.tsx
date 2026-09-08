@@ -28,7 +28,7 @@ const insetOf = (grammar: string) => {
     `window 는 Workshop.tsx 의 WIN 이 자리를 정합니다 — 그 부품에서 크기를 받으세요.`);
 };
 
-export const Panel: React.FC<{ kicker?: string; children: React.ReactNode; grammar?: string }> = ({
+export const Container: React.FC<{ kicker?: string; children: React.ReactNode; grammar?: string }> = ({
   kicker, children, grammar = "panel",
 }) => {
   const fade = useCue(0, 0.4);
@@ -73,3 +73,6 @@ export const panelInner = (grammar = "panel") => {
     h: 1080 - T.edge - getGrammar(grammar).safeBottom - inset,
   };
 };
+
+/** 옛 이름. 담기가 `card` 일 때만 「패널」이라 이름이 좁아졌다 — 새 코드는 `Container` 를 쓴다. */
+export const Panel = Container;
