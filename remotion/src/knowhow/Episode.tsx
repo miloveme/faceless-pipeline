@@ -18,7 +18,10 @@ export type VisualFor = (s: Scene) => React.ReactNode;
  * `scenes_v2.json` 의 `blocks` 에 담는다. 씬 앞이든 씬 사이든 여기서는 차이가 없다 —
  * 40 이 이미 시각을 계산했으므로 이쪽은 "t 초에 이것"만 놓는다.
  *
- * `clip` 이 없으면 그 초만큼 화면이 빈다. 있으면 **소리까지** 그대로 재생한다.
+ * `clip` 이 없으면 그 초만큼 **순검정**이다. 채널 바탕색이 아니다 — 이 구간은 채널을 보이는
+ * 자리가 아니라 **비우는** 자리이고, 원본 클립의 레터박스가 이미 순검정이라 그 검정이 화면
+ * 전체로 퍼졌다가 다시 열리는 것으로 이어진다. 바탕색은 미묘하게 밝아 다른 화면이 낀 것으로
+ * 보인다(미술·연출). 있으면 **소리까지** 그대로 재생한다.
  *
  * **여기에 씬은 없다.** 그래서 자막도 없다 — 원본 대사에 우리 자막을 달지 않는다.
  * 씬 시각표는 40 단계가 이미 밀어서 써 두므로 아래 어디에도 오프셋을 더하지 않는다.
@@ -87,17 +90,18 @@ export const makeEpisode = (
       <AbsoluteFill style={{ backgroundColor: T.bg, wordBreak: "keep-all" }}>
         {/* 구간의 경계를 **절대 시각을 프레임으로 반올림해서** 잡는다. 길이를 따로 반올림하면
             오차가 쌓여 끝이 다음 씬의 t_start 와 어긋나고 그 틈에 검은 프레임이 한 장 낀다. */}
-        {blocks.map((b, i) =>
-          b.clip === undefined ? null : (
-            <Sequence key={`blk${i}`} name={`구간:${b.clip}`} from={Math.round(b.t * fps)}
-                      durationInFrames={Math.round((b.t + b.sec) * fps) - Math.round(b.t * fps)}
-                      premountFor={1 * fps}>
-              <AbsoluteFill style={{ backgroundColor: "#000" }}>
+        {blocks.map((b, i) => (
+          <Sequence key={`blk${i}`} name={b.clip ? `구간:${b.clip}` : "구간:빈 화면"}
+                    from={Math.round(b.t * fps)}
+                    durationInFrames={Math.round((b.t + b.sec) * fps) - Math.round(b.t * fps)}
+                    premountFor={1 * fps}>
+            <AbsoluteFill style={{ backgroundColor: "#000" }}>
+              {b.clip && (
                 <Video src={staticFile(`${slug}/${b.clip}.mp4`)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-              </AbsoluteFill>
-            </Sequence>
-          ),
-        )}
+              )}
+            </AbsoluteFill>
+          </Sequence>
+        ))}
         {scenes.map((s) => {
           // 경계를 **절대 시각으로** 반올림한다. 길이를 반올림하면 앞 씬의 끝과 다음 씬의 시작이
           // 한 프레임 어긋나 이음매에 바탕색이 한 장 비치거나 두 씬이 한 장 겹친다.

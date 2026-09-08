@@ -83,9 +83,13 @@ print(f"{len(rows)}/{len(scenes['scenes'])}씬 · total {round(t,1)}s = {round(t
       + (f" (씬 밖 구간 {len(blocks)}개 {_bsec}s 포함, 첫 씬 t_start={rows[0][3]})" if blocks else "") + f" · {pname}")
 if blocks:
     print("씬 밖 구간:", " · ".join(f'{b["t"]:.2f}s {b.get("clip","(빈 화면)")} {b["sec"]}s' for b in blocks))
-_stretched = [(a, e - d) for a,_,c,d,e,_,_,_ in rows if MIN.get(a) and e - d > LEAD + c + GAP + 0.005]
+# 최소 길이로 늘어난 씬은 **뒤가 길어진 것**이다 — 내레이션은 t_start+LEAD 에 그대로 얹히므로
+# 앞쪽 박자는 안 바뀐다. 연출이 마지막 박자 뒤에 얼마가 남는지 알아야 해서 그 값을 같이 찍는다.
+_stretched = [(a, e - d, (e - d) - (LEAD + c + GAP)) for a,_,c,d,e,_,_,_ in rows
+              if MIN.get(a) and e - d > LEAD + c + GAP + 0.005]
 if _stretched:
-    print("min_sec 으로 늘어난 씬:", " · ".join(f"{a} {v:.2f}s" for a, v in _stretched))
+    print("min_sec 으로 늘어난 씬 (슬롯 · 내레이션 끝난 뒤 남는 시간):",
+          " · ".join(f"{a} {v:.2f}s (+{x:.2f}s)" for a, v, x in _stretched))
 # 음량 기준은 음악 감독의 값이다(common.py). 여기서는 재서 보여만 준다 — 판정은 트랙과 마스터에서 한다
 _loud = [a for a,_,_,_,_,li,_,_ in rows if li is not None and abs(li - NAR_LUFS) > NAR_LUFS_TOL]
 _clip = [a for a,_,_,_,_,_,_,lc in rows if lc > 0]
