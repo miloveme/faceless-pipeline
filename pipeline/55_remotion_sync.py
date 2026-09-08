@@ -248,6 +248,22 @@ if src_dir.is_dir():
               "  기호는 서체에 없으면 두부(□)가 되는데 렌더는 통과합니다 — 판정은 낱말로 하세요.", 3)
     print(f"화면 글자 검사: 파일 {len(tsx)}개 · 경로 조각 0건 · 서체에 없는 기호 0건")
 
+# **소재를 쓰는 씬이 몇이나 되나.** 안 세면 다음 편이 4/29 가 돼도 아무도 안 알아챈다 —
+# 다 만들고 나서 「PPT 같다」로 알게 된다. E00 이 그렇게 됐고 그래서 이 편이 시작됐다(미술).
+# **문턱을 두지 않는다.** 62% 가 적정한지는 편이 하나뿐이라 견줄 것이 없다 — 기준으로 박으면
+# 한 판본의 관찰값이 기준이 된다(면적 11.6% 가 그렇게 됐다). **수만 찍고 판단은 사람이 한다.**
+# `asset("` 리터럴만 세면 안 된다 — `C.S21.shots.map(...)` 처럼 이름을 데이터에서 받는 자리가 빠진다.
+_scn = src_dir/"scenes.tsx"
+if _scn.exists():
+    _txt = _scn.read_text(encoding="utf-8")
+    _pos = [(m.start(), m.group(1)) for m in re.finditer(r'const (V\d+): React\.FC', _txt)]
+    if _pos:
+        _bodies = [_txt[p:(_pos[i+1][0] if i+1 < len(_pos) else len(_txt))] for i, (p, _) in enumerate(_pos)]
+        _with = sum(1 for b in _bodies if "asset(" in b)
+        print(f"소재 쓰는 씬: {_with}/{len(_bodies)} · 소재 없는 씬 {len(_bodies)-_with}개"
+              + ("" if len(_bodies) == len(sc["scenes"]) else
+                 f"  (씬 컴포넌트 {len(_bodies)}개 · 시각표 {len(sc['scenes'])}씬 — **수가 다릅니다**)"))
+
 # **쇼츠가 부르는 씬이 실제로 있나.** Shorts.tsx 는 없는 id 를 **조용히 건너뛴다** —
 # 대본이 덜 된 상태에서도 스튜디오가 열리라고 그렇게 뒀는데, 씬 id 가 바뀌면
 # 쇼츠가 그만큼 짧아지고 렌더는 통과한다. 길이가 줄어도 「원래 그런 길이」로 보인다.
