@@ -14,21 +14,32 @@ from common import die
 ap = argparse.ArgumentParser()
 ap.add_argument("video")
 ap.add_argument("--fps", type=float, default=10.0, help="초당 몇 장을 볼까 (기본 10 — 0.9초 정지도 잡힌다)")
-# **임계 0.5 는 재서 정했다**(엔지니어). 두 무리가 아주 멀리 떨어져 있어 고를 폭이 넓다:
-#   정지한 그림   crf18 로 구운 정지 프레임 30장의 차가 **전부 0.00** — h264 가 같은 프레임을 그대로 낸다
-#   움직이는 것   실사 클립(master_m)의 1% 분위가 **0.81**, 중앙값 2.70
-#   섞은 것       0.00 무리와 2.86 이상 무리로 깨끗이 갈린다
-# 1.0 으로 두면 실사 99장 중 4장이 「정지」로 잡힌다. 0.5 는 골짜기 한가운데다.
+# **임계 0.5 는 재서 정했다**(엔지니어). **자막 띠를 뺀 뒤의 값이다** — 아래 참고.
+#   정지한 그림      crf18 로 구운 정지 프레임 30장의 차가 **전부 0.00** (h264 가 같은 프레임을 그대로 낸다)
+#   자막만 바뀔 때    실측 **0.00~0.02**  ← 자막 띠를 빼면 노래방 강조가 화면에 안 남는다
+#   움직이는 것      실사 클립 1% 분위 **0.94** · 중앙값 3.23
+# **자막 띠를 안 빼면** 자막만 바뀌는 자리가 0.05~0.18 로 올라온다 — 0.5 아래라 그때도 「정지」로는 잡히지만
+# 여유가 2.8배뿐이다. 빼면 **40배**가 되어 서체나 자막 크기가 바뀌어도 안 흔들린다.
+# 1.0 으로 두면 실사 99장 중 4장이 「정지」로 잡힌다. 0.5 는 0.02 와 0.94 사이의 한가운데다.
 # **값을 바꾸면 여기 근거도 같이 고쳐라** — 수만 바꾸면 다음 사람이 왜 그 수인지 모른다.
 ap.add_argument("--th", type=float, default=0.5,
                 help="이웃 프레임 평균 화소 차가 이 아래면 정지 (0~255, 기본 0.5)")
 ap.add_argument("--max-still", type=float, default=3.0, help="이 초를 넘게 안 바뀌면 찍는다")
+# **자막 띠를 뺀다.** 노래방 강조가 낱말마다 바뀌고 낱말이 0.2~0.5초라, 안 빼면
+# **내레이션이 도는 동안 어느 프레임도 「정지」가 아니다.** 그러면 검사가 늘 「0곳」을 내는데
+# 그건 화면이 움직여서가 아니라 자막이 움직여서다(연출이 잡았다).
+# 목표값 「3초 넘게 아무것도 안 바뀌는 자리가 없다」는 **그림 층**의 이야기다 — 자막은 어차피 바뀐다.
+# 기본 0.2019 = grammars.json 의 safeBottom 218 ÷ 1080. **문법이 다르면 그 값으로 바꾼다.**
+ap.add_argument("--cut-bottom", type=float, default=218 / 1080,
+                help="아래 이 비율만큼 빼고 잰다 (기본 218/1080 = 자막 안전영역)")
 ap.add_argument("--report", action="store_true", help="차이값 분포를 같이 찍는다 — 임계를 정할 때 본다")
 a = ap.parse_args()
 
 W, H = 160, 90                      # 정지 판정에 해상도는 필요 없다. 작게 봐야 인코더 잡음이 씻긴다
+keep = max(0.05, 1 - a.cut_bottom)
 cmd = ["ffmpeg", "-v", "error", "-i", a.video,
-       "-vf", f"fps={a.fps},scale={W}:{H},format=gray", "-f", "rawvideo", "-"]
+       "-vf", f"fps={a.fps},crop=iw:ih*{keep:.6f}:0:0,scale={W}:{H},format=gray",
+       "-f", "rawvideo", "-"]
 p = subprocess.run(cmd, capture_output=True)
 if p.returncode != 0: die(f"ffmpeg 실패: {p.stderr.decode()[:300]}", 1)
 buf = np.frombuffer(p.stdout, dtype=np.uint8)
@@ -50,7 +61,8 @@ while i < len(still):
 
 total = n * dt
 pct = still.sum() * dt / total * 100
-print(f"정지 비율 **{pct:.1f}%**  ({a.fps}fps 로 {n}장 · 임계 평균 화소 차 {a.th} · 편 {total:.1f}초)")
+print(f"정지 비율 **{pct:.1f}%**  ({a.fps}fps 로 {n}장 · 임계 평균 화소 차 {a.th} · 편 {total:.1f}초"
+      + f" · 아래 {a.cut_bottom*100:.1f}% 는 빼고 봄 — 자막 띠)")
 print(f"  정지 구간 {len(runs)}개 · 가장 긴 것 {max((r[1] for r in runs), default=0):.2f}초")
 long = [r for r in runs if r[1] > a.max_still]
 if long:
