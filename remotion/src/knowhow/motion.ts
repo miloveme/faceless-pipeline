@@ -40,7 +40,8 @@ export const useCues = () => {
   return (atSec: number, overSec = 0.5, linear = false) => cue(frame, fps, atSec, overSec, linear);
 };
 
-export const useCue = (atSec: number, overSec = 0.5, opts?: { linear?: boolean }) => {
+export const useCue = (atSec: number, overSec = 0.5,
+                       opts?: { linear?: boolean; config?: Parameters<typeof spring>[0]["config"] }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   if (opts?.linear) {
@@ -54,5 +55,5 @@ export const useCue = (atSec: number, overSec = 0.5, opts?: { linear?: boolean }
   // opacity 는 무해하지만 「막대가 끝까지 자란다」 같은 자리에서는 끝이 모자란다.
   // 실제로 s08 밑줄이 5px 짧아졌다(다른 화소 34개, 7×6 자리). 눈에 안 걸리고 렌더도 안 죽는다.
   if (f >= dur) return 1;
-  return spring({ frame: f, fps, durationInFrames: dur, config: CUE_SPRING });
+  return spring({ frame: f, fps, durationInFrames: dur, config: opts?.config ?? CUE_SPRING });
 };

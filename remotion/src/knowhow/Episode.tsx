@@ -31,6 +31,27 @@ export type Block = { t: number; sec: number; clip?: string };
 /** 씬 사이 전환. 키는 **경계 앞에 오는 것**의 id. 시각표는 이 값으로 안 바뀐다 — 앞 것을 늘려 겹친다. */
 export type Transition = { default: number; after: Record<string, number> };
 
+/**
+ * **구간·씬을 가리지 않는 클립 라벨.** 「지금 보는 것이 원본인가 클론인가」를 말한다.
+ * 인트로에서 뜬 것이 s00 으로 **그대로 이어져야** 해서, 두 곳이 같은 부품이어야 한다 —
+ * 부품이 갈리면 이음매에서 자리나 농도가 미세하게 튀고 그게 「다시 뜬 것」으로 읽힌다.
+ *
+ * **담는 상자의 좌상단에 붙는다.** 상자가 움직이면 따라간다 — 자리 값을 아무도 안 준다.
+ * 좌표를 주고받으면 갈린다(오늘 트랙 폭이 세 번 갈렸다).
+ *
+ * `size` 만 밖에서 준다. s00 이 2.94 에 26 → 34 로 한 번 키우는데 **그때 바뀌는 것은 크기뿐이다** —
+ * 받침·여백·모서리·색은 인트로부터 s00 끝까지 같다(연출).
+ */
+export const ClipLabel: React.FC<{ text: string; size: number; color?: string }> = ({
+  text, size, color = T.text,
+}) => (
+  <div style={{
+    position: "absolute", left: 0, top: 0,
+    fontFamily: faceFor(text), fontSize: size, color,
+    backgroundColor: T.capBg, padding: "8px 16px", borderRadius: T.radiusSm,
+  }}>{text}</div>
+);
+
 /** 자막을 그리는 층. grammars.json 의 caption.layer 이름이 이걸로 풀린다. */
 export type CaptionLayer = React.FC<{ chunks: CaptionChunk[]; offsetSec: number }>;
 
@@ -81,6 +102,10 @@ export const makeEpisode = (
   grammar: string = "panel",
   blocks: Block[] = [],
   transition: Transition = { default: 0, after: {} },
+  // 구간에 붙는 라벨. **사용자가 두 번 말한 것이다** — 「보고 있는 영상이 어떤 건지 알고 봐야」 한다.
+  // **크기·색은 여기서 안 정한다.** 편이 통째로 준다 — 안 주면 라벨이 안 붙는다.
+  // 기본값을 두면 그 수가 어느 편에서든 조용히 쓰이고, 그게 오늘 넷 샌 자리다.
+  blockLabel?: { size: number; of: Record<string, { text: string; color: string }> },
 ) => {
   // 전환 길이는 **경계 앞에 오는 것**이 갖는다. 앞 것의 자리를 그만큼 늘려 겹치고,
   // 들어오는 것이 그동안 움직인다. 시각표(t_start·t_end)는 안 건드린다.
@@ -121,6 +146,10 @@ export const makeEpisode = (
               <AbsoluteFill style={{ backgroundColor: "#000" }}>
                 {b.clip && (
                   <Video src={staticFile(`${slug}/${b.clip}.mp4`)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                )}
+                {b.clip && blockLabel?.of[b.clip] && (
+                  <ClipLabel text={blockLabel.of[b.clip].text} size={blockLabel.size}
+                             color={blockLabel.of[b.clip].color} />
                 )}
               </AbsoluteFill>
             </Enter>
