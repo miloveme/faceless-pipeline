@@ -158,6 +158,20 @@ if a.per_scene:
     shown = sorted(best.values(), key=lambda r: order[at(r[0])[0]])
     print(f"  ← {a.max_still}초를 넘는 자리 {len(long)}곳 중 **씬마다 가장 긴 것 {len(shown)}줄**"
           f" (씬 {len(SC)}개 중 {len(shown)}개에 있음 · 씬 밖은 안 셈)")
+    # **정지 목록의 구멍을 메우는 칸**(미술). 낱말 하나가 커지는 것이 화면 평균 차 0.5 근처라
+    # **작은 것 하나가 계속 움직이면 그 씬은 목록에서 빠진다** — 보기에는 멈춰 있는데도.
+    # 그 자리를 「차가 0.5~1.5 인 표본의 비율」로 낸다. 실사는 그 위에 있다(1% 분위 0.81 · 중앙 2.70).
+    # **새 훑기가 아니다** — 이미 잰 `d` 에 조건 하나다. 비율이 높은 씬이 미술이 열어 볼 씬이다.
+    _lo, _hi = a.th, a.th * 3
+    print(f"  씬별 **작은움직임** = 이웃 프레임 차가 {_lo}~{_hi} 인 표본의 비율 (그 위는 실사·전환)")
+    for x in SC:
+        i0, i1 = round(x["t_start"] / dt), min(len(d), round(x["t_end"] / dt))
+        seg = d[max(0, i0):i1]
+        if not len(seg): continue
+        _sm = float(((seg >= _lo) & (seg < _hi)).mean() * 100)
+        _lg = max((L for t, L in runs if at(t)[0] == x["id"]), default=0.0)
+        print(f"      {x['id']}  가장 긴 정지 {_lg:5.2f}초 · 작은움직임 {_sm:4.0f}%"
+              + ("  ←" if _lg > a.max_still else ""))
 else:
     shown = long
     print(f"  ← **{a.max_still}초를 넘게 안 바뀌는 자리 {len(shown)}곳**" if shown
