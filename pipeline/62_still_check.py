@@ -47,6 +47,10 @@ ap.add_argument("--ep", help="에피소드. 주면 정지 자리를 **씬·씬 �
 ap.add_argument("--stills", help="정지가 시작하는 프레임을 이 폴더에 뽑는다 (마스터에서 바로 뜬다)")
 # 임계를 낮추면(0.8) 박자 사이가 다 걸려 목록이 길어진다. 그때는 **씬마다 가장 긴 것 하나**만 본다(연출).
 ap.add_argument("--per-scene", action="store_true", help="씬마다 가장 긴 정지 하나씩만 찍는다 (--ep 필요)")
+# **목록에 안 걸리는 자리도 봐야 할 때가 있다.** 인트로 사이 검은 0.4초가 그렇다 —
+# 짧아서 어느 임계에도 안 걸리는데, 원본과 클론을 가르는 자리라 미술이 봐야 한다.
+ap.add_argument("--extra-still", type=float, action="append", metavar="초", default=[],
+                help="목록과 별개로 이 시각의 스틸도 뽑는다 (여러 번 줄 수 있다 · --stills 필요)")
 a = ap.parse_args()
 
 W, H = 160, 90                      # 정지 판정에 해상도는 필요 없다. 작게 봐야 인코더 잡음이 씻긴다
@@ -150,6 +154,17 @@ for t, L in shown:
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", a.video,
                         "-frames:v", "1", f"{a.stills}/still_{fnum}.png"], check=False)
 if a.stills and shown: print(f"      스틸 {len(shown)}장 → {a.stills}/  (**정지가 시작하는 프레임**)")
+
+if a.extra_still:
+    if not a.stills: die("--extra-still 은 --stills 가 있어야 합니다 (뽑을 곳이 없습니다)", 2)
+    import pathlib as _pl; _pl.Path(a.stills).mkdir(parents=True, exist_ok=True)
+    print(f"  따로 뽑은 자리 {len(a.extra_still)}장 (목록과 무관 — 요청받은 시각)")
+    for t in a.extra_still:
+        fnum = round(t * 30)
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", a.video,
+                        "-frames:v", "1", f"{a.stills}/at_{fnum}.png"], check=False)
+        where = f"{at(t)[0]} 안 {at(t)[1]:.2f}초" if SC and at(t)[0] else "씬 밖"
+        print(f"      {t:7.2f}초  (프레임 {fnum})  {where}  → at_{fnum}.png")
 
 if a.report:
     q = np.percentile(d, [1, 5, 10, 25, 50, 75, 90, 99])
