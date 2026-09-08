@@ -92,12 +92,32 @@ if blocks:
     # 소리가 **있는지**만 보면 게인이 안 먹은 소재가 조용히 나간다. 실제로 인트로 클론이
     # 원본보다 4.6 dB 작은 채로 구워진 적이 있다 — 크면 「더 진짜」로 읽히는 편이라 답을 미리 준다.
     # 판정 기준은 음악 감독의 값이라 여기서는 **재서 보여만 준다.**
-    lv = [(c, lufs(pub/f"{c}.mp4")) for c in sorted({b["clip"] for b in blocks})]
+    lv = [(c, lufs(pub/f"{c}.mp4"), clipped(pub/f"{c}.mp4")) for c in sorted({b["clip"] for b in blocks})]
     print(f"씬 밖 구간 검사: 클립이 붙은 구간 {len(blocks)}개 · 클립 {len(lv)}종 다 있고 소리도 있습니다")
-    print("  음량:", " · ".join(f"{c} {('?' if i is None else f'{i:.1f}')} LUFS" for c, (i, _) in lv))
-    _sp = [i for _, (i, _) in lv if i is not None]
-    if len(_sp) > 1 and max(_sp) - min(_sp) > 1.0:
-        print(f"  ← 클립 사이 음량 차이 {max(_sp) - min(_sp):.1f} LU. 의도한 것이면 그대로 두세요(판정은 음악 감독).")
+    print("  음량:", " · ".join(f"{c} {('?' if i is None else f'{i:.1f}')} LUFS 클립 {n}" for c, (i, _), n in lv))
+    # 음량 차이는 **의도일 수 있다** — 이 편의 꼬리(-20.6)와 인트로(-18.0)가 2.6 LU 갈리고 그게 의도다.
+    # 그래서 재서 보여만 준다. 반면 **클리핑은 언제나 사고다** — 그것만 멈춘다(음악 감독이 정한 문턱).
+    # 판정은 ebur128 의 Peak 가 아니라 풀스케일 이상 샘플 수다. Peak 은 dBFS 로 반올림돼 -0.0 과 0.0 이 안 갈린다.
+    # 음량은 **한 구간 안에서** 비교한다. 인트로와 꼬리처럼 떨어져 있는 구간끼리는
+    # 갈리는 것이 의도다(이 편은 인트로 -18.0 · 꼬리 -20.6). 붙어 있는 것만 한 묶음으로 본다.
+    groups, cur = [], []
+    for b in sc.get("blocks", []):
+        if cur and abs(cur[-1]["t"] + cur[-1]["sec"] - b["t"]) > 0.02:
+            groups.append(cur); cur = []
+        cur.append(b)
+    if cur: groups.append(cur)
+    li = {c: i for c, (i, _), _ in lv}
+    for g in groups:
+        vs = [li[b["clip"]] for b in g if b.get("clip") and li.get(b["clip"]) is not None]
+        if len(vs) > 1 and max(vs) - min(vs) > 1.0:
+            names = " ".join(b["clip"] for b in g if b.get("clip"))
+            print(f"  ← 한 구간 안({names})에서 음량이 {max(vs) - min(vs):.1f} LU 갈립니다."
+                  f" 나란히 들리는 자리라 큰 쪽이 「더 진짜」로 읽힙니다(판정은 음악 감독).")
+    _clip = [(c, n) for c, _, n in lv if n > 0]
+    if _clip:
+        die("씬 밖 구간의 클립이 클리핑됐습니다 — " + " · ".join(f"{c} {n}샘플" for c, n in _clip) + "\n"
+            "  풀스케일 이상 샘플은 의도일 수 없습니다. 소재를 다시 만들어 주세요(음악 감독).\n"
+            "  게인을 먹인 소재라면 그 값이 너무 큽니다 — 15_clip_prep 은 음량을 안 건드립니다.", 3)
 
 # 소재 경로 검사. asset() 을 안 지난 경로는 남의 편을 가리켜도 tsc·remotion 이 통과시킨다.
 src_dir = REMOTION_DIR/"src"/sl
