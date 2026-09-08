@@ -20,10 +20,24 @@ from common import *
 from PIL import Image, ImageDraw, ImageFont
 ap = argparse.ArgumentParser(); ap.add_argument("ep"); a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
 cfg = jload(p["visual_prep"]); pub = REMOTION_DIR/"public"/slug(ep); pub.mkdir(parents=True, exist_ok=True)
-for name, src in cfg.get("clips", {}).items():
-    run(["ffmpeg","-v","error","-y","-i",str(ep/"source"/src),"-vf","scale=1920:-2","-c:v","libx264","-crf","18","-preset","fast","-an",str(pub/f"{name}.mp4")]); print("clip", name, f"{dur(pub/f'{name}.mp4'):.1f}s")
-for name, src in cfg.get("images", {}).items():
-    s = ep/"source"/src
+for name, v in cfg.get("clips", {}).items():
+    c = prep_entry(v); src = ep/"source"/c["src"]
+    if not src.exists(): die(f'clips "{name}": 소재가 없습니다 — {src}')
+    # 자르기 → 가리기 → 크기 순서다. 크기를 먼저 바꾸면 미술이 준 정규화 좌표가 그대로 맞지 않는다.
+    pre = ["-ss", str(c["ss"])] if c.get("ss") is not None else []
+    post = ["-t", str(c["t"])] if c.get("t") is not None else []
+    box = "".join(f"drawbox=x=iw*{x}:y=ih*{y}:w=iw*{w}:h=ih*{h}:color=black@1:t=fill," for x, y, w, h in c.get("mask", []))
+    # 소리는 기본으로 뺀다 — 내레이션이 담당한다. 원본 소리가 필요한 자리(인트로)만 audio:true 로 남긴다.
+    au = ["-c:a","aac","-b:a","192k"] if c.get("audio") else ["-an"]
+    run(["ffmpeg","-nostdin","-v","error","-y"] + pre + ["-i", str(src)] + post +
+        ["-vf", box+"scale=1920:-2", "-c:v","libx264","-crf","18","-preset","fast"] + au + [str(pub/f"{name}.mp4")])
+    got = dur(pub/f"{name}.mp4")
+    if c.get("t") is not None and abs(got - float(c["t"])) > 0.05:
+        die(f'clips "{name}": {c["t"]}초를 지정했는데 {got:.3f}초가 나왔습니다 — 소재가 그만큼 없거나 ss 가 너무 뒤입니다 ({src})', 3)
+    print("clip", name, f"{got:.3f}s", "소리있음" if c.get("audio") else "무음",
+          f'가림 {len(c.get("mask", []))}칸' if c.get("mask") else "")
+for name, v in cfg.get("images", {}).items():
+    s = ep/"source"/prep_entry(v)["src"]
     if not s.exists(): die(f"이미지가 없습니다: {s}")
     im = Image.open(s); im = im.convert("RGB") if im.mode not in ("RGB", "RGBA") else im
     if im.width > 1920: im = im.resize((1920, round(im.height*1920/im.width)), Image.LANCZOS)

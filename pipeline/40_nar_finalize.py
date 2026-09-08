@@ -33,7 +33,11 @@ if no_bounds: die(f"검사 결과에 없는 씬: {', '.join(no_bounds)}\n  30_na
 if no_audio: die(f"내레이션 원본 없음: {', '.join(no_audio)} ({p['nar_raw']})", 3)
 
 p["nar_final"].mkdir(parents=True, exist_ok=True)
-t = 0.0; rows = []
+# 인트로가 있으면 **시각표 자체를 그만큼 밀어서** 쓴다. 오프셋을 아래 단계마다 더하게 하면
+# 한 군데만 빠뜨려도 자막이나 챕터가 조용히 어긋난다 — 시각표가 한 곳이어야 그럴 자리가 없다.
+intro_items, INTRO = intro_of(p)
+if INTRO: print(f"인트로 {INTRO}초 · 항목 {len(intro_items)}개 — 모든 씬이 그만큼 뒤로 갑니다")
+t = INTRO; rows = []
 for s in scenes["scenes"]:
     sid = s["id"]; out = p["nar_final"]/f"{sid}.wav"; src = src_of[sid]
     end = min(info[sid]["last_word_end"] + PAD, info[sid]["dur"])
@@ -52,6 +56,8 @@ for s in scenes["scenes"]:
 _bits = [pname] + [f"{k}={pcfg[k]}" for k in ("ref_file", "voice_id", "voice", "model", "seed") if pcfg.get(k) is not None]
 scenes["narration_voice"] = " ".join(str(b) for b in _bits)
 scenes["lead"] = LEAD; scenes["gap"] = GAP; scenes["target_duration_sec"] = round(t,1)
+if INTRO: scenes["intro"] = {"sec": INTRO, "items": intro_items}
+else: scenes.pop("intro", None)
 jdump(scenes, p["scenes_v2"])
 # raw = 트림 전 원본 길이, final = 트림·정규화 뒤 내레이션 파일 길이(초). 씬 슬롯은 t_end - t_start 이고
 # final 보다 여백 1.3초(앞 LEAD 0.5 + 뒤 GAP 0.8)만큼 길다 — 화면이 쓰는 것은 슬롯 쪽이다.
@@ -59,7 +65,8 @@ print("scene   raw  final  t_start   t_end     LUFS   peak  clip   (raw=트림 �
 for a,b,c,d,e,li,lp,lc in rows:
     off = "" if li is None else ("  ←" if abs(li - NAR_LUFS) > NAR_LUFS_TOL or lc > 0 else "")
     print(f"{a}  {b:5.1f}  {c:5.1f}  {d:7.2f}  {e:7.2f}  {'    ?' if li is None else f'{li:7.1f}'}  {'    ?' if lp is None else f'{lp:5.1f}'}  {lc:4d}{off}")
-print(f"{len(rows)}/{len(scenes['scenes'])}씬 · total {round(t,1)}s = {round(t/60,2)}min · {pname}")
+print(f"{len(rows)}/{len(scenes['scenes'])}씬 · total {round(t,1)}s = {round(t/60,2)}min"
+      + (f" (인트로 {INTRO}s 포함, 첫 씬 t_start={rows[0][3]})" if INTRO else "") + f" · {pname}")
 # 음량 기준은 음악 감독의 값이다(common.py). 여기서는 재서 보여만 준다 — 판정은 트랙과 마스터에서 한다
 _loud = [a for a,_,_,_,_,li,_,_ in rows if li is not None and abs(li - NAR_LUFS) > NAR_LUFS_TOL]
 _clip = [a for a,_,_,_,_,_,_,lc in rows if lc > 0]

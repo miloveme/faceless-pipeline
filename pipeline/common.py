@@ -65,6 +65,7 @@ def P(ep):
         overrides = ep/"script"/"tts_overrides.json",
         chapters = ep/"script"/"chapters.json",
         visual_prep = ep/"script"/"visual_prep.json",
+        intro = ep/"script"/"intro.json",
         tts_input = ep/"audio"/"narration_tts_input.json",
         nar_raw = ep/"audio"/"nar_raw",
         nar_final = ep/"audio"/"narration_final",
@@ -75,6 +76,30 @@ def P(ep):
     )
 
 def jload(p): return json.load(open(p, encoding="utf-8"))
+
+def prep_entry(v):
+    """visual_prep 의 clips/images 한 항목. 문자열이면 파일 이름만, 객체면 그대로.
+
+    객체 꼴 — {"src": "raw.mp4", "ss": 0, "t": 9.192, "audio": true, "mask": [[x,y,w,h], ...]}
+    `mask` 는 0~1 정규화 사각형이고 검게 덮는다. 좌표는 미술이 정한다.
+    """
+    return {"src": v} if isinstance(v, str) else dict(v)
+
+def intro_of(paths):
+    """씬 앞에 붙는 인트로. 없으면 (빈 목록, 0.0).
+
+    항목은 `{"sec": 9.192, "clip": "intro_orig"}` 꼴이고 `clip` 이 없으면 검은 화면이다.
+    **이 길이만큼 모든 씬이 뒤로 밀린다** — 40 단계가 시각표를 그렇게 쓰므로
+    자막·SRT·챕터는 시각표만 읽으면 되고 따로 오프셋을 더하지 않는다.
+    """
+    f = paths["intro"]
+    if not f.exists(): return [], 0.0
+    d = jload(f); items = d.get("items") or []
+    for i, it in enumerate(items, 1):
+        if not isinstance(it.get("sec"), (int, float)) or it["sec"] <= 0:
+            die(f'{f}: {i}번째 항목에 sec(초)가 없습니다 — {it}', 2)
+    return items, round(sum(it["sec"] for it in items), 3)
+
 def jdump(obj, p, indent=1):
     pathlib.Path(p).parent.mkdir(parents=True, exist_ok=True)
     json.dump(obj, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=indent)
