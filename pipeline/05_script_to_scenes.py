@@ -138,7 +138,7 @@ print(f"{md_path.name} → {len(scenes)}개 씬 · {chars}자 · 약 {chars/CHAR
 if raw != chars:
     print(f"  (자수는 음성이 읽는 글자만 셉니다. 대본 원문 {raw}자 − 강조 표시 ** {raw-chars}자)")
 longest = max(scenes, key=spoken)
-_sec = spoken(longest)/CHARS_PER_SEC
-print(f"가장 긴 씬 {longest['id']} {spoken(longest)}자 ≈ {_sec:.1f}초"
-      + (f"  ← {SCENE_MAX_SEC}초를 넘습니다. 나누는 것을 검토하세요" if _sec > SCENE_MAX_SEC else ""))
+# 상한은 두지 않는다. 보여주는 것이 영상이면 그 영상이 길이를 정하고, 씬은 그만큼 길어도 된다.
+# 여기 숫자는 **가늠**이다 — 실제 길이는 40 단계가 잰 내레이션(과 timing.json 의 min_sec)이 정한다.
+print(f"가장 긴 씬 {longest['id']} {spoken(longest)}자 ≈ {spoken(longest)/CHARS_PER_SEC:.1f}초 (가늠)")
 print("\n다음: 10_tts_prep.py 로 숫자·영문 읽기를 전처리하세요.")

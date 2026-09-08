@@ -22,10 +22,10 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 | 30 | `30_nar_check.py [--ids] [--quiet-text]` | nar_raw, tts_input 의 `subs` | `whisper_cer.json`, `speech_bounds.json` | 숫자 누락·CER>0.06·내용 차이면 BAD → exit 3 |
 | 35 | `35_nar_retry.py --ids` | BAD 씬 | 시드 순회 교체 | 교체 후 30 재실행 |
 | 40 | `40_nar_finalize.py` | nar_raw + bounds | `narration_final/*.wav`, `script/scenes_v2.json` | 트랙을 사람이 들음 |
-| | | `script/intro.json` (있으면) | 씬 시각표를 인트로 길이만큼 뒤로 민다 | 인트로는 시각표 한 곳에만 들어간다 — 아래 단계는 오프셋을 따로 더하지 않는다 |
+| | | `script/timing.json` (있으면) | `inserts`(씬 밖 구간)와 `min_sec`(씬 하한)을 넣어 시각표를 다시 잰다 | 내레이션이 안 정하는 길이는 시각표 한 곳에만 들어간다 — 아래 단계는 오프셋을 따로 더하지 않는다 |
 | 45 | `45_visual_plan.py [--force]` | scenes_v2, scenes_v1 | `script/visual_plan.md` | 카드·이유는 사람이 채우고 승인 |
 | 50 | `50_captions_build.py` | narration_final | `captions.json` | 자막 텍스트는 원문 |
-| 55 | `55_remotion_sync.py [--skip-src-check]` | scenes_v2, captions, visual_prep | Remotion `public/`·`src/<slug>/data/` | 소재가 변환본보다 나중인가·**인트로 클립이 있고 소리가 있는가**·`asset()` 을 지나는가·`SLUG` 가 이 편인가 → exit 3 |
+| 55 | `55_remotion_sync.py [--skip-src-check]` | scenes_v2, captions, visual_prep | Remotion `public/`·`src/<slug>/data/` | 소재가 변환본보다 나중인가·**씬 밖 구간의 클립이 있고 소리가 있는가**·`asset()` 을 지나는가·`SLUG` 가 이 편인가 → exit 3 |
 | 60 | `60_render_master.sh EP Comp vX` | 컴포지션 | `edit/*_master.mp4` + 720p 프리뷰 | 사람이 프리뷰 검수 |
 | 65 | `65_render_derived.sh EP` | Thumb/Shorts 컴포지션 | 썸네일·쇼츠 | |
 | 70 | `70_srt_build.py` | captions(+captions_en) | `edit/*_ko.srt`, `*_en.srt` | |

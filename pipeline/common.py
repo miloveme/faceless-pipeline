@@ -28,8 +28,7 @@ CER_MAX = 0.06    # 씬 단위 글자 오류율 상한(전처리 후 기준, 30�
 # 대본 길이 가늠 — 같은 숫자가 문서 둘·코드 하나·역할 정의 하나에 흩어져 8.4·8.5·25 가 동시에 있었다. 여기 하나로 둔다.
 # 8.7 은 voice.json 의 지금 목소리로 잰 값이다(E01 24씬 3,195자 / 366.1초, 절대평균오차 0.74초).
 # 제공자·참조 음성·파라미터를 바꾸면 다시 재야 한다.
-CHARS_PER_SEC = 8.7    # 대본 원문 기준(강조 표시 제외)
-SCENE_MAX_SEC = 20     # 이 길이를 넘는 씬은 나눈다
+CHARS_PER_SEC = 8.7    # 대본 원문 기준(강조 표시 제외). 길이를 **가늠**하는 값이지 상한이 아니다
 WHISPER_MODEL = "medium"
 
 if str(PIPE_DIR) not in sys.path: sys.path.insert(0, str(PIPE_DIR))
@@ -65,7 +64,7 @@ def P(ep):
         overrides = ep/"script"/"tts_overrides.json",
         chapters = ep/"script"/"chapters.json",
         visual_prep = ep/"script"/"visual_prep.json",
-        intro = ep/"script"/"intro.json",
+        timing = ep/"script"/"timing.json",
         tts_input = ep/"audio"/"narration_tts_input.json",
         nar_raw = ep/"audio"/"nar_raw",
         nar_final = ep/"audio"/"narration_final",
@@ -85,20 +84,47 @@ def prep_entry(v):
     """
     return {"src": v} if isinstance(v, str) else dict(v)
 
-def intro_of(paths):
-    """씬 앞에 붙는 인트로. 없으면 (빈 목록, 0.0).
+def timing_of(paths, ids):
+    """**내레이션이 정하지 않는 시각표 값들.** 없으면 빈 것을 돌려준다.
 
-    항목은 `{"sec": 9.192, "clip": "intro_orig"}` 꼴이고 `clip` 이 없으면 검은 화면이다.
-    **이 길이만큼 모든 씬이 뒤로 밀린다** — 40 단계가 시각표를 그렇게 쓰므로
-    자막·SRT·챕터는 시각표만 읽으면 되고 따로 오프셋을 더하지 않는다.
+    씬 길이는 원래 내레이션으로만 정해진다(`LEAD + 내레이션 + GAP`). 그런데 화면이 길이를
+    정해야 하는 자리가 있다 — 내레이션이 아예 없는 구간(훅으로 통 재생하는 클립)과,
+    내레이션보다 영상이 긴 씬이다. 둘을 한 파일에 모은다.
+
+        {
+          "inserts": [ {"before": "s00", "items": [{"sec": 9.192, "clip": "intro_orig"}, …]},
+                       {"after":  "s18", "items": [{"sec": 3.5,   "clip": "tail_m3"}]} ],
+          "min_sec": { "s03": 21.4 }
+        }
+
+    `items` 의 `clip` 이 없으면 그 초만큼 화면이 빈다. `min_sec` 은 **씬 슬롯의 하한**이고
+    내레이션이 그보다 길면 내레이션이 이긴다.
+
+    반환: (before, after, min_sec) — before/after 는 씬 id → 항목 목록.
     """
-    f = paths["intro"]
-    if not f.exists(): return [], 0.0
-    d = jload(f); items = d.get("items") or []
-    for i, it in enumerate(items, 1):
-        if not isinstance(it.get("sec"), (int, float)) or it["sec"] <= 0:
-            die(f'{f}: {i}번째 항목에 sec(초)가 없습니다 — {it}', 2)
-    return items, round(sum(it["sec"] for it in items), 3)
+    f = paths["timing"]
+    if not f.exists(): return {}, {}, {}
+    d = jload(f)
+    before, after = {}, {}
+    for i, ins in enumerate(d.get("inserts") or [], 1):
+        items = ins.get("items") or []
+        if not items: die(f'{f}: {i}번째 insert 에 items 가 없습니다', 2)
+        for j, it in enumerate(items, 1):
+            if not isinstance(it.get("sec"), (int, float)) or it["sec"] <= 0:
+                die(f'{f}: {i}번째 insert 의 {j}번째 항목에 sec(초)가 없습니다 — {it}', 2)
+        where = [k for k in ("before", "after") if k in ins]
+        if len(where) != 1:
+            die(f'{f}: {i}번째 insert 는 before 나 after 중 하나만 있어야 합니다 — {ins}', 2)
+        sid = ins[where[0]]
+        if sid not in ids:
+            die(f'{f}: {i}번째 insert 의 {where[0]} "{sid}" 는 없는 씬입니다. 있는 씬: {", ".join(ids)}', 2)
+        (before if where[0] == "before" else after).setdefault(sid, []).extend(items)
+    mn = d.get("min_sec") or {}
+    for sid in mn:
+        if sid not in ids: die(f'{f}: min_sec 의 "{sid}" 는 없는 씬입니다', 2)
+        if not isinstance(mn[sid], (int, float)) or mn[sid] <= 0:
+            die(f'{f}: min_sec["{sid}"] 가 초가 아닙니다 — {mn[sid]}', 2)
+    return before, after, mn
 
 def jdump(obj, p, indent=1):
     pathlib.Path(p).parent.mkdir(parents=True, exist_ok=True)

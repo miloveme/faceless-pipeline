@@ -14,14 +14,16 @@ export type CaptionMap = Record<string, CaptionChunk[]>;
 export type VisualFor = (s: Scene) => React.ReactNode;
 
 /**
- * 씬 앞에 붙는 인트로. `script/intro.json` 을 40 단계가 `scenes_v2.json` 에 옮겨 담는다.
- * `clip` 이 없는 항목은 검은 화면이고, 있는 항목은 **소리까지** 그대로 재생한다.
+ * **씬이 아닌 구간.** `script/timing.json` 의 `inserts` 를 40 단계가 절대 시각으로 풀어
+ * `scenes_v2.json` 의 `blocks` 에 담는다. 씬 앞이든 씬 사이든 여기서는 차이가 없다 —
+ * 40 이 이미 시각을 계산했으므로 이쪽은 "t 초에 이것"만 놓는다.
+ *
+ * `clip` 이 없으면 그 초만큼 화면이 빈다. 있으면 **소리까지** 그대로 재생한다.
  *
  * **여기에 씬은 없다.** 그래서 자막도 없다 — 원본 대사에 우리 자막을 달지 않는다.
- * 씬 시각표는 40 단계가 이미 인트로만큼 밀어서 써 두므로 아래 어디에도 오프셋을 더하지 않는다.
+ * 씬 시각표는 40 단계가 이미 밀어서 써 두므로 아래 어디에도 오프셋을 더하지 않는다.
  */
-export type IntroItem = { sec: number; clip?: string };
-export type Intro = { sec: number; items: IntroItem[] };
+export type Block = { t: number; sec: number; clip?: string };
 
 /** 자막을 그리는 층. grammars.json 의 caption.layer 이름이 이걸로 풀린다. */
 export type CaptionLayer = React.FC<{ chunks: CaptionChunk[]; offsetSec: number }>;
@@ -71,41 +73,37 @@ export const makeEpisode = (
   caps: CaptionMap,
   visualFor: VisualFor,
   grammar: string = "panel",
-  intro?: Intro,
+  blocks: Block[] = [],
 ) => {
   const CaptionsLayer = captionLayerOf(grammar);
-  const EPISODE_FRAMES = Math.ceil(scenes[scenes.length - 1].t_end * FPS);
-  // 인트로 항목의 경계를 **누적 초를 프레임으로 반올림해서** 잡는다. 항목마다 따로 반올림하면
-  // 오차가 쌓여 마지막 경계가 첫 씬의 t_start 와 어긋나고, 그 틈에 검은 프레임이 한 장 낀다.
-  const introCuts = (fps: number) => {
-    const out: { from: number; dur: number; clip?: string }[] = [];
-    let acc = 0, prev = 0;
-    for (const it of intro?.items ?? []) {
-      acc += it.sec;
-      const end = Math.round(acc * fps);
-      out.push({ from: prev, dur: end - prev, clip: it.clip });
-      prev = end;
-    }
-    return out;
-  };
+  // 마지막 구간이 마지막 씬 뒤에 올 수 있다 — 둘 중 늦은 쪽이 편의 끝이다.
+  const lastT = Math.max(scenes[scenes.length - 1].t_end, ...blocks.map((b) => b.t + b.sec), 0);
+  const EPISODE_FRAMES = Math.ceil(lastT * FPS);
   const Episode: React.FC<{ bgm: string; bgmVolume: number }> = ({ bgm, bgmVolume }) => {
     const { fps } = useVideoConfig();
     // word-break 는 상속되는 성질이라 **여기 한 번만** 걸면 그 아래 글자가 다 따라온다.
     // 컴포넌트마다 적으면 다음에 또 빠진다 — 실제로 s08 인용에서 빠져 낱말이 중간에서 쪼개졌다.
     return (
       <AbsoluteFill style={{ backgroundColor: T.bg, wordBreak: "keep-all" }}>
-        {introCuts(fps).map((c, i) =>
-          c.clip === undefined ? null : (
-            <Sequence key={`intro${i}`} name={`intro:${c.clip}`} from={c.from} durationInFrames={c.dur} premountFor={1 * fps}>
+        {/* 구간의 경계를 **절대 시각을 프레임으로 반올림해서** 잡는다. 길이를 따로 반올림하면
+            오차가 쌓여 끝이 다음 씬의 t_start 와 어긋나고 그 틈에 검은 프레임이 한 장 낀다. */}
+        {blocks.map((b, i) =>
+          b.clip === undefined ? null : (
+            <Sequence key={`blk${i}`} name={`구간:${b.clip}`} from={Math.round(b.t * fps)}
+                      durationInFrames={Math.round((b.t + b.sec) * fps) - Math.round(b.t * fps)}
+                      premountFor={1 * fps}>
               <AbsoluteFill style={{ backgroundColor: "#000" }}>
-                <Video src={staticFile(`${slug}/${c.clip}.mp4`)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                <Video src={staticFile(`${slug}/${b.clip}.mp4`)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
               </AbsoluteFill>
             </Sequence>
           ),
         )}
         {scenes.map((s) => {
+          // 경계를 **절대 시각으로** 반올림한다. 길이를 반올림하면 앞 씬의 끝과 다음 씬의 시작이
+          // 한 프레임 어긋나 이음매에 바탕색이 한 장 비치거나 두 씬이 한 장 겹친다.
+          // E01 v2 마스터에 실제로 틈 2곳(10256·11328) 겹침 2곳이 있었다 — 33ms 라 눈에 안 걸린다.
           const from = Math.round(s.t_start * fps);
-          const dur = Math.round((s.t_end - s.t_start) * fps);
+          const dur = Math.round(s.t_end * fps) - from;
           return (
             <Sequence key={s.id} name={s.id} from={from} durationInFrames={dur} premountFor={1 * fps}>
               {visualFor(s)}

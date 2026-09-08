@@ -71,27 +71,25 @@ if p["visual_prep"].exists():
     print(f"소재 최신 검사: {sum(len(vp.get(k, {})) for k in ('clips', 'images', 'crops'))}개"
           f"(자른 것 {len(vp.get('crops', {}))}개 포함) · 뒤처진 것 0건")
 
-# 인트로 클립이 실제로 있는가. 없으면 그 구간이 **검은 화면으로 멀쩡하게** 나가고 렌더는 안 죽는다.
-intro_items, INTRO = intro_of(p)
-if INTRO:
-    miss = [it["clip"] for it in intro_items if it.get("clip") and not (pub/f'{it["clip"]}.mp4').exists()]
+# 씬 밖 구간의 클립이 실제로 있는가. 없으면 그 구간이 **검은 화면으로 멀쩡하게** 나가고 렌더는 안 죽는다.
+blocks = [b for b in sc.get("blocks", []) if b.get("clip")]
+if blocks:
+    miss = sorted({b["clip"] for b in blocks if not (pub/f'{b["clip"]}.mp4').exists()})
     if miss:
-        die(f"인트로 클립이 없습니다 — {len(miss)}건: {', '.join(miss)}\n"
+        die(f"씬 밖 구간의 클립이 없습니다 — {len(miss)}건: {', '.join(miss)}\n"
             f"  찾은 곳: {pub}\n"
             f"  script/visual_prep.json 의 clips 에 넣고 15_clip_prep.py {a.ep} 를 돌리세요.\n"
-            f"  안 돌리면 그 {INTRO}초가 검은 화면으로 나가는데 렌더는 통과합니다.", 3)
+            f"  안 돌리면 그 구간이 검은 화면으로 나가는데 렌더는 통과합니다.", 3)
     no_audio = []
-    for it in intro_items:
-        if not it.get("clip"): continue
-        f = pub/f'{it["clip"]}.mp4'
+    for c in sorted({b["clip"] for b in blocks}):
         r = subprocess.run(["ffprobe","-v","error","-select_streams","a","-show_entries","stream=codec_name",
-                            "-of","csv=p=0",str(f)], capture_output=True, text=True)
-        if not r.stdout.strip(): no_audio.append(it["clip"])
+                            "-of","csv=p=0",str(pub/f"{c}.mp4")], capture_output=True, text=True)
+        if not r.stdout.strip(): no_audio.append(c)
     if no_audio:
-        die(f"인트로 클립에 소리가 없습니다 — {', '.join(no_audio)}\n"
-            f"  15_clip_prep 은 기본이 무음입니다. visual_prep 의 그 clips 항목에 \"audio\": true 를 넣고 다시 돌리세요.\n"
-            f"  인트로는 소리가 훅입니다 — 무음으로 나가면 {INTRO}초가 통째로 비어 버립니다.", 3)
-    print(f"인트로 검사: {INTRO}초 · 클립 {len([i for i in intro_items if i.get('clip')])}개 다 있고 소리도 있습니다")
+        die(f"씬 밖 구간의 클립에 소리가 없습니다 — {', '.join(no_audio)}\n"
+            f'  15_clip_prep 은 기본이 무음입니다. visual_prep 의 그 clips 항목에 "audio": true 를 넣고 다시 돌리세요.\n'
+            f"  이 구간에는 내레이션이 없습니다 — 무음으로 나가면 통째로 비어 버립니다.", 3)
+    print(f"씬 밖 구간 검사: {len(blocks)}개 · 클립 {len({b['clip'] for b in blocks})}종 다 있고 소리도 있습니다")
 
 # 소재 경로 검사. asset() 을 안 지난 경로는 남의 편을 가리켜도 tsc·remotion 이 통과시킨다.
 src_dir = REMOTION_DIR/"src"/sl
