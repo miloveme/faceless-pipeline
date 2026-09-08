@@ -135,8 +135,15 @@ def at(t):
 #   씬 안   — **판정은 이 값으로 한다**(연출·미술이 같이 정했다). 씬 밖은 클립을 그대로 트는 자리라
 #             설계가 없고 언제나 통과한다 — 분모에 넣으면 22초가 공짜로 「움직임」이 되어 값만 좋아진다.
 #             면적 11.6% 를 다음 판과 못 대기로 한 것과 같은 자리다: 나아진 것이 아니라 그릇을 재게 된다.
-# **여기서 n 을 쓰면 안 된다** — n 은 10fps 로 훑은 장 수(4651)이지 편의 프레임 수가 아니다.
-print(f"마스터: {pathlib.Path(a.video).name} · {total:.3f}초 / {round(total * FPS)}프레임 · **지문 {_sha}**")
+# **여기 수를 훑기에서 만들면 안 된다.** n 은 10fps 로 본 장 수(4651)이고 `n*dt` 는 465.100 이라
+# 프레임으로 바꾸면 13953 이 나온다 — 실제는 465.067 / 13952 다. **한 장 어긋난다.**
+# 이 줄은 「어느 마스터인가」를 못박는 자리라 **파일에서 직접 읽는다.**
+_nb = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0",
+                      "-show_entries", "stream=nb_frames", "-of", "csv=p=0", a.video],
+                     capture_output=True, text=True).stdout.strip()
+_du = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                      "-of", "csv=p=0", a.video], capture_output=True, text=True).stdout.strip()
+print(f"마스터: {pathlib.Path(a.video).name} · {float(_du):.3f}초 / {_nb}프레임 · **지문 {_sha}**")
 print(f"정지 비율(편 전체) {pct:.1f}%  (참고 — 관객이 본 전부. {a.fps}fps 로 {n}장 · 임계 평균 화소 차 {a.th} · 편 {total:.1f}초"
       + f" · 아래 {a.cut_bottom*100:.1f}% 는 빼고 봄 — 자막 띠)")
 if SC:
