@@ -197,20 +197,7 @@ else:
     print(f"소재 이름 검사: 이름으로 적은 것 {len(_lit)}개 다 있습니다"
           + (f" · 조립해서 부르는 자리 {_dyn}곳은 못 봅니다(그 씬을 스틸로 확인하세요)" if _dyn else ""))
 
-# 안 정해진 문구 검사 — copy.ts 의 `null` 은 **아직 담당이 정하지 않은 값**이다.
-# 화면에는 빨간 「연출 대기」 상자로 뜨지만 그것만으로는 못 막는다. 렌더는 통과하고
-# 마스터에 그대로 실려 나간다. 임시 낱말을 안 넣기로 한 규칙이 값을 하려면 여기서 세어야 한다.
-_copy = src_dir/"copy.ts"
-if _copy.exists():
-    _wait = re.findall(r"^\s*(\w+)Wait:\s*\"([^\"]*)\"", _copy.read_text(encoding="utf-8"), re.M)
-    _null = set(re.findall(r"^\s*(\w+):\s*null\s+as\s+Pend<", _copy.read_text(encoding="utf-8"), re.M))
-    _open = [(k, w) for k, w in _wait if k in _null]
-    if _open:
-        die(f"화면 문구가 아직 안 정해졌습니다 — {len(_open)}자리 ({_copy.name}):\n"
-            + "\n".join(f"  {k}: {w}" for k, w in _open)
-            + "\n  연출 감독이 정할 값입니다. 화면에는 빨간 「연출 대기」 상자로 떠 있습니다.\n"
-              "  임시 낱말을 넣지 마세요 — 한 번 넣으면 그대로 남습니다.", 3)
-    print(f"화면 문구 검사: {_copy.name} · 기다리는 자리 0곳")
+_copy = src_dir/"copy.ts"          # 화면 문구 파일. 아래 검사 셋이 같이 본다
 
 # 화면에 나가면 안 되는 글자. **낱말 목록으로는 못 막는다** — 실제로 금지 목록에
 # URL·계정 주소·작업 시각만 있어서 `ref/source.mp4`(원본 드라마 파일 이름)가 s27 화면에 떴다.
@@ -244,3 +231,59 @@ if src_dir.is_dir():
               "  **경로**를 쓰는 자리는 없습니다(연출). 소재는 asset() 으로 부르므로 이 검사에 안 걸립니다.\n"
               "  기호는 서체에 없으면 두부(□)가 되는데 렌더는 통과합니다 — 판정은 낱말로 하세요.", 3)
     print(f"화면 글자 검사: 파일 {len(tsx)}개 · 경로 조각 0건 · 서체에 없는 기호 0건")
+
+# 화면 문구가 자막을 받아쓰나 — **겹말 검사**(연출 요청).
+# 목소리·자막·큰 글자가 같은 말을 세 번 하면 화면이 자막의 메아리가 된다.
+# 이 편에서 사람 눈으로 여섯 번 놓쳤다(s16 「사람이 하는 0.7초」· s21 결론 세 줄 · s25 판정 줄 …).
+#
+# **막지 않고 세어 보여준다.** 짧게 겹치는 것은 정상이고(「원본」·숫자·「AI 클론」),
+# 어디까지가 겹말인지는 연출이 보고 정할 일이다. 기계는 **후보를 좁혀 주는 데까지** 한다.
+# 걸리는 선은 둘을 같이 본다 — **이어서 5자 이상이면서 그 문구의 절반 이상**.
+#   s16 「사람 0.7초」  vs 자막 「사람이 하는 0.7초에…」  가장 긴 연속 4자 → 안 걸림(고친 뒤)
+#   s16 「사람이 하는 0.7초」(고치기 전)                  9자 · 100% → 걸림
+# 씬은 copy.ts 의 `export const S<NN>` 덩어리로 가른다 — 박자 시각은 여기 없으므로 씬 단위로만 댄다.
+def _flat(t): return re.sub(r"[\s.,·「」()·—:/]", "", t)
+def _run(a, b):
+    """a 안에서 b 와 이어서 겹치는 가장 긴 토막의 길이"""
+    best = 0
+    for i in range(len(a)):
+        for j in range(i + best + 1, len(a) + 1):
+            if a[i:j] in b: best = j - i
+            else: break
+    return best
+_caps_p = p["caps"]
+if _copy.exists() and _caps_p.exists():
+    _caps = jload(_caps_p)
+    _txt = _copy.read_text(encoding="utf-8")
+    _parts = re.split(r"^export const S(\d\d)", _txt, flags=re.M)
+    _echo = []
+    for _k in range(1, len(_parts), 2):
+        _sid = "s" + _parts[_k]
+        _cap = _flat("".join(c["text"] for c in _caps.get(_sid, [])))
+        if not _cap: continue
+        for _m in re.finditer(r'"((?:[^"\\]|\\.)*)"', _parts[_k + 1]):
+            _v = _m.group(1)
+            if len(_flat(_v)) < 5: continue
+            _n = _run(_flat(_v), _cap)
+            if _n >= 5 and _n >= len(_flat(_v)) * 0.5:
+                _echo.append((_sid, _n, len(_flat(_v)), _v))
+    if _echo:
+        print(f"겹말 후보: {len(_echo)}건 — 화면 문구가 그 씬 자막을 받아씁니다 (막지 않습니다. 판단은 연출)")
+        for _sid, _n, _l, _v in sorted(_echo, key=lambda x: -x[1]):
+            print(f"  {_sid}  이어서 {_n}자 / 문구 {_l}자  「{_v[:44]}{'…' if len(_v) > 44 else ''}」")
+    else:
+        print("겹말 검사: 화면 문구가 자막을 받아쓰는 자리 0건 (이어서 5자 이상 · 문구의 절반 이상)")
+
+# 안 정해진 문구 검사 — copy.ts 의 `null` 은 **아직 담당이 정하지 않은 값**이다.
+# 화면에는 빨간 「연출 대기」 상자로 뜨지만 그것만으로는 못 막는다. 렌더는 통과하고
+# 마스터에 그대로 실려 나간다. 임시 낱말을 안 넣기로 한 규칙이 값을 하려면 여기서 세어야 한다.
+if _copy.exists():
+    _wait = re.findall(r"^\s*(\w+)Wait:\s*\"([^\"]*)\"", _copy.read_text(encoding="utf-8"), re.M)
+    _null = set(re.findall(r"^\s*(\w+):\s*null\s+as\s+Pend<", _copy.read_text(encoding="utf-8"), re.M))
+    _open = [(k, w) for k, w in _wait if k in _null]
+    if _open:
+        die(f"화면 문구가 아직 안 정해졌습니다 — {len(_open)}자리 ({_copy.name}):\n"
+            + "\n".join(f"  {k}: {w}" for k, w in _open)
+            + "\n  연출 감독이 정할 값입니다. 화면에는 빨간 「연출 대기」 상자로 떠 있습니다.\n"
+              "  임시 낱말을 넣지 마세요 — 한 번 넣으면 그대로 남습니다.", 3)
+    print(f"화면 문구 검사: {_copy.name} · 기다리는 자리 0곳")
