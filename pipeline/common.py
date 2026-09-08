@@ -1,7 +1,7 @@
 """채널 공정 공통 모듈. 모든 단계 스크립트가 이 파일만 import한다.
 경로 규약: <EP>/script, <EP>/audio, <EP>/edit, <EP>/source  (EP = Channel/E06_popfilter 같은 에피소드 폴더)
 """
-import json, os, re, subprocess, sys, time, pathlib, urllib.request, difflib
+import hashlib, json, os, re, subprocess, sys, time, pathlib, urllib.request, difflib
 
 CHANNEL = pathlib.Path(__file__).resolve().parent.parent          # 저장소 루트
 PIPE_DIR = pathlib.Path(__file__).resolve().parent                # <repo>/pipeline — 읽기 사전·whisper 교정표
@@ -76,6 +76,28 @@ def P(ep):
     )
 
 def jload(p): return json.load(open(p, encoding="utf-8"))
+
+def script_sha(text: str) -> str:
+    """대본 한 씬의 지문. 공백만 다른 것은 같은 것으로 본다(줄바꿈을 고쳐도 안 걸리게)."""
+    return hashlib.sha1(re.sub(r"\s+", " ", text).strip().encode()).hexdigest()[:12]
+
+
+def script_drift(paths, made: dict) -> list:
+    """음성·자막이 **어느 판본으로 만들어졌나.**
+
+    30·40 은 `tts_input` 과 받아쓰기를 대조하는데 **둘 다 옛것이면 서로 맞는다** —
+    대본이 뒤로 움직이면 검사도 같이 움직여서 어긋남이 안 보인다.
+    실제로 그랬다: 대본을 고친 뒤에도 옛 음성이 CER 0.000 으로 통과했고, 잡은 것은 자막이었다.
+
+    `source_md` 로는 안 된다. 이름은 안 바뀌면서 안에서 두 번 고쳐졌다.
+    파일 시각도 눈치채야 보이는 것이라 안 된다. **씬별 지문이라야 놓치지 않는다.**
+
+    `made` 는 씬 id → 만들 때의 지문. 반환은 지금 대본과 다른 씬 목록.
+    """
+    if not made: return []
+    now = {s["id"]: script_sha(s["narration"]) for s in jload(paths["scenes_v1"])["scenes"]}
+    return [sid for sid, h in sorted(made.items()) if sid in now and now[sid] != h]
+
 
 def prep_entry(v):
     """visual_prep 의 clips/images 한 항목. 문자열이면 파일 이름만, 객체면 그대로.

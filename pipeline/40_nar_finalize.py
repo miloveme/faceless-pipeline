@@ -35,6 +35,12 @@ if no_audio: die(f"내레이션 원본 없음: {', '.join(no_audio)} ({p['nar_ra
 p["nar_final"].mkdir(parents=True, exist_ok=True)
 # 내레이션이 정하지 않는 시각표 값들. **시각표 자체를 밀어서** 쓴다 — 오프셋을 아래 단계마다
 # 더하게 하면 한 군데만 빠뜨려도 자막이나 챕터가 조용히 어긋난다. 시각표가 한 곳이어야 그럴 자리가 없다.
+# 트림·시각표가 옛 음성 위에서 돌기 전에 보인다. 30 과 같은 검사다.
+if p["tts_input"].exists():
+    _drift = script_drift(p, {x["id"]: x["script_sha"] for x in jload(p["tts_input"]) if x.get("script_sha")})
+    if _drift:
+        print(f"주의: 대본이 바뀐 뒤 다시 만들지 않은 씬 {len(_drift)}개 — {', '.join(_drift)}")
+        print("  이 씬들의 시각표·자막이 옛 문장 기준으로 잡힙니다. 멈추지 않습니다.")
 BEFORE, AFTER, MIN = timing_of(p, [s["id"] for s in scenes["scenes"]])
 blocks = []          # 씬이 아닌 구간. 절대 시각으로 여기에 쌓는다
 def place(sid, tbl, t):

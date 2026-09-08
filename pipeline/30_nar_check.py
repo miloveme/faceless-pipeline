@@ -16,6 +16,14 @@ d = ep/"audio"/a.dir
 if not p["tts_input"].exists(): die(f"읽기 전처리 결과가 없습니다: {p['tts_input']}")
 if not d.is_dir(): die(f"음성 폴더가 없습니다: {d}")
 _tts = jload(p["tts_input"])
+# 음성이 **어느 판본으로 만들어졌나.** 아래 검사는 tts_input 과 받아쓰기를 대조하는데
+# 둘 다 옛것이면 서로 맞는다 — 대본이 뒤로 움직이면 검사도 같이 움직인다.
+_drift = script_drift(p, {x["id"]: x["script_sha"] for x in _tts if x.get("script_sha")})
+if _drift:
+    print(f"주의: 대본이 바뀐 뒤 다시 만들지 않은 씬 {len(_drift)}개 — {', '.join(_drift)}")
+    print("  그 씬은 옛 문장을 읽은 음성이라 아래 CER 이 0 이어도 지금 대본과 다릅니다.")
+    print(f"  다시 만들려면: 10_tts_prep.py {a.ep} --ids {','.join(_drift)} 뒤 20 · 30")
+    print("  일부러 옛 음성을 쓰는 중이면 그대로 두세요 — 멈추지 않습니다.")
 ref = {x["id"]: x["text"] for x in _tts}
 # 10단계가 남긴 subs 에서 숫자 읽기만 뽑는다. 옛 형식(subs 없음)이면 그 씬은 숫자 대조를 못 한다
 nums = {x["id"]: [s.get("num") or s["to"] for s in x.get("subs", []) if s["kind"] == "number"] for x in _tts}

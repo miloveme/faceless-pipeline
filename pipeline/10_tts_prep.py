@@ -20,7 +20,8 @@ for s in d["scenes"]:
     s["narration_tts"] = t
     if left: unknown[s["id"]] = left
     if bad: unspeakable[s["id"]] = bad
-    tts.append({"id": s["id"], "text": t, "subs": subs})
+    # 어느 판본으로 만들었는지를 산출물에 박는다 — 30·40 이 이걸로 어긋남을 본다
+    tts.append({"id": s["id"], "text": t, "subs": subs, "script_sha": script_sha(s["narration"])})
 done_ids = {x["id"] for x in tts}
 jdump(d, p["scenes_v1"])
 if only and p["tts_input"].exists():

@@ -275,6 +275,23 @@ for s in targets:
           f"최단 {min((c['end']-c['start'] for c in cc), default=0):.2f}초",
           f"강조 {n_hl}개" + (f"  ← {a.maxlen}자 초과 {len(over)}줄" if over else ""))
 
+# 자막이 **대본과 글자가 같은가.** 이 공정에서 대본과 직접 대조하는 자리가 여기뿐이다 —
+# 30·40 은 tts_input 과 받아쓰기를 대조하는데 둘 다 옛것이면 서로 맞는다.
+# 실제로 대본을 고친 뒤 옛 음성이 CER 0.000 으로 통과했고 잡은 것이 이 대조였다.
+# 사람 손에 있으면 바쁘거나 순서가 다를 때 안 잰다(음악 감독). 그래서 여기 넣는다.
+# 공백을 지우고 비교한다 — 자막은 42자로 나뉘며 줄바꿈이 생기고 문장 분리 자리에서 공백이 는다.
+_src = {sc["id"]: sc["narration"] for sc in jload(p["scenes_v1"])["scenes"]}
+_flat = lambda t: re.sub(r"\s+", "", strip_emphasis(t))
+_diff = [sid for sid, cc in sorted(caps.items())
+         if sid in _src and _flat("".join(c["text"] for c in cc)) != _flat(_src[sid])]
+if _diff:
+    print(f"\n주의: 자막과 대본 글자가 다른 씬 {len(_diff)}개 — {', '.join(_diff)}")
+    print("  자막은 받아쓰기 타이밍에 **대본 원문**을 얹은 것이라 글자가 같아야 합니다.")
+    print("  대본을 고친 뒤 음성을 다시 안 만들었을 때 이렇게 됩니다 — 30 의 판본 경고를 함께 보세요.")
+    print("  멈추지 않습니다. 부분 재생성 중이면 정상입니다.")
+else:
+    print(f"\n자막 ↔ 대본 글자 대조: {len(caps)}/{len(_src)}씬 · 다른 것 0건")
+
 jdump(wc, p["caps_whisper"]); jdump(caps, p["caps"])
 bad, line = speed_report(caps, done, f"자막 생성 → {p['caps']}")
 print(line)

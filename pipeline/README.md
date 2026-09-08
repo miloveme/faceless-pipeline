@@ -15,16 +15,16 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 | 00 | `00_new_episode.sh E01_slug "제목"` | — | 에피소드 폴더 골격 + 템플릿 | |
 | 01 | `01_status.py [<EP>]` | — | 서버 연결·큐·남은 작업·예상 시간 | **작업 전 먼저** |
 | 05 | `05_script_to_scenes.py [--md] [--renumber] [--force]` | 가장 최신 `script/script_v<N>.md` ([형식](../docs/SCRIPT_FORMAT.md)) | `script/scenes_v1.json` | 씬 번호·`[N]` 누락 검사, 옛 판본이면 exit 2 |
-| 10 | `10_tts_prep.py [--ids]` | `script/scenes_v1.json` | `narration_tts` 필드, `audio/narration_tts_input.json`(무엇을 무엇으로 바꿨는지 `subs` 포함) | 소리로 못 내는 것(영문·기호)이 남으면 exit 2 |
+| 10 | `10_tts_prep.py [--ids]` | `script/scenes_v1.json` | `narration_tts` 필드, `audio/narration_tts_input.json`(`subs` + **씬별 대본 지문**) | 소리로 못 내는 것(영문·기호)이 남으면 exit 2 |
 | 15 | `15_clip_prep.py` | `source/` 의 영상·이미지, `script/visual_prep.json` (클립은 `{"src","ss","t","audio","mask"}` 객체도 됨) | `public/<slug>/` 클립·이미지·스틸·**잘라낸 그림**·컨택트 시트 | 소재 출처는 [VISUALS](../docs/VISUALS.md) |
 | 18 | `18_bgm_prep.sh EP bgm.mp3` | BGM 원본 | `public/<slug>/bgm_lofi.mp3` (-27 LUFS) | |
 | 20 | `20_tts_generate.py [--ids] [--seed] [--host] [--serial]` | tts_input, `voice.json` | `audio/nar_raw/<id>.mp3` | 서버 여러 대면 나눠서 동시에 |
-| 30 | `30_nar_check.py [--ids] [--quiet-text]` | nar_raw, tts_input 의 `subs` | `whisper_cer.json`, `speech_bounds.json` | 숫자 누락·CER>0.06·내용 차이면 BAD → exit 3 |
+| 30 | `30_nar_check.py [--ids] [--quiet-text]` | nar_raw, tts_input 의 `subs`·지문 | `whisper_cer.json`, `speech_bounds.json` | 숫자 누락·CER>0.06·내용 차이면 BAD → exit 3. **대본이 바뀐 뒤 안 만든 씬은 찍기만** |
 | 35 | `35_nar_retry.py --ids` | BAD 씬 | 시드 순회 교체 | 교체 후 30 재실행 |
 | 40 | `40_nar_finalize.py` | nar_raw + bounds | `narration_final/*.wav`, `script/scenes_v2.json` | 트랙을 사람이 들음 |
 | | | `script/timing.json` (있으면) | `inserts`(씬 밖 구간)와 `min_sec`(씬 하한)을 넣어 시각표를 다시 잰다 | 내레이션이 안 정하는 길이는 시각표 한 곳에만 들어간다 — 아래 단계는 오프셋을 따로 더하지 않는다 |
 | 45 | `45_visual_plan.py [--force]` | scenes_v2, scenes_v1 | `script/visual_plan.md` | 카드·이유는 사람이 채우고 승인 |
-| 50 | `50_captions_build.py` | narration_final | `captions.json` | 자막 텍스트는 원문 |
+| 50 | `50_captions_build.py` | narration_final, scenes_v1 | `captions.json` | 자막 텍스트는 원문. **자막↔대본 글자 대조** — 다르면 찍기만 |
 | 55 | `55_remotion_sync.py [--skip-src-check]` | scenes_v2, captions, visual_prep | Remotion `public/`·`src/<slug>/data/` | 소재가 변환본보다 나중인가·**씬 밖 구간의 클립이 있고 소리가 있는가**·**이음매가 프레임에서 맞물리는가**·`asset()` 을 지나는가·`SLUG` 가 이 편인가 → exit 3 |
 | 60 | `60_render_master.sh EP Comp vX` | 컴포지션 | `edit/*_master.mp4` + 720p 프리뷰 | 사람이 프리뷰 검수. loudnorm 은 **두 패스**다 — 한 패스는 구간마다 다른 양을 올려 의도한 음량 관계가 바뀐다 |
 | 65 | `65_render_derived.sh EP` | Thumb/Shorts 컴포지션 | 썸네일·쇼츠 | |
