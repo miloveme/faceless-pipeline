@@ -65,7 +65,14 @@ if vj.exists():
     if name == "comfyui_chatterbox":
         line("host 설정", "<" not in host and host.startswith("http"), host or "(비어 있음)")
         ref = ROOT/"pipeline"/pv.get("ref_file","")
-        line("참조 음성", ref.exists(), f"{pv.get('ref_file')} — docs/RECORDING.md 참고")
+        # **여기만 한 단계 더 간다.** 다른 X 는 그 줄의 명령으로 끝나는데 참조 음성은 사람이
+        # 녹음해야 한다. 그렇다고 이 줄에 「직접 녹음하세요」만 적으면 조건(같은 마이크·같은 방·
+        # 무보정·30~60초)이 빠지고, 조건 없이 녹음하면 참조로 못 쓴다 — 문서를 가리키는 것이 맞다.
+        # 그래서 **한 단계 더 간다는 것만** 줄에서 알린다(음악 감독).
+        # 안내 문구는 **ok 일 때도 그대로 찍힌다**(line 이 note 를 늘 보여준다).
+        # 그래서 다른 줄들처럼 「없으면 …」 꼴로 적는다 — 있을 때 읽어도 안 어긋난다.
+        line("참조 음성", ref.exists(),
+             f"{pv.get('ref_file')} — 없으면 **직접 녹음해야 합니다(30~60초)**. docs/RECORDING.md")
     elif pv.get("api_key_env"):
         line("API 키 환경변수", bool(__import__("os").environ.get(pv["api_key_env"])),
              f"{pv['api_key_env']} — export {pv['api_key_env']}=...")
