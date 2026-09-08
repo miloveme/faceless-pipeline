@@ -259,9 +259,19 @@ for _k, _v in _vp.items():
     _bysrc.setdefault(prep_entry(_v)["src"], []).append(_k)
 _dup = {k: v for k, v in _bysrc.items() if len(v) > 1}
 if _dup:
-    print(f"같은 파일을 쓰는 소재 키: {len(_dup)}묶음 — **합치지 마세요. 이름이 라벨을 부릅니다**")
+    # **묶음마다 「합쳐도 되나」가 다르다.** 라벨이 붙는 키와 안 붙는 키가 한 묶음에 있으면
+    # 합치는 순간 **라벨이 되살아나거나 사라진다**. 그 갈림은 프로즈가 아니라 `BLOCK_LABEL` 에 있다 —
+    # 「합치지 마라」를 주석으로 찾지 않고 **라벨 표에 있는지로 판정한다**(미술 요청).
+    _ct = _copy.read_text(encoding="utf-8")
+    _blk = _ct.split("BLOCK_LABEL")[1].split("};")[0] if "BLOCK_LABEL" in _ct else ""
+    _lab = set(re.findall(r'^\s*(\w+):\s*"', _blk, re.M))
+    print(f"같은 파일을 쓰는 소재 키: {len(_dup)}묶음")
     for _src, _ks in sorted(_dup.items()):
-        print(f"      {_src} ← {' · '.join(_ks)}")
+        _on = [k for k in _ks if k in _lab]
+        _off = [k for k in _ks if k not in _lab]
+        _mark = ("  ← **합치지 마세요** — 라벨이 붙는 것(" + " · ".join(_on) + ")과 안 붙는 것("
+                 + " · ".join(_off) + ")이 같이 있습니다") if _on and _off else "  (라벨 쪽은 같습니다 — 합쳐도 됩니다)"
+        print(f"      {_src} ← {' · '.join(_ks)}{_mark}")
 
 # **소재를 쓰는 씬이 몇이나 되나.** 안 세면 다음 편이 4/29 가 돼도 아무도 안 알아챈다 —
 # 다 만들고 나서 「PPT 같다」로 알게 된다. E00 이 그렇게 됐고 그래서 이 편이 시작됐다(미술).
