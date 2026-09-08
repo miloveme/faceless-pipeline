@@ -20,8 +20,13 @@ from common import *
 from PIL import Image, ImageDraw, ImageFont
 ap = argparse.ArgumentParser(); ap.add_argument("ep"); a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
 cfg = jload(p["visual_prep"]); pub = REMOTION_DIR/"public"/slug(ep); pub.mkdir(parents=True, exist_ok=True)
+# 소재는 편의 source/ 에서 온다. 여러 편이 같이 쓰는 것(로고·아이콘)만 `assets/…` 로 적는다 —
+# 편마다 복사하면 채널 얼굴이 편마다 갈린다.
+def _src_of(fn):
+    return (CHANNEL/fn) if fn.startswith("assets/") else (ep/"source"/fn)
+
 for name, v in cfg.get("clips", {}).items():
-    c = prep_entry(v); src = ep/"source"/c["src"]
+    c = prep_entry(v); src = _src_of(c["src"])
     if not src.exists(): die(f'clips "{name}": 소재가 없습니다 — {src}')
     # 시간 자르기 → **화면 자르기** → 가리기 → 크기 순서다.
     # crop 이 mask 보다 **앞**이라 mask 의 정규화 좌표는 **잘라낸 뒤** 기준이다 — ffmpeg 의 iw/ih 가
@@ -46,7 +51,7 @@ for name, v in cfg.get("clips", {}).items():
           (f'잘라냄 {c["crop"]}' if c.get("crop") else ""),
           (f'가림 {len(c.get("mask", []))}칸' if c.get("mask") else ""))
 for name, v in cfg.get("images", {}).items():
-    s = ep/"source"/prep_entry(v)["src"]
+    s = _src_of(prep_entry(v)["src"])
     if not s.exists(): die(f"이미지가 없습니다: {s}")
     im = Image.open(s); im = im.convert("RGB") if im.mode not in ("RGB", "RGBA") else im
     if im.width > 1920: im = im.resize((1920, round(im.height*1920/im.width)), Image.LANCZOS)

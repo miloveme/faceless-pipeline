@@ -45,7 +45,8 @@ if p["visual_prep"].exists():
     for kind, ext in (("clips", ".mp4"), ("images", ".png")):
         for key, v in vp.get(kind, {}).items():
             fname = prep_entry(v)["src"]
-            src_f, out_f = ep/"source"/fname, pub/f"{key}{ext}"
+            src_f = (CHANNEL/fname) if fname.startswith("assets/") else (ep/"source"/fname)
+            out_f = pub/f"{key}{ext}"
             if not src_f.exists(): continue
             if not out_f.exists():
                 stale.append((key, fname, "변환본이 없습니다")); continue
