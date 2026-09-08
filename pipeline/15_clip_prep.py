@@ -44,9 +44,21 @@ for name, v in cfg.get("images", {}).items():
     out = pub/f"{name}.png"; im.save(out)
     print("image", name, f"{im.width}x{im.height}")
 
+# 클립 끝을 넘겨 찍으면 ffmpeg 이 **종료코드 0 으로 아무것도 안 만든다.** 그러면 그 스틸을
+# 쓰는 화면이 404 로 죽거나(운이 좋으면) 옛 파일이 그대로 남아 조용히 나간다.
 for name, times in cfg.get("stills", {}).items():
+    src = pub/f"{name}.mp4"
+    if not src.exists(): die(f'stills "{name}": 클립이 없습니다 — {src} (clips 에 먼저 넣으세요)')
+    d = dur(src)
     for t in times:
-        run(["ffmpeg","-v","error","-y","-ss",str(t),"-i",str(pub/f"{name}.mp4"),"-frames:v","1",str(pub/f"{name.replace('take_','')}_{t}.png")])
+        if float(t) >= d:
+            die(f'stills "{name}": {t}초는 클립 끝({d:.3f}초)을 넘습니다 — 아무것도 안 나옵니다.\n'
+                f'  마지막 프레임을 원하면 끝보다 최소 한 프레임 앞을 주세요.', 3)
+        out = pub/f"{name.replace('take_','')}_{t}.png"
+        run(["ffmpeg","-nostdin","-v","error","-y","-ss",str(t),"-i",str(src),"-frames:v","1",str(out)])
+        if not out.exists() or out.stat().st_size == 0:
+            die(f'stills "{name}" @{t}초: 파일이 안 나왔습니다 — {out}', 3)
+        print("still", out.name, f"@{t}s")
 # 잘라낸 그림. 좌우가 한 장에 붙어 있는 대조 소재에서 한쪽만 쓰고 싶을 때 쓴다.
 # 부품에서 자르지 않고 여기서 파일로 만드는 이유 — 부품에서 자르려면 소재의 원본 크기를
 # 코드에 적어야 하고, 소재를 다시 자르면 그 숫자가 조용히 틀린다.
