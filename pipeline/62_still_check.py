@@ -140,7 +140,7 @@ def at(t):
 # 이 줄은 「어느 마스터인가」를 못박는 자리라 **파일에서 직접 읽는다.**
 _nb = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0",
                       "-show_entries", "stream=nb_frames", "-of", "csv=p=0", a.video],
-                     capture_output=True, text=True).stdout.strip()
+                     capture_output=True, text=True).stdout.strip().rstrip(",")
 _du = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
                       "-of", "csv=p=0", a.video], capture_output=True, text=True).stdout.strip()
 print(f"마스터: {pathlib.Path(a.video).name} · {float(_du):.3f}초 / {_nb}프레임 · **지문 {_sha}**")
