@@ -4,6 +4,7 @@
 사용: 55_remotion_sync.py <EP> [--skip-src-check]"""
 import argparse, shutil, re
 import hashlib
+import numpy as np
 from common import *
 ap = argparse.ArgumentParser(); ap.add_argument("ep")
 ap.add_argument("--skip-src-check", action="store_true", help="소재 경로 검사를 건너뛴다(컴포넌트를 아직 쓰는 중이거나, 검사가 잘못 잡을 때)")
@@ -282,9 +283,40 @@ for _k, _v in _vp.items():
     if _e.get("crop"): _bycrop.setdefault(tuple(_e["crop"]), []).append((_k, _e["src"]))
 _cg = {c: v for c, v in _bycrop.items() if len(v) > 1 and len({s for _, s in v}) > 1}
 if _cg:
-    print(f"같은 crop 인데 파일이 다른 키: {len(_cg)}묶음 — **한쪽만 바뀌면 그림이 갈립니다**")
+    # **경고 대신 잰다**(미술). 이 줄은 갈릴 일이 없어도 매번 뜨는데, **늘 켜진 경고는 세 번째부터
+    # 안 읽힌다.** 상태(「위험하다」)는 안 바뀌지만 **화소 차는 갈리면 수가 바뀐다.**
+    # **판정은 안 한다** — 「같다/다르다」의 선은 미술 값이라 수만 찍고 사람이 읽는다.
+    def _frame(_p, _t):
+        _r = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{_t:.3f}", "-i", str(_p),
+                             "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+                            capture_output=True)
+        _wh = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0",
+                              "-show_entries", "stream=width,height", "-of", "csv=p=0,s=x", str(_p)],
+                             capture_output=True, text=True).stdout.strip()
+        return np.frombuffer(_r.stdout, dtype=np.uint8), _wh
+    print(f"같은 crop 인데 파일이 다른 키: {len(_cg)}묶음 — **그림이 같은지 재서 찍습니다**")
     for _c, _v in sorted(_cg.items()):
-        print(f"      crop {list(_c)} ← " + " · ".join(f"{k}({s})" for k, s in _v))
+        _dur = {k: dur(pub / f"{k}.mp4") for k, _ in _v}
+        _lo = min(_dur.values())
+        # **한 장으로 재지 않는다.** 길이가 한 프레임만 달라도 컷 자리에서 두 장이 어긋나
+        # 화소 차가 26 까지 튄다 — 실제로 4.6초에서 그랬다. **여러 장의 중앙값**을 본다.
+        _ts = [_lo * r for r in (0.1, 0.25, 0.5, 0.7, 0.9)]
+        _out = []
+        for _k, _ in _v[1:]:
+            _ds = []
+            for _t in _ts:
+                _a, _wa = _frame(pub / f"{_v[0][0]}.mp4", _t)
+                _b, _wb = _frame(pub / f"{_k}.mp4", _t)
+                if _wa != _wb or _a.size != _b.size:
+                    _ds = None; _out.append(f"{_v[0][0]}↔{_k} **크기가 다릅니다 {_wa} 대 {_wb}**"); break
+                _ds.append(float(np.abs(_a.astype(np.int16) - _b).mean()))
+            if _ds:
+                _out.append(f"{_v[0][0]}↔{_k} 화소 차 중앙 **{sorted(_ds)[len(_ds)//2]:.2f}** · 최대 {max(_ds):.2f}")
+        _len = " · ".join(f"{k} {d:.3f}초" for k, d in _dur.items())
+        _warn = "  ← **길이가 다릅니다**" if max(_dur.values()) - _lo > 0.5 / FPS else ""
+        print(f"      crop {list(_c)} ← " + " · ".join(f"{k}({s})" for k, s in _v)
+              + f"\n        길이 {_len}{_warn}"
+              + f"\n        {len(_ts)}장으로: " + " · ".join(_out))
 
 # **소재를 쓰는 씬이 몇이나 되나.** 안 세면 다음 편이 4/29 가 돼도 아무도 안 알아챈다 —
 # 다 만들고 나서 「PPT 같다」로 알게 된다. E00 이 그렇게 됐고 그래서 이 편이 시작됐다(미술).
