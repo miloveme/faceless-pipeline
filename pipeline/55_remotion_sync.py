@@ -307,20 +307,34 @@ _caps_p = p["caps"]
 if _copy.exists() and _caps_p.exists():
     _caps = jload(_caps_p)
     _txt = _copy.read_text(encoding="utf-8")
-    _parts = re.split(r"^export const S(\d\d)", _txt, flags=re.M)
-    _echo = []
+    # **씬 덩어리만 가른다.** `S(\d\d)` 만 보면 `S03_POS` · `S05_BODY` 도 씬으로 잡혀
+    # 같은 씬이 두세 번 세어지고 문구가 엉뚱한 씬 자막과 대진다 — 분모를 찍으면서 나왔다(씬 32개).
+    _parts = re.split(r"^export const S(\d\d)\s*=", _txt, flags=re.M)
+    # **분모를 센다.** 「22건」만 찍으면 무엇의 22건인지가 안 보인다 — 스물둘이 많은지 적은지도
+    # 모르고, **본 범위가 좁아진 것과 걸린 게 없는 것이 같은 모양**이 된다(미술).
+    # 이 검사는 **`copy.ts` 만** 본다. `scenes.tsx` 의 문구는 범위 밖이고 그것도 같이 찍는다.
+    _echo, _seen, _scn = [], 0, 0
     for _k in range(1, len(_parts), 2):
         _sid = "s" + _parts[_k]
         _cap = _flat("".join(c["text"] for c in _caps.get(_sid, [])))
         if not _cap: continue
+        _scn += 1
         for _m in re.finditer(r'"((?:[^"\\]|\\.)*)"', _parts[_k + 1]):
             _v = _m.group(1)
             if len(_flat(_v)) < 5: continue
+            _seen += 1
             _n = _run(_flat(_v), _cap)
             if _n >= 5 and _n >= len(_flat(_v)) * 0.5:
                 _echo.append((_sid, _n, len(_flat(_v)), _v))
+    # **주석을 빼고 센다.** 안 빼면 5302자가 나오는데 그건 거의 다 설명이라 「범위 밖에 문구가
+    # 이만큼 있다」로 못 읽는다. 주석을 빼면 화면에 나갈 수 있는 것만 남는다.
+    _s = (src_dir / "scenes.tsx").read_text(encoding="utf-8") if (src_dir / "scenes.tsx").exists() else ""
+    _s = re.sub(r"//.*$", "", re.sub(r"/\*.*?\*/", "", _s, flags=re.S), flags=re.M)
+    _out = len(re.findall(r"[가-힣]", _s))
+    _scope = (f"{_copy.name} 의 문구 {_seen}개 / 씬 {_scn}개"
+              + (f" · **scenes.tsx 는 안 봅니다**(거기 주석 뺀 한글 {_out}자)" if _out else ""))
     if _echo:
-        print(f"겹말 후보: {len(_echo)}건 — 화면 문구가 그 씬 자막을 받아씁니다 (막지 않습니다. 판단은 연출)")
+        print(f"겹말 후보: {len(_echo)}건 / {_scope} — 화면 문구가 그 씬 자막을 받아씁니다 (막지 않습니다. 판단은 연출)")
         for _sid, _n, _l, _v in sorted(_echo, key=lambda x: -x[1]):
             print(f"  {_sid}  이어서 {_n}자 / 문구 {_l}자  「{_v[:44]}{'…' if len(_v) > 44 else ''}」")
     else:
@@ -389,4 +403,4 @@ if _copy.exists():
             + "\n".join(f"  {k}: {w}" for k, w in _open)
             + "\n  연출 감독이 정할 값입니다. 화면에는 빨간 「연출 대기」 상자로 떠 있습니다.\n"
               "  임시 낱말을 넣지 마세요 — 한 번 넣으면 그대로 남습니다.", 3)
-    print(f"화면 문구 검사: {_copy.name} · 기다리는 자리 0곳")
+    print(f"화면 문구 검사: {_copy.name} · 기다리는 자리 0곳 / 값을 기다리게 적어 둔 자리 {len(_wait)}개")
