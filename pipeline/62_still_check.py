@@ -16,7 +16,7 @@
 
 사용: 62_still_check.py <마스터.mp4> [--fps 10] [--th 0.5] [--max-still 3.0]
                         [--ep E01_… --stills <폴더>]"""
-import argparse, subprocess, sys, numpy as np
+import argparse, pathlib, subprocess, sys, numpy as np
 from common import die, FPS
 
 ap = argparse.ArgumentParser()
@@ -68,7 +68,19 @@ ap.add_argument("--extra-still", type=float, action="append", metavar="초", def
 # 9.592 는 f287 도 f288 도 될 수 있다. 프레임 번호로 받아 그 칸 한가운데를 뜬다(미술).
 ap.add_argument("--extra-frame", type=int, action="append", metavar="프레임", default=[],
                 help="목록과 별개로 이 프레임의 스틸도 뽑는다 (--stills 필요)")
+# **사람이 시각으로 가리킬 때는 어느 마스터인지가 값의 일부다.** 편 길이가 바뀌면 같은 초가
+# 다른 씬이고, 프레임 번호는 아예 다른 그림이다. 최종 편집자는 파일을 안 열어 어느 판인지 모른다 —
+# **다리가 보증해야 한다.** 안 맞으면 조용히 새 마스터에서 뜨지 말고 멈춘다(미술).
+ap.add_argument("--expect", metavar="지문",
+                help="이 마스터의 지문(앞 8자)이 아니면 종료코드 3 으로 멈춘다")
 a = ap.parse_args()
+
+# **어느 마스터인가.** 이름은 같고 안이 바뀌는 것이 이 편에서 세 번 났다(`intro_orig`).
+# 시각으로 가리키는 자리에서는 그것이 더 조용히 어긋난다.
+_sha = __import__("hashlib").sha1(pathlib.Path(a.video).read_bytes()).hexdigest()[:8]
+if a.expect and a.expect != _sha:
+    die(f"그 마스터는 여기 없습니다 — 가리킨 지문 {a.expect} · 지금 파일 {_sha} ({a.video})\n"
+        f"  같은 초가 다른 씬이고 프레임 번호는 아예 다른 그림입니다. 그 판본을 찾아서 다시 부르세요.", 3)
 
 W, H = 160, 90                      # 정지 판정에 해상도는 필요 없다. 작게 봐야 인코더 잡음이 씻긴다
 keep = max(0.05, 1 - a.cut_bottom)
@@ -123,6 +135,8 @@ def at(t):
 #   씬 안   — **판정은 이 값으로 한다**(연출·미술이 같이 정했다). 씬 밖은 클립을 그대로 트는 자리라
 #             설계가 없고 언제나 통과한다 — 분모에 넣으면 22초가 공짜로 「움직임」이 되어 값만 좋아진다.
 #             면적 11.6% 를 다음 판과 못 대기로 한 것과 같은 자리다: 나아진 것이 아니라 그릇을 재게 된다.
+# **여기서 n 을 쓰면 안 된다** — n 은 10fps 로 훑은 장 수(4651)이지 편의 프레임 수가 아니다.
+print(f"마스터: {pathlib.Path(a.video).name} · {total:.3f}초 / {round(total * FPS)}프레임 · **지문 {_sha}**")
 print(f"정지 비율(편 전체) {pct:.1f}%  (참고 — 관객이 본 전부. {a.fps}fps 로 {n}장 · 임계 평균 화소 차 {a.th} · 편 {total:.1f}초"
       + f" · 아래 {a.cut_bottom*100:.1f}% 는 빼고 봄 — 자막 띠)")
 if SC:
@@ -231,8 +245,14 @@ if a.extra_still or a.extra_frame:
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{max(0, k - 0.5) / FPS:.4f}",
                         "-i", a.video, "-frames:v", "1", f"{a.stills}/{name}.png"], check=False)
         t = k / FPS
-        where = f"{at(t)[0]} 안 {at(t)[1]:.2f}초" if SC and at(t)[0] else "씬 밖"
-        print(f"      프레임 {k:5d} ({t:7.3f}초)  {where}  → {name}.png")
+        # **가리킨 자리를 처음 보는 것처럼 재게 한다**(미술) — 앞 판정을 안 붙인다.
+        # 다섯만 낸다: 편 시각 · 프레임 · 씬과 씬 안 시각 · 그때 자막 · 스틸.
+        line = f"      프레임 {k:5d} ({t:7.3f}초 = {int(t)//60}분 {t%60:04.1f}초)"
+        if SC:
+            sid, off, said = at(t)
+            line += (f"  {sid} 안 {off:.2f}초" + (f'  자막: 「{said}」' if said else "  자막: (없음)")
+                     if sid else "  씬 밖 구간")
+        print(line + f"  → {name}.png")
 
 if a.dark is not None:
     p2 = subprocess.run(["ffmpeg", "-v", "error", "-i", a.video,
