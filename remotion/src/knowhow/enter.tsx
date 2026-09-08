@@ -8,13 +8,15 @@ import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } fr
  * 내레이션이 정하고 소리는 절대 시각에 얹힌다 — 화면만 32곳에서 당겨져 소리와 어긋나고
  * 렌더는 안 죽는다. 여기서는 **시각표를 그대로 두고 그림만 겹친다.**
  *
- * **등급마다 움직이는 것이 다르다**(연출·미술):
+ * **종류는 하나(`slide`)이고 길이와 축만 다르다**(연출·미술). 규칙을 하나만 배우면 된다.
  * ```
- *  0f   이어져야 하는 자리.        아무것도 안 한다
- *  6f   짝 안 — 바뀌는 요소만.     씬 층은 안 움직인다. 그 씬이 스스로 한다
- * 10f   일반 — 씬 층 전체.         오른쪽 → 왼쪽
- * 15f   절 사이 — 씬 층 전체.      아래 → 위
+ *  0f   이어져야 하는 자리.   아무것도 안 한다
+ *  6f   짝 안.               오른쪽 → 왼쪽
+ * 10f   일반.                오른쪽 → 왼쪽
+ * 15f   절 사이.             아래 → 위
  * ```
+ * **한때 「6f 는 바뀌는 요소만 민다」였는데 폐기됐다** — 요소만 밀려면 두 씬이 같은 배치를
+ * 공유해야 하는데 카드가 갈리는 자리(prompt → inout)에는 공유할 배치가 없다. 성립하지 않는 값이었다.
  * **무엇이 밀리는지는 문법의 `unit` 이 정한다** — `episode`(바탕·자막·서명)는 안 밀고
  * `scene`(담기·글)은 민다. Episode.tsx 가 자막을 이 밖에 두는 이유가 그것이다.
  *
@@ -23,9 +25,8 @@ import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } fr
  * `EASE_OUT` 은 제자리에 나타나는 요소용으로 남는다.
  */
 const GRADE = (sec: number) =>
-  sec <= 0 ? null
-  : sec < 0.28 ? null                      // 6f — 씬이 스스로 한다. 씬 층은 안 민다
-  : sec < 0.42 ? ("left" as const)         // 10f — 오른쪽에서 들어와 왼쪽으로
+  sec <= 0 ? null                          // 이어져야 하는 자리
+  : sec < 0.42 ? ("left" as const)         // 6f · 10f — 오른쪽에서 들어와 왼쪽으로. 길이만 다르다
   : ("up" as const);                       // 15f — 아래에서 올라온다
 
 export const Enter: React.FC<{ sec: number; children: React.ReactNode }> = ({ sec, children }) => {
