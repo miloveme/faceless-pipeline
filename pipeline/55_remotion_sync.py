@@ -145,6 +145,16 @@ _hold = lambda i: _tr["after"].get(i, _tr["default"])
 _iv = [(round(s0["t_start"]*FPS), round(s0["t_end"]*FPS), s0["id"]) for s0 in sc["scenes"]] \
     + [(round(b["t"]*FPS), round((b["t"]+b["sec"])*FPS), b.get("clip") or f'빈화면@{b["t"]}') for b in sc.get("blocks", [])]
 _iv.sort()
+# **`after` 의 열쇠가 실제 id 를 가리키나.** 안 맞으면 조용히 `default` 로 돌아간다 —
+# 값을 지운 것과 구별이 안 되고 렌더도 통과한다. 특히 클립 없는 구간의 열쇠는
+# `빈화면@9.192` 처럼 **시각이 들어 있어서**, 40 단계가 시각표를 다시 만들면 열쇠만 남고 안 맞는다.
+_ids = {x[2] for x in _iv}
+_orphan = [k for k in _tr.get("after", {}) if k not in _ids]
+if _orphan:
+    die(f"transition.after 의 열쇠 {len(_orphan)}개가 어디에도 안 맞습니다: {', '.join(_orphan)}\n"
+        f"  쓸 수 있는 이름은 씬 id 와 구간 이름입니다. 지금 구간은 {len(_iv)-len(sc['scenes'])}개:\n"
+        + "".join(f"    {x[2]}\n" for x in _iv if x[2] not in {y['id'] for y in sc['scenes']})
+        + "  안 맞는 열쇠는 무시되고 default 로 돕니다 — 값을 지운 것과 구별이 안 됩니다.", 3)
 # 전환이 있으면 경계는 **한 점이 아니라 구간**이다. 앞 것이 전환 길이만큼 더 남아 있어야 한다 —
 # 덜 남으면 그 사이에 바탕만 나오고, 더 남으면 다음 것이 늦게 덮인다. 둘 다 렌더는 안 죽는다.
 _bad = []
