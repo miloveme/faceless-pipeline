@@ -89,7 +89,15 @@ if blocks:
         die(f"씬 밖 구간의 클립에 소리가 없습니다 — {', '.join(no_audio)}\n"
             f'  15_clip_prep 은 기본이 무음입니다. visual_prep 의 그 clips 항목에 "audio": true 를 넣고 다시 돌리세요.\n'
             f"  이 구간에는 내레이션이 없습니다 — 무음으로 나가면 통째로 비어 버립니다.", 3)
-    print(f"씬 밖 구간 검사: {len(blocks)}개 · 클립 {len({b['clip'] for b in blocks})}종 다 있고 소리도 있습니다")
+    # 소리가 **있는지**만 보면 게인이 안 먹은 소재가 조용히 나간다. 실제로 인트로 클론이
+    # 원본보다 4.6 dB 작은 채로 구워진 적이 있다 — 크면 「더 진짜」로 읽히는 편이라 답을 미리 준다.
+    # 판정 기준은 음악 감독의 값이라 여기서는 **재서 보여만 준다.**
+    lv = [(c, lufs(pub/f"{c}.mp4")) for c in sorted({b["clip"] for b in blocks})]
+    print(f"씬 밖 구간 검사: 클립이 붙은 구간 {len(blocks)}개 · 클립 {len(lv)}종 다 있고 소리도 있습니다")
+    print("  음량:", " · ".join(f"{c} {('?' if i is None else f'{i:.1f}')} LUFS" for c, (i, _) in lv))
+    _sp = [i for _, (i, _) in lv if i is not None]
+    if len(_sp) > 1 and max(_sp) - min(_sp) > 1.0:
+        print(f"  ← 클립 사이 음량 차이 {max(_sp) - min(_sp):.1f} LU. 의도한 것이면 그대로 두세요(판정은 음악 감독).")
 
 # 소재 경로 검사. asset() 을 안 지난 경로는 남의 편을 가리켜도 tsc·remotion 이 통과시킨다.
 src_dir = REMOTION_DIR/"src"/sl
