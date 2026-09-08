@@ -248,16 +248,19 @@ if src_dir.is_dir():
 _comp = src_dir/"compositions.tsx"
 if _comp.exists():
     _sids = {x["id"] for x in sc["scenes"]}
-    _miss, _used = [], 0
-    for _m in re.finditer(r'sceneIds:\s*\[([^\]]*)\]', _comp.read_text(encoding="utf-8")):
-        for _q in re.findall(r'"([^"]+)"', _m.group(1)):
-            _used += 1
-            if _q not in _sids: _miss.append(_q)
+    _groups = [re.findall(r'"([^"]+)"', _m.group(1))
+               for _m in re.finditer(r'sceneIds:\s*\[([^\]]*)\]', _comp.read_text(encoding="utf-8"))]
+    _used = [q for g in _groups for q in g]
+    _miss = [q for q in _used if q not in _sids]
     if _miss:
         die(f"쇼츠가 없는 씬을 부릅니다: {', '.join(_miss)}\n"
             f"  Shorts.tsx 는 없는 id 를 조용히 건너뛰어 그만큼 짧아집니다 — 렌더는 통과합니다.\n"
             f"  있는 씬 {len(_sids)}개: {', '.join(sorted(_sids))}", 3)
-    print(f"쇼츠 씬 검사: 부르는 씬 {_used}개 다 있습니다")
+    # **개수만 찍으면 바뀐 것을 못 본다.** 구간이 다른 씬으로 갈려도 「3개 다 있습니다」는 그대로다.
+    # 씬 id 를 찍으면 음악 감독이 `55` 출력만 보고 「대본이 바뀐 씬과 겹치나」를 그 자리에서 본다.
+    # 묶음도 그대로 둔다 — 어느 쇼츠가 무엇을 쓰는지가 대괄호로 보인다(음악 감독 요청).
+    print(f"쇼츠 씬 검사: 부르는 씬 {len(_used)}개 다 있습니다 — "
+          + " ".join("[" + " · ".join(g) + "]" for g in _groups))
 
 # 화면 문구가 자막을 받아쓰나 — **겹말 검사**(연출 요청).
 # 목소리·자막·큰 글자가 같은 말을 세 번 하면 화면이 자막의 메아리가 된다.
