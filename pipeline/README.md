@@ -22,6 +22,7 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 | 30 | `30_nar_check.py [--ids] [--quiet-text]` | nar_raw, tts_input 의 `subs`·지문 | `whisper_cer.json`, `speech_bounds.json` | 숫자 누락·CER>0.06·내용 차이면 BAD → exit 3. **대본이 바뀐 뒤 안 만든 씬은 찍기만** |
 | 35 | `35_nar_retry.py --ids` | BAD 씬 | 시드 순회 교체 | 교체 후 30 재실행 |
 | 40 | `40_nar_finalize.py` | nar_raw + bounds | `narration_final/*.wav`, `script/scenes_v2.json` | 트랙을 사람이 들음 |
+| 41 | `41_timetable.py` | `script/scenes_v2.json` | (화면에 표) | **읽기만 한다.** 씬·구간의 시각·프레임·경계 — 옮겨 적지 말고 필요할 때 뽑는다 |
 | | | `script/timing.json` (있으면) | `inserts`(씬 밖 구간)와 `min_sec`(씬 하한)을 넣어 시각표를 다시 잰다 | 내레이션이 안 정하는 길이는 시각표 한 곳에만 들어간다 — 아래 단계는 오프셋을 따로 더하지 않는다 |
 | 45 | `45_visual_plan.py [--force]` | scenes_v2, scenes_v1 | `script/visual_plan.md` | 카드·이유는 사람이 채우고 승인 |
 | 50 | `50_captions_build.py` | narration_final, scenes_v1 | `captions.json` | 자막 텍스트는 원문. **자막↔대본 글자 대조** — 다르면 찍기만 |
