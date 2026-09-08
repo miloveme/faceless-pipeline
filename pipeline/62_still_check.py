@@ -129,7 +129,9 @@ def at(t):
     k = round(t * FPS)
     for x in SC:
         if round(x["t_start"] * FPS) <= k < round(x["t_end"] * FPS):
-            off = t - x["t_start"]
+            # 씬을 프레임으로 갈랐으니 **씬 안 시각도 프레임으로 잰다.**
+            # 초로 빼면 경계에서 음수가 나온다 — f951 이 「s01 안 -0.01초」로 찍혔다.
+            off = (k - round(x["t_start"] * FPS)) / FPS
             for c in CAP.get(x["id"], []):
                 if c["start"] + LEAD <= off < c["end"] + LEAD: return x["id"], off, c["text"]
             return x["id"], off, ""
