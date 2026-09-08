@@ -43,10 +43,15 @@ if p["tts_input"].exists():
         print("  이 씬들의 시각표·자막이 옛 문장 기준으로 잡힙니다. 멈추지 않습니다.")
 BEFORE, AFTER, MIN, TRANS = timing_of(p, [s["id"] for s in scenes["scenes"]])
 blocks = []          # 씬이 아닌 구간. 절대 시각으로 여기에 쌓는다
+# 시각표는 **한 자릿수로만** 적는다. 씬을 2자리, 구간을 3자리로 적었더니 구간 뒤에 오는 씬의
+# t_start 가 구간 끝과 최대 0.005초 어긋났다 — 30fps 에서 0.15프레임이라 이음매가 한 칸 갈릴 수 있다.
+# 그리고 **적은 값을 그대로 다음 시각의 기준으로 삼는다.** 안 적은 값으로 누적하면 표와 실제가 갈린다.
+TT = 3
 def place(sid, tbl, t):
     for it in tbl.get(sid, []):
-        blocks.append({"t": round(t, 3), "sec": it["sec"], **({"clip": it["clip"]} if it.get("clip") else {})})
-        t += it["sec"]
+        sec = round(it["sec"], TT); t = round(t, TT)
+        blocks.append({"t": t, "sec": sec, **({"clip": it["clip"]} if it.get("clip") else {})})
+        t += sec
     return t
 t = 0.0; rows = []
 for s in scenes["scenes"]:
@@ -66,7 +71,7 @@ for s in scenes["scenes"]:
     # 씬 슬롯은 내레이션이 정하지만, 화면이 더 길어야 하면 min_sec 이 하한이 된다.
     # 내레이션이 그보다 길면 내레이션이 이긴다 — 말이 잘리는 일은 없다.
     slot = max(LEAD + d + GAP, MIN.get(sid, 0.0))
-    s["t_start"] = round(t,2); s["t_end"] = round(t+slot,2)
+    s["t_start"] = round(t,TT); s["t_end"] = round(s["t_start"]+slot,TT)
     if MIN.get(sid): s["min_sec"] = MIN[sid]
     else: s.pop("min_sec", None)
     rows.append((sid, info[sid]["dur"], d, s["t_start"], s["t_end"], li, lp, lc))
