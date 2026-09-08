@@ -298,13 +298,32 @@ if p["visual_prep"].exists() and src_dir.is_dir():
     # crops 는 그 원본 클립을 물고 있다. 그것을 안 세면 인트로·꼬리가 「안 쓰는 것」으로 나온다.
     _used |= {b["clip"] for b in sc.get("blocks", []) if b.get("clip")}
     _used |= {v["src"] for v in _vp.get("crops", {}).values() if isinstance(v, dict) and v.get("src")}
-    _idle = sorted(k for k in _keys if k not in _used)
-    print(f"소재 쓰임 검사: visual_prep 항목 {len(_keys)}개 · 씬이 부르는 것 {len(_keys) - len(_idle)}개"
-          + (f" · **어느 씬도 안 부르는 것 {len(_idle)}개**" if _idle else " · 안 쓰는 것 0개")
+    # **지우지 않고 「안 씀」이라고 적는 자리를 둔다**(미술). 목록에서 빼면 점검 대상에서도 사라진다 —
+    # 이 편에서 `s00_orig_still.png` 이 목록 밖이라 아무도 안 봤고 덧칠본이 화면에 올라갔다.
+    # visual_prep 에 top-level `"unused": ["arc12", …]` 을 두면 그쪽으로 세고 목록에서 뺀다.
+    _marked = set(_vp.get("unused", []))
+    _idle = sorted(k for k in _keys if k not in _used and k not in _marked)
+    _stale = sorted(k for k in _marked if k in _used)          # 「안 씀」이라 적었는데 씬이 부른다
+    print(f"소재 쓰임 검사: visual_prep 항목 {len(_keys)}개 · 씬이 부르는 것 {len(_keys - set(_idle) - _marked)}개"
+          + (f" · 「안 씀」이라 적힌 것 {len(_marked)}개" if _marked else "")
+          + (f" · **적혀 있지 않은데 안 부르는 것 {len(_idle)}개**" if _idle else " · 안 적힌 것 0개")
           + (f" · 조립해서 부르는 자리 {_dyn2}곳은 못 봅니다" if _dyn2 else ""))
     if _idle:
         print("  " + " · ".join(_idle))
-        print("  지울지는 항목 주인(연출·미술)이 정합니다. 막지 않습니다.")
+        print('  지울지는 항목 주인(연출·미술)이 정합니다. 막지 않습니다.')
+        print('  남겨 둘 것이면 visual_prep 에 "unused": [...] 로 적어 주세요 — 그러면 여기서 빠집니다.')
+    if _stale:
+        print(f"  ← 「안 씀」이라 적혀 있는데 씬이 부르는 것 {len(_stale)}개: " + " · ".join(_stale))
+    # 목록에서 이름을 바꾸면 **옛 이름으로 구운 파일이 public 에 그대로 남는다.**
+    # 코드가 옛 이름을 부르면 조용히 그 파일이 나간다 — 「소재 이름 검사」는 있는 파일만 보므로 못 잡는다.
+    # 스틸은 `<키>_<초>.png` 로 여러 장이 나온다. 키만 대면 그 전부가 고아로 잡힌다
+    _made = set(_keys) | {f"{k}_{t}" for k, ts in _vp.get("stills", {}).items()
+                          if k != "_" for t in ts}
+    _orphan = sorted(x.stem for x in pub.iterdir()
+                     if x.is_file() and x.suffix in (".png", ".mp4") and x.stem not in _made)
+    if _orphan:
+        print(f"  ← visual_prep 에 없는데 public 에 구워져 있는 것 {len(_orphan)}개: " + " · ".join(_orphan))
+        print("     이름을 바꾸면 옛 파일이 남습니다. 코드가 옛 이름을 부르면 조용히 그게 나갑니다.")
 
 # 안 정해진 문구 검사 — copy.ts 의 `null` 은 **아직 담당이 정하지 않은 값**이다.
 # 화면에는 빨간 「연출 대기」 상자로 뜨지만 그것만으로는 못 막는다. 렌더는 통과하고
