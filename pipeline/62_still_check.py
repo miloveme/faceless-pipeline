@@ -17,7 +17,7 @@
 사용: 62_still_check.py <마스터.mp4> [--fps 10] [--th 0.5] [--max-still 3.0]
                         [--ep E01_… --stills <폴더>]"""
 import argparse, subprocess, sys, numpy as np
-from common import die
+from common import die, FPS
 
 ap = argparse.ArgumentParser()
 ap.add_argument("video")
@@ -56,6 +56,10 @@ ap.add_argument("--per-scene", action="store_true", help="씬마다 가장 긴 �
 # 짧아서 어느 임계에도 안 걸리는데, 원본과 클론을 가르는 자리라 미술이 봐야 한다.
 ap.add_argument("--extra-still", type=float, action="append", metavar="초", default=[],
                 help="목록과 별개로 이 시각의 스틸도 뽑는다 (여러 번 줄 수 있다 · --stills 필요)")
+# **경계 한 프레임을 볼 때는 초로 주지 마라.** 초로 주면 어느 프레임이 나오는지 반올림이 정한다 —
+# 9.592 는 f287 도 f288 도 될 수 있다. 프레임 번호로 받아 그 칸 한가운데를 뜬다(미술).
+ap.add_argument("--extra-frame", type=int, action="append", metavar="프레임", default=[],
+                help="목록과 별개로 이 프레임의 스틸도 뽑는다 (--stills 필요)")
 a = ap.parse_args()
 
 W, H = 160, 90                      # 정지 판정에 해상도는 필요 없다. 작게 봐야 인코더 잡음이 씻긴다
@@ -154,7 +158,7 @@ else:
 if a.stills and shown:
     import pathlib as _pl; _pl.Path(a.stills).mkdir(parents=True, exist_ok=True)
 for t, L in shown:
-    fnum = round(t * 30)
+    fnum = round(t * FPS)
     line = f"      {t:7.2f}초 부터 {L:.2f}초  (프레임 {fnum})"
     if SC:
         sid, off, said = at(t)
@@ -166,16 +170,21 @@ for t, L in shown:
                         "-frames:v", "1", f"{a.stills}/still_{fnum}.png"], check=False)
 if a.stills and shown: print(f"      스틸 {len(shown)}장 → {a.stills}/  (**정지가 시작하는 프레임**)")
 
-if a.extra_still:
-    if not a.stills: die("--extra-still 은 --stills 가 있어야 합니다 (뽑을 곳이 없습니다)", 2)
+if a.extra_still or a.extra_frame:
+    if not a.stills: die("--extra-still / --extra-frame 은 --stills 가 있어야 합니다 (뽑을 곳이 없습니다)", 2)
     import pathlib as _pl; _pl.Path(a.stills).mkdir(parents=True, exist_ok=True)
-    print(f"  따로 뽑은 자리 {len(a.extra_still)}장 (목록과 무관 — 요청받은 시각)")
-    for t in a.extra_still:
-        fnum = round(t * 30)
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", a.video,
-                        "-frames:v", "1", f"{a.stills}/at_{fnum}.png"], check=False)
+    # **둘 다 프레임 번호로 바꿔서 뽑는다.** 초로 뽑으면 어느 칸이 나오는지 반올림이 정한다.
+    # 그리고 `-ss` 는 **그 시각 이후 첫 프레임**을 낸다 — 칸 한가운데를 주면 다음 칸이 나온다.
+    # (합성 클립으로 확인했다: f17 을 0.5833 로 주니 f18 이 나왔다.) **반 칸 앞**을 준다.
+    want = [(round(t * FPS), f"at_{round(t * FPS)}") for t in a.extra_still] \
+         + [(k, f"f{k}") for k in a.extra_frame]
+    print(f"  따로 뽑은 자리 {len(want)}장 (목록과 무관 — 요청받은 자리)")
+    for k, name in want:
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{max(0, k - 0.5) / FPS:.4f}",
+                        "-i", a.video, "-frames:v", "1", f"{a.stills}/{name}.png"], check=False)
+        t = k / FPS
         where = f"{at(t)[0]} 안 {at(t)[1]:.2f}초" if SC and at(t)[0] else "씬 밖"
-        print(f"      {t:7.2f}초  (프레임 {fnum})  {where}  → at_{fnum}.png")
+        print(f"      프레임 {k:5d} ({t:7.3f}초)  {where}  → {name}.png")
 
 if a.dark is not None:
     p2 = subprocess.run(["ffmpeg", "-v", "error", "-i", a.video,
@@ -203,7 +212,7 @@ if a.dark is not None:
         if SC:
             sid, off, _ = at(t)
             w = f"  {sid} 안 {off:.2f}초" if sid else "  씬 밖 구간"
-        print(f"      {t:7.2f}초 부터 {L:.2f}초  (프레임 {round(t*30)} · 평균 {m[i0:i1].min():.1f}~{m[i0:i1].max():.1f}"
+        print(f"      {t:7.2f}초 부터 {L:.2f}초  (프레임 {round(t * FPS)} · 평균 {m[i0:i1].min():.1f}~{m[i0:i1].max():.1f}"
               f" · 가장 밝은 화소 {int(_b2[i0:i1].max())}){w}")
 
 if a.report:
