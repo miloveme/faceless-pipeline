@@ -25,9 +25,11 @@ export const useCue = (atSec: number, overSec = 0.5, opts?: { linear?: boolean }
       extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(...EASE_OUT),
     });
   }
-  return spring({
-    frame: frame - atSec * fps, fps,
-    durationInFrames: Math.max(1, Math.round(overSec * fps)),
-    config: CUE_SPRING,
-  });
+  const dur = Math.max(1, Math.round(overSec * fps));
+  const f = frame - atSec * fps;
+  // 끝에서 **정확히 1** 로 만든다. spring 은 durationInFrames 끝에서 0.9959 를 준다 —
+  // opacity 는 무해하지만 「막대가 끝까지 자란다」 같은 자리에서는 끝이 모자란다.
+  // 실제로 s08 밑줄이 5px 짧아졌다(다른 화소 34개, 7×6 자리). 눈에 안 걸리고 렌더도 안 죽는다.
+  if (f >= dur) return 1;
+  return spring({ frame: f, fps, durationInFrames: dur, config: CUE_SPRING });
 };
