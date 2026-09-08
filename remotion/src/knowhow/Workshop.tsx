@@ -40,7 +40,7 @@ export const WORKSHOP_CAPTION_BOTTOM = G.caption.bottom;
 const TITLE_H = 56;   // 제목 표시줄
 const BROWSER_H = 60; // 주소 알약이 있는 표시줄은 조금 높다
 const PAD = 22;       // 창 안쪽 여백. Term 의 padding 과 같은 값이어야 한다
-const CMD_H = 51;     // "$ 명령" 줄 (fontSize 26 + marginBottom 14)
+const cmdH = (size: number) => Math.round(size * 1.04) + Math.round(size * 0.56);   // "$ 명령" 줄
 
 /* ─────────── 책상: 창을 올려 둘 바닥 ─────────── */
 // 창을 올려 둘 바닥. 다른 문법의 바탕과 같은 것을 써야 씬이 갈려도 한 편으로 읽힌다.
@@ -157,7 +157,10 @@ export const Win: React.FC<{
  *    s12  7줄/19.7초 손 1.80 ↔ 계산 2.25 */
 export const Term: React.FC<{
   cmd: string; lines: string[]; everySec?: number; badPrefix?: string; okPrefix?: string;
-}> = ({ cmd, lines, everySec, badPrefix, okPrefix }) => {
+  /** 글자 크기. 「기록을 보인다」면 작게 여러 줄, 「설명한다」면 크게 몇 줄이다 —
+   *  같은 부품이 두 일을 하므로 크기와 `everySec` 이 어느 쪽인지를 정한다. */
+  size?: number;
+}> = ({ cmd, lines, everySec, badPrefix, okPrefix, size = 25 }) => {
   const frame = useCurrentFrame(); const { fps, height } = useVideoConfig();
   const st = useStreamPace(lines.length, everySec, 0.7);
   const shown = Math.floor(interpolate(frame, [st.startSec * fps, (st.startSec + lines.length * st.everySec) * fps],
@@ -167,19 +170,19 @@ export const Term: React.FC<{
   // (실제로 그랬다: 테두리 2px 을 안 뺀 판본이 나갔다. 창이 이미 뺀 값을 받아 쓰면 그럴 일이 없고,
   //  browser 표시줄처럼 높이가 다른 창에 넣어도 저절로 맞는다.)
   const ctx = React.useContext(FitBoxCtx);
-  const LINE = 35.5;                                   // fontSize 25 × lineHeight 1.42
+  const LINE = size * 1.42;                            // lineHeight 1.42. 크기를 바꾸면 줄 높이도 따라간다
   const boxH = ctx?.h ?? height - WIN.top - WIN.bottom - T.lineWSm * 2 - TITLE_H;
-  const rows = Math.max(4, Math.floor((boxH - PAD * 2 - CMD_H) / LINE));
+  const rows = Math.max(4, Math.floor((boxH - PAD * 2 - cmdH(size)) / LINE));
   const over = Math.max(0, shown - rows);              // 넘친 만큼 위로 밀어 올린다
   return (
     <div style={{ padding: `${PAD}px 28px`, fontFamily: T.mono, transform: `translateY(${-over * LINE}px)` }}>
-      <div style={{ color: T.ok, fontSize: 26, marginBottom: 14 }}>$ {cmd}</div>
+      <div style={{ color: T.ok, fontSize: Math.round(size * 1.04), marginBottom: Math.round(size * 0.56) }}>$ {cmd}</div>
       {lines.slice(0, shown).map((l, i) => {
         const bad = badPrefix && l.startsWith(badPrefix);
         const good = okPrefix && l.startsWith(okPrefix);
         return (
           <div key={i} style={{
-            color: bad ? T.fail : good ? T.ok : T.muted, fontSize: 25, lineHeight: 1.42,
+            color: bad ? T.fail : good ? T.ok : T.muted, fontSize: size, lineHeight: 1.42,
             whiteSpace: "pre", fontWeight: bad || good ? 700 : 400,
           }}>{l}</div>
         );
