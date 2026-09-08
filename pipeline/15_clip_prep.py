@@ -23,19 +23,28 @@ cfg = jload(p["visual_prep"]); pub = REMOTION_DIR/"public"/slug(ep); pub.mkdir(p
 for name, v in cfg.get("clips", {}).items():
     c = prep_entry(v); src = ep/"source"/c["src"]
     if not src.exists(): die(f'clips "{name}": 소재가 없습니다 — {src}')
-    # 자르기 → 가리기 → 크기 순서다. 크기를 먼저 바꾸면 미술이 준 정규화 좌표가 그대로 맞지 않는다.
+    # 시간 자르기 → **화면 자르기** → 가리기 → 크기 순서다.
+    # crop 이 mask 보다 **앞**이라 mask 의 정규화 좌표는 **잘라낸 뒤** 기준이다 — ffmpeg 의 iw/ih 가
+    # 그 필터에 들어오는 그림을 가리키기 때문이다. 크기(scale)를 먼저 바꾸면 좌표가 안 맞는다.
     pre = ["-ss", str(c["ss"])] if c.get("ss") is not None else []
     post = ["-t", str(c["t"])] if c.get("t") is not None else []
+    crop = ""
+    if c.get("crop"):
+        cx, cy, cw, ch = c["crop"]                      # 소재 픽셀 [x, y, w, h]
+        crop = f"crop={cw}:{ch}:{cx}:{cy},"
     box = "".join(f"drawbox=x=iw*{x}:y=ih*{y}:w=iw*{w}:h=ih*{h}:color=black@1:t=fill," for x, y, w, h in c.get("mask", []))
     # 소리는 기본으로 뺀다 — 내레이션이 담당한다. 원본 소리가 필요한 자리(인트로)만 audio:true 로 남긴다.
     au = ["-c:a","aac","-b:a","192k"] if c.get("audio") else ["-an"]
     run(["ffmpeg","-nostdin","-v","error","-y"] + pre + ["-i", str(src)] + post +
-        ["-vf", box+"scale=1920:-2", "-c:v","libx264","-crf","18","-preset","fast"] + au + [str(pub/f"{name}.mp4")])
+        ["-vf", crop+box+"scale=1920:-2", "-c:v","libx264","-crf","18","-preset","fast"] + au + [str(pub/f"{name}.mp4")])
     got = dur(pub/f"{name}.mp4")
     if c.get("t") is not None and abs(got - float(c["t"])) > 0.05:
         die(f'clips "{name}": {c["t"]}초를 지정했는데 {got:.3f}초가 나왔습니다 — 소재가 그만큼 없거나 ss 가 너무 뒤입니다 ({src})', 3)
-    print("clip", name, f"{got:.3f}s", "소리있음" if c.get("audio") else "무음",
-          f'가림 {len(c.get("mask", []))}칸' if c.get("mask") else "")
+    _wh = subprocess.run(["ffprobe","-v","error","-select_streams","v:0","-show_entries","stream=width,height",
+                          "-of","csv=p=0",str(pub/f"{name}.mp4")], capture_output=True, text=True).stdout.strip()
+    print("clip", name, f"{got:.3f}s", _wh, "소리있음" if c.get("audio") else "무음",
+          (f'잘라냄 {c["crop"]}' if c.get("crop") else ""),
+          (f'가림 {len(c.get("mask", []))}칸' if c.get("mask") else ""))
 for name, v in cfg.get("images", {}).items():
     s = ep/"source"/prep_entry(v)["src"]
     if not s.exists(): die(f"이미지가 없습니다: {s}")

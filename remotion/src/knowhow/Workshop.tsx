@@ -39,7 +39,6 @@ export const WORKSHOP_CAPTION_BOTTOM = G.caption.bottom;
 // (index.css 를 떼고 렌더해도 같은 값이 나온다 — tailwind 가 아니라 remotion 이 보장한다.)
 const TITLE_H = 56;   // 제목 표시줄
 const BROWSER_H = 60; // 주소 알약이 있는 표시줄은 조금 높다
-const BORDER = 1;     // 창 테두리. 안쪽 칸은 좌우·상하로 이만큼씩 좁다
 const PAD = 22;       // 창 안쪽 여백. Term 의 padding 과 같은 값이어야 한다
 const CMD_H = 51;     // "$ 명령" 줄 (fontSize 26 + marginBottom 14)
 
@@ -76,7 +75,7 @@ const TitleBar: React.FC<{ chrome: Chrome; title: string }> = ({ chrome, title }
         {/* 주소 알약 */}
         <div style={{
           marginLeft: 6, flex: 1, height: 34, borderRadius: 17, backgroundColor: "#0b0d11",
-          border: `1px solid ${T.panelLine}`, display: "flex", alignItems: "center", gap: 10,
+          border: `${T.lineWSm}px solid ${T.panelLine}`, display: "flex", alignItems: "center", gap: 10,
           padding: "0 16px", fontFamily: T.mono, fontSize: 22, color: T.text, letterSpacing: 0.5,
         }}>
           <div style={{
@@ -120,8 +119,8 @@ export const Win: React.FC<{
   // 테두리를 빼야 실제 칸이 나온다. 2px 을 흘리면 안에 든 이미지가 그만큼 커져
   // 창 밖으로 밀리고, 이미지 퍼센트로 찍은 주석 상자도 같이 어긋난다.
   const inner = {
-    w: width - WIN.left - WIN.right - BORDER * 2,
-    h: height - WIN.top - WIN.bottom - BORDER * 2 - (chrome === "browser" ? BROWSER_H : TITLE_H),
+    w: width - WIN.left - WIN.right - T.lineWSm * 2,
+    h: height - WIN.top - WIN.bottom - T.lineWSm * 2 - (chrome === "browser" ? BROWSER_H : TITLE_H),
   };
   return (
     <AbsoluteFill>
@@ -133,7 +132,7 @@ export const Win: React.FC<{
           borderRadius: 14,
           overflow: "hidden",
           backgroundColor: chrome === "terminal" ? "#0a0c10" : "#0b0d11",
-          border: `${BORDER}px solid ${T.panelLine}`,
+          border: `${T.lineWSm}px solid ${T.panelLine}`,
           boxShadow: "0 40px 90px rgba(0,0,0,0.65)",
           opacity: on,
           transform: `translateY(${(1 - on) * 14}px)`,
@@ -169,7 +168,7 @@ export const Term: React.FC<{
   //  browser 표시줄처럼 높이가 다른 창에 넣어도 저절로 맞는다.)
   const ctx = React.useContext(FitBoxCtx);
   const LINE = 35.5;                                   // fontSize 25 × lineHeight 1.42
-  const boxH = ctx?.h ?? height - WIN.top - WIN.bottom - BORDER * 2 - TITLE_H;
+  const boxH = ctx?.h ?? height - WIN.top - WIN.bottom - T.lineWSm * 2 - TITLE_H;
   const rows = Math.max(4, Math.floor((boxH - PAD * 2 - CMD_H) / LINE));
   const over = Math.max(0, shown - rows);              // 넘친 만큼 위로 밀어 올린다
   return (
@@ -455,7 +454,7 @@ export const RecPlayer: React.FC<{ clip: string; segments: RecSeg[] }> = ({ clip
 const RecBadge: React.FC<{ text: string; second?: boolean }> = ({ text, second }) => (
   <div style={{
     position: "absolute", right: 18, top: second ? 62 : 16,
-    backgroundColor: "rgba(8,10,14,0.82)", border: `1px solid ${T.panelLine}`,
+    backgroundColor: "rgba(8,10,14,0.82)", border: `${T.lineWSm}px solid ${T.panelLine}`,
     borderRadius: 8, padding: "6px 12px",
     fontFamily: faceFor(text), fontSize: 22, color: T.muted, letterSpacing: 1,
   }}>{text}</div>

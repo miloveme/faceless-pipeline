@@ -111,7 +111,7 @@ export const PromptCard: React.FC<Props> = ({
         style={{
           width: 1600,
           backgroundColor: T.panel,
-          border: `2px solid ${T.panelLine}`,
+          border: `${T.lineW}px solid ${T.panelLine}`,
           borderRadius: 24,
           padding: "48px 64px",
           opacity: cardIn,

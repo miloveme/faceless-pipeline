@@ -57,7 +57,7 @@ export const ImageCard: React.FC<Props> = (p) => {
           width: w,
           overflow: "hidden",
           borderRadius: 16,
-          border: `2px solid ${T.panelLine}`,
+          border: `${T.lineW}px solid ${T.panelLine}`,
           backgroundColor: "#000",
         }}
       >
@@ -112,7 +112,7 @@ export const ImageCard: React.FC<Props> = (p) => {
             backgroundColor: "rgba(23,26,33,0.85)",
             padding: "12px 28px",
             borderRadius: 12,
-            border: `1px solid ${T.panelLine}`,
+            border: `${T.lineWSm}px solid ${T.panelLine}`,
           }}
         >
           {p.caption}

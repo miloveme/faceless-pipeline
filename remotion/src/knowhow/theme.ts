@@ -60,6 +60,15 @@ type Theme = {
   gap: number;         // 요소 사이 간격
   radius: number;      // 카드 모서리
   radiusSm: number;    // 작은 요소 모서리
+  /**
+   * 테두리 굵기. **안쪽 크기를 계산하는 식에 들어가는 값이라 토큰이다.**
+   * 카드 안쪽 = 상자 − 2×(lineW + pad).  이 항을 빼먹으면 한 변에 4px 이 는다 —
+   * 실제로 그 4px 때문에 같은 카드를 706 과 710 으로 두 번 재고 두 번 틀렸다.
+   * 값을 문서에 적지 말고 이 식으로 계산해서 쓴다(safeBottom 이 문법마다 달라
+   * 안쪽 높이는 문법마다 다르다).
+   */
+  lineW: number;       // 카드·창 테두리
+  lineWSm: number;     // 작은 요소 테두리 (칩·배지)
   contentW: number;    // 본문 최대 폭 (1920 기준)
   edge: number;        // 화면 가장자리 여백
 
@@ -83,7 +92,7 @@ export const PRESETS: Record<string, Theme> = {
     fail: "#e5484d", ok: "#3ecf8e", ruleBg: "#000000",
     sans: sans.fontFamily, mono: MONO_STACK,
     fsBody: 40, fsLead: 54, fsKicker: 30, fsLabel: 26, fsCaption: 40,
-    pad: 56, gap: 30, radius: 18, radiusSm: 8, contentW: 1500, edge: 40,
+    pad: 56, gap: 30, radius: 18, radiusSm: 8, lineW: 2, lineWSm: 1, contentW: 1500, edge: 40,
     capBottom: 56, capMaxW: 1500, capBg: "rgba(0,0,0,0.72)", capColor: "#ffffff",
     capPad: "10px 26px", capRadius: 10,
     fade: 0.4,
@@ -96,7 +105,7 @@ export const PRESETS: Record<string, Theme> = {
     fail: "#b3261e", ok: "#2e7d4d", ruleBg: "#efe2c8",
     sans: sans.fontFamily, mono: MONO_STACK,
     fsBody: 42, fsLead: 56, fsKicker: 30, fsLabel: 26, fsCaption: 40,
-    pad: 56, gap: 30, radius: 14, radiusSm: 6, contentW: 1500, edge: 44,
+    pad: 56, gap: 30, radius: 14, radiusSm: 6, lineW: 2, lineWSm: 1, contentW: 1500, edge: 44,
     capBottom: 56, capMaxW: 1500, capBg: "rgba(43,38,32,0.82)", capColor: "#fffaf0",
     capPad: "10px 26px", capRadius: 8,
     fade: 0.4,
@@ -109,7 +118,7 @@ export const PRESETS: Record<string, Theme> = {
     fail: "#ff4d4d", ok: "#3dff9a", ruleBg: "#000000",
     sans: sans.fontFamily, mono: MONO_STACK,
     fsBody: 44, fsLead: 60, fsKicker: 32, fsLabel: 28, fsCaption: 44,
-    pad: 56, gap: 32, radius: 12, radiusSm: 6, contentW: 1560, edge: 40,
+    pad: 56, gap: 32, radius: 12, radiusSm: 6, lineW: 2, lineWSm: 1, contentW: 1560, edge: 40,
     capBottom: 60, capMaxW: 1560, capBg: "rgba(0,0,0,0.85)", capColor: "#ffffff",
     capPad: "12px 28px", capRadius: 8,
     fade: 0.3,
