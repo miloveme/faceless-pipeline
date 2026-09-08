@@ -162,15 +162,41 @@ if a.per_scene:
     # **작은 것 하나가 계속 움직이면 그 씬은 목록에서 빠진다** — 보기에는 멈춰 있는데도.
     # 그 자리를 「차가 0.5~1.5 인 표본의 비율」로 낸다. 실사는 그 위에 있다(1% 분위 0.81 · 중앙 2.70).
     # **새 훑기가 아니다** — 이미 잰 `d` 에 조건 하나다. 비율이 높은 씬이 미술이 열어 볼 씬이다.
+    # **1초 창.** 이웃 프레임 차(1/30초)는 두 가지를 못 본다 —
+    #   페이드   0.4초짜리가 10fps 에서 넉 조각이 되어 조각마다 임계 아래로 간다.
+    #            s01 은 「20.40초 정지」인데 첫 장과 마지막 장의 차가 1.316 이다
+    #   작은 창  칸 둘이 화면의 26% 면 실사 중앙 2.70 × 0.26 = 0.70 이라 「작은 움직임」으로 잡힌다
+    # **1초 떨어진 두 장을 대면 둘 다 갈린다**(미술). 열 칸 떨어진 표본이 1초다.
+    _d1 = np.abs(fr[:-int(a.fps)].astype(np.int16) - fr[int(a.fps):]).mean(axis=(1, 2)) \
+          if len(fr) > int(a.fps) else np.zeros(0)
+    # 밴드 칸은 남긴다 — **「작은 창에서 실사가 돈다」를 재는 값**으로는 맞다(미술). 이름만 그것이다.
+    # **들어오는 전환은 뺀다.** 씬 첫 0.2~0.5초는 씬 층이 통째로 밀려 들어오는 구간이라
+    # 1초 창이 그것을 「이 씬이 바뀐다」로 잡는다 — s01 이 최대 0.44 대신 40.78 로 나왔다.
+    # 전환 길이는 **앞에 오는 것**이 갖는다(scenes_v2 의 transition). 씬·구간을 시각으로 세운다.
+    _tr = (jload(_p["scenes_v2"]).get("transition") or {"default": 0.0, "after": {}})
+    _ord = sorted([(x["t_start"], x["id"]) for x in SC]
+                  + [(b["t"], b.get("clip") or f'빈화면@{b["t"]:.3f}') for b in BLK])
+    _enter = {}
+    for _k, (_t, _id) in enumerate(_ord):
+        _prev = _ord[_k - 1][1] if _k > 0 else None
+        _enter[_id] = _tr["after"].get(_prev, _tr["default"]) if _prev else 0.0
     _lo, _hi = a.th, a.th * 3
-    print(f"  씬별 **작은움직임** = 이웃 프레임 차가 {_lo}~{_hi} 인 표본의 비율 (그 위는 실사·전환)")
+    print(f"  씬별  **1초차** = 1초 떨어진 두 장의 차 (페이드·작은 창을 다 본다)"
+          f"  ·  작은창실사 = 이웃 프레임 차가 {_lo}~{_hi} 인 표본의 비율")
     for x in SC:
-        i0, i1 = round(x["t_start"] / dt), min(len(d), round(x["t_end"] / dt))
-        seg = d[max(0, i0):i1]
+        i0, i1 = max(0, round(x["t_start"] / dt)), min(len(d), round(x["t_end"] / dt))
+        seg = d[i0:i1]
         if not len(seg): continue
         _sm = float(((seg >= _lo) & (seg < _hi)).mean() * 100)
         _lg = max((L for t, L in runs if at(t)[0] == x["id"]), default=0.0)
-        print(f"      {x['id']}  가장 긴 정지 {_lg:5.2f}초 · 작은움직임 {_sm:4.0f}%"
+        # **두 끝이 다 그 씬 안**인 표본만 쓴다. 안 그러면 마지막 초가 다음 씬과 비교되어
+        # 「이 씬이 얼마나 안 바뀌나」에 전환이 섞인다 — s01 최대가 0.44 대신 40.78 로 나왔다.
+        # 두 끝이 다 그 씬 안이고, **들어오는 전환이 끝난 뒤**인 표본만 쓴다.
+        _j0 = i0 + round(_enter.get(x["id"], 0.0) / dt)
+        _s1 = _d1[_j0:max(_j0, min(len(_d1), i1 - int(a.fps)))]
+        _c = (f"1초차 중앙 {np.median(_s1):6.2f} · 최대 {_s1.max():6.2f} · 0.5아래 {float((_s1 < a.th).mean()*100):3.0f}%"
+              if len(_s1) else "1초차 —")
+        print(f"      {x['id']}  정지 {_lg:5.2f}초 · {_c} · 작은창실사 {_sm:3.0f}%"
               + ("  ←" if _lg > a.max_still else ""))
 else:
     shown = long
