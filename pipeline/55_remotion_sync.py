@@ -273,6 +273,19 @@ if _dup:
                  + " · ".join(_off) + ")이 같이 있습니다") if _on and _off else "  (라벨 쪽은 같습니다 — 합쳐도 됩니다)"
         print(f"      {_src} ← {' · '.join(_ks)}{_mark}")
 
+# **같은 crop 을 쓰는데 파일이 다른 키.** 「같은 파일」보다 **「같은 그림」**이 지키려던 것이다(미술).
+# `intro_orig` 과 `s00_orig` 이 그렇다 — 같은 crop 인데 하나는 게인 맞춘 판, 하나는 원본이다.
+# **한쪽 crop 만 바뀌면 아무 검사도 안 운다** — 828 대 762 로 갈려 있던 그 상태로 돌아간다.
+_bycrop = {}
+for _k, _v in _vp.items():
+    _e = prep_entry(_v)
+    if _e.get("crop"): _bycrop.setdefault(tuple(_e["crop"]), []).append((_k, _e["src"]))
+_cg = {c: v for c, v in _bycrop.items() if len(v) > 1 and len({s for _, s in v}) > 1}
+if _cg:
+    print(f"같은 crop 인데 파일이 다른 키: {len(_cg)}묶음 — **한쪽만 바뀌면 그림이 갈립니다**")
+    for _c, _v in sorted(_cg.items()):
+        print(f"      crop {list(_c)} ← " + " · ".join(f"{k}({s})" for k, s in _v))
+
 # **소재를 쓰는 씬이 몇이나 되나.** 안 세면 다음 편이 4/29 가 돼도 아무도 안 알아챈다 —
 # 다 만들고 나서 「PPT 같다」로 알게 된다. E00 이 그렇게 됐고 그래서 이 편이 시작됐다(미술).
 # **문턱을 두지 않는다.** 62% 가 적정한지는 편이 하나뿐이라 견줄 것이 없다 — 기준으로 박으면
