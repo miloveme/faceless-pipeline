@@ -29,6 +29,7 @@ CER_MAX = 0.06    # 씬 단위 글자 오류율 상한(전처리 후 기준, 30�
 # 8.7 은 voice.json 의 지금 목소리로 잰 값이다(E01 24씬 3,195자 / 366.1초, 절대평균오차 0.74초).
 # 제공자·참조 음성·파라미터를 바꾸면 다시 재야 한다.
 CHARS_PER_SEC = 8.7    # 대본 원문 기준(강조 표시 제외). 길이를 **가늠**하는 값이지 상한이 아니다
+FPS = 30               # remotion/src/knowhow/Episode.tsx 의 FPS 와 같아야 한다 — 55 가 대조한다
 WHISPER_MODEL = "medium"
 
 if str(PIPE_DIR) not in sys.path: sys.path.insert(0, str(PIPE_DIR))

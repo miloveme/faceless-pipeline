@@ -119,6 +119,40 @@ if blocks:
             "  풀스케일 이상 샘플은 의도일 수 없습니다. 소재를 다시 만들어 주세요(음악 감독).\n"
             "  게인을 먹인 소재라면 그 값이 너무 큽니다 — 15_clip_prep 은 음량을 안 건드립니다.", 3)
 
+# 이음매 검사 — 씬과 씬 밖 구간이 프레임에서 **빈틈없이 이어 붙는가.**
+# 길이를 반올림하면 앞 것의 끝과 다음 것의 시작이 한 프레임 어긋난다. 33ms 라 눈에 안 걸리고
+# 렌더도 안 죽는다 — E01 v2 마스터에 실제로 틈 2곳·겹침 2곳이 있었다.
+# 씬 밖 구간이 들어가면 경계가 그만큼 늘어난다(꼬리 하나에 둘).
+_ep_tsx = REMOTION_DIR/"src"/"knowhow"/"Episode.tsx"
+if _ep_tsx.exists():
+    _src = _ep_tsx.read_text(encoding="utf-8")
+    m = re.search(r"export\s+const\s+FPS\s*=\s*(\d+)", _src)
+    if m and int(m.group(1)) != FPS:
+        die(f"FPS 가 갈립니다 — common.py {FPS} · Episode.tsx {m.group(1)}\n"
+            f"  이 값이 갈리면 아래 이음매 검사가 실제 렌더와 다른 것을 잽니다.", 3)
+    # 아래 데이터 검사는 **시각표**가 맞물리는지만 본다. 실제로 틈이 났던 것은 시각표가 아니라
+    # 컴포넌트가 **길이를 반올림**해서였다. 그 자리는 데이터로 못 잡으므로 코드에서 막는다.
+    if re.search(r"Math\.round\(\s*\(\s*s\.t_end\s*-\s*s\.t_start\s*\)", _src):
+        die("Episode.tsx 가 씬 길이를 반올림합니다 — 이음매에 한 프레임 틈이나 겹침이 생깁니다.\n"
+            "  경계는 **절대 시각**으로 반올림하세요:\n"
+            "    const from = Math.round(s.t_start * fps);\n"
+            "    const dur  = Math.round(s.t_end * fps) - from;\n"
+            "  E01 v2 마스터에 이렇게 해서 틈 2곳·겹침 2곳이 났고 24장을 다 보고도 안 걸렸습니다.\n"
+            "  (Shorts.tsx 는 씬을 이어 붙이며 자기 커서를 쓰므로 해당 없습니다.)", 3)
+_iv = [(round(s0["t_start"]*FPS), round(s0["t_end"]*FPS), s0["id"]) for s0 in sc["scenes"]] \
+    + [(round(b["t"]*FPS), round((b["t"]+b["sec"])*FPS), f'구간@{b["t"]}s') for b in sc.get("blocks", [])]
+_iv.sort()
+_bad = []
+for (a0, a1, an), (b0, b1, bn) in zip(_iv, _iv[1:]):
+    if a1 != b0:
+        _bad.append(f"  {an} 끝 {a1}f · {bn} 시작 {b0}f — {'틈 '+str(b0-a1) if b0 > a1 else '겹침 '+str(a1-b0)}프레임")
+if _iv and _iv[0][0] != 0:
+    _bad.insert(0, f"  편이 0f 가 아니라 {_iv[0][0]}f 에서 시작합니다 ({_iv[0][2]})")
+if _bad:
+    die(f"이음매가 안 맞습니다 — {len(_bad)}곳 (프레임, {FPS}fps):\n" + "\n".join(_bad) +
+        "\n  그 프레임에 바탕색만 나오거나 두 장이 겹칩니다. 눈에 안 걸리고 렌더도 통과합니다.", 3)
+print(f"이음매 검사: 씬 {len(sc['scenes'])}개 + 구간 {len(sc.get('blocks', []))}개 · 경계 {max(0,len(_iv)-1)}곳 · 어긋난 것 0곳")
+
 # 소재 경로 검사. asset() 을 안 지난 경로는 남의 편을 가리켜도 tsc·remotion 이 통과시킨다.
 src_dir = REMOTION_DIR/"src"/sl
 tsx = [f for f in src_dir.rglob("*.ts*") if "data" not in f.relative_to(src_dir).parts] if src_dir.is_dir() else []
