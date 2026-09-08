@@ -9,7 +9,9 @@ BAD 가 나와도 재시도를 자동으로 걸지 않는다. 시드가 굴러�
 사용: 30_nar_check.py <EP> [--ids ...] [--dir nar_raw] [--quiet-text]"""
 import argparse
 from common import *
-ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids", default=""); ap.add_argument("--dir", default="nar_raw")
+# **안 준 것과 빈 것을 가른다.** default 를 "" 로 두면 --ids 를 안 줘도 pick_ids 가
+# 「비어 있다」로 죽인다 — 네 스크립트가 다 그랬다(음악 감독이 잡았다). 기본은 None 이다.
+ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids"); ap.add_argument("--dir", default="nar_raw")
 ap.add_argument("--quiet-text", action="store_true", help='씬마다 "넣은 것 / 들린 것"을 찍지 않는다')
 a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep); readings = readings_for(ep); fixes = whisper_fixes_for(ep)
 d = ep/"audio"/a.dir

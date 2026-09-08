@@ -14,7 +14,9 @@ import argparse, threading, queue, time
 from common import *
 from hosts import plan
 
-ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids", default="")
+# **안 준 것과 빈 것을 가른다.** default 를 "" 로 두면 --ids 를 안 줘도 pick_ids 가
+# 「비어 있다」로 죽인다 — 네 스크립트가 다 그랬다(음악 감독이 잡았다). 기본은 None 이다.
+ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids")
 ap.add_argument("--seed", type=int); ap.add_argument("--host", default="", help="서버를 직접 지정")
 ap.add_argument("--serial", action="store_true", help="한 대만 써서 순차 생성")
 a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)

@@ -15,7 +15,9 @@ CPS_MAX = 15.0    # 상한. 넘는 줄이 남으면 종료코드 3
 CPS_OK = 12.0     # 편한 속도(8~12 cps)의 위쪽 끝 — 보고용
 MIN_DUR = 1.2     # 한 줄 최소 노출(초)
 
-ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids", default=""); ap.add_argument("--maxlen", type=int, default=42)
+# **안 준 것과 빈 것을 가른다.** default 를 "" 로 두면 --ids 를 안 줘도 pick_ids 가
+# 「비어 있다」로 죽인다 — 네 스크립트가 다 그랬다(음악 감독이 잡았다). 기본은 None 이다.
+ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids"); ap.add_argument("--maxlen", type=int, default=42)
 ap.add_argument("--emph-only", dest="emph_only", action="store_true",
                 help="대본의 **강조** 표시만 기존 자막에 다시 반영한다(받아쓰기 건너뜀). "
                      "강조는 대본에서 나오므로 음성을 다시 들을 이유가 없다.")
