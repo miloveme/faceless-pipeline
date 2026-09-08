@@ -18,14 +18,34 @@
 import argparse
 from common import *
 from PIL import Image, ImageDraw, ImageFont
-ap = argparse.ArgumentParser(); ap.add_argument("ep"); a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
+ap = argparse.ArgumentParser(); ap.add_argument("ep")
+# **한 소재만 고쳤을 때 마흔여섯 개를 다시 굽지 않는다.** 값 하나 바꾸자고 전부 다시 만들면
+# 안 바뀐 것의 시각이 다 바뀌어 「무엇이 바뀌었나」를 파일로 못 본다.
+ap.add_argument("--only", action="append", metavar="이름", default=[],
+                help="이 이름만 다시 만든다 (clips·images·stills·contact 의 키. 여러 번 줄 수 있다)")
+a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
+_done, _all = 0, 0
+def _skip(name):
+    """--only 를 줬으면 그 이름만 만든다. 만든 수와 전체 수를 같이 센다 — 부분 적용을 조용히 넘기지 않는다."""
+    global _done, _all
+    _all += 1
+    if a.only and name not in a.only: return True
+    _done += 1; return False
 cfg = jload(p["visual_prep"]); pub = REMOTION_DIR/"public"/slug(ep); pub.mkdir(parents=True, exist_ok=True)
+# **없는 이름을 먼저 잡는다.** 뒤에서 잡으면 아무것도 안 만들고 끝난 것과 구별이 안 된다.
+if a.only:
+    _known = {**cfg.get("clips", {}), **cfg.get("images", {}), **cfg.get("stills", {}), **cfg.get("crops", {})}
+    _miss = [x for x in a.only if x not in _known]
+    if _miss:
+        die(f'--only 로 준 이름이 visual_prep 에 없습니다: {", ".join(_miss)}\n'
+            f'  있는 이름 {len(_known)}개: {", ".join(sorted(_known))}', 2)
 # 소재는 편의 source/ 에서 온다. 여러 편이 같이 쓰는 것(로고·아이콘)만 `assets/…` 로 적는다 —
 # 편마다 복사하면 채널 얼굴이 편마다 갈린다.
 def _src_of(fn):
     return (CHANNEL/fn) if fn.startswith("assets/") else (ep/"source"/fn)
 
 for name, v in cfg.get("clips", {}).items():
+    if _skip(name): continue
     c = prep_entry(v); src = _src_of(c["src"])
     if not src.exists(): die(f'clips "{name}": 소재가 없습니다 — {src}')
     # 시간 자르기 → **화면 자르기** → 가리기 → 크기 순서다.
@@ -55,6 +75,7 @@ for name, v in cfg.get("clips", {}).items():
 # 미술이 「소재를 배치의 정확히 2배로 만들었다」고 한 자리가 그렇다. 그래서 `maxw` 로 열어 둔다 —
 # **값은 미술이 정한다**(그 그림이 화면에서 얼마나 크게 쓰이나). 안 적으면 지금까지처럼 1920 이다.
 for name, v in cfg.get("images", {}).items():
+    if _skip(name): continue
     e = prep_entry(v); s = _src_of(e["src"])
     if not s.exists(): die(f"이미지가 없습니다: {s}")
     maxw = int(e.get("maxw", 1920))
@@ -67,6 +88,7 @@ for name, v in cfg.get("images", {}).items():
 # 클립 끝을 넘겨 찍으면 ffmpeg 이 **종료코드 0 으로 아무것도 안 만든다.** 그러면 그 스틸을
 # 쓰는 화면이 404 로 죽거나(운이 좋으면) 옛 파일이 그대로 남아 조용히 나간다.
 for name, times in cfg.get("stills", {}).items():
+    if _skip(name): continue
     src = pub/f"{name}.mp4"
     if not src.exists(): die(f'stills "{name}": 클립이 없습니다 — {src} (clips 에 먼저 넣으세요)')
     d = dur(src)
@@ -83,6 +105,7 @@ for name, times in cfg.get("stills", {}).items():
 # 부품에서 자르지 않고 여기서 파일로 만드는 이유 — 부품에서 자르려면 소재의 원본 크기를
 # 코드에 적어야 하고, 소재를 다시 자르면 그 숫자가 조용히 틀린다.
 for name, c in cfg.get("crops", {}).items():
+    if _skip(name): continue
     src = c["src"]; mp4, png = pub/f"{src}.mp4", pub/f"{src}.png"
     if mp4.exists():
         if "t" not in c: die(f'crops "{name}": 영상이 소재이므로 t(초)가 있어야 합니다 — {mp4}')
@@ -118,4 +141,6 @@ for c in cfg.get("contact", []):
     W, H = frames[0].size; x0,y0,x1,y1 = c.get("crop",[0,0,1,1])
     imgs = [im.crop((int(W*x0),int(H*y0),int(W*x1),int(H*y1))) for im in frames]
     sheet(imgs, c.get("cell_w",400), 10, set(c.get("highlight",[])), c["every_sec"]).save(pub/f"{c['name']}.png"); print("contact", c["name"])
+if a.only:
+    print(f"**--only 로 {_done}개만 만들었습니다 / 전체 {_all}개.** 나머지는 옛것 그대로입니다.")
 print("→", pub)
