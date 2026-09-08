@@ -85,11 +85,15 @@ export const makeEpisode = (
   // 전환 길이는 **경계 앞에 오는 것**이 갖는다. 앞 것의 자리를 그만큼 늘려 겹치고,
   // 들어오는 것이 그동안 움직인다. 시각표(t_start·t_end)는 안 건드린다.
   const holdOf = (id: string) => transition.after[id] ?? transition.default;
+  // 클립 없는 구간의 이름에는 **시각이 들어간다.** 그래서 자리수를 고정해야 한다 —
+  // 그냥 `${b.t}` 로 쓰면 9.0 을 JS 는 "9", 파이썬은 "9.0" 으로 적어 55 는 통과하는데
+  // 화면에서는 열쇠가 안 맞아 조용히 default 로 돈다. 시각표가 소수 셋째까지라 셋으로 고정한다.
+  const blankId = (t: number) => `빈화면@${t.toFixed(3)}`;
   // 들어오는 것이 움직이는 길이는 **바로 앞에 오는 것**의 값이다. 씬과 구간을 시각으로 한 줄에
   // 세워 앞뒤를 잡는다 — 구간이 씬 사이에 끼면 경계가 둘로 늘어나므로 씬만 봐서는 안 된다.
   const ORDER = [
     ...scenes.map((s) => ({ id: s.id, t: s.t_start })),
-    ...blocks.map((b) => ({ id: b.clip ?? `빈화면@${b.t}`, t: b.t })),
+    ...blocks.map((b) => ({ id: b.clip ?? blankId(b.t), t: b.t })),
   ].sort((a, b) => a.t - b.t);
   const enterOf = (id: string) => {
     const i = ORDER.findIndex((x) => x.id === id);
@@ -111,9 +115,9 @@ export const makeEpisode = (
           <Sequence key={`blk${i}`} name={b.clip ? `구간:${b.clip}` : "구간:빈 화면"}
                     from={Math.round(b.t * fps)}
                     durationInFrames={Math.round((b.t + b.sec) * fps) - Math.round(b.t * fps)
-                                      + Math.round(holdOf(b.clip ?? `빈화면@${b.t}`) * fps)}
+                                      + Math.round(holdOf(b.clip ?? blankId(b.t)) * fps)}
                     premountFor={1 * fps}>
-            <Enter sec={enterOf(b.clip ?? `빈화면@${b.t}`)}>
+            <Enter sec={enterOf(b.clip ?? blankId(b.t))}>
               <AbsoluteFill style={{ backgroundColor: "#000" }}>
                 {b.clip && (
                   <Video src={staticFile(`${slug}/${b.clip}.mp4`)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />

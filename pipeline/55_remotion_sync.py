@@ -143,7 +143,7 @@ if _ep_tsx.exists():
 _tr = sc.get("transition") or {"default": 0.0, "after": {}}
 _hold = lambda i: _tr["after"].get(i, _tr["default"])
 _iv = [(round(s0["t_start"]*FPS), round(s0["t_end"]*FPS), s0["id"]) for s0 in sc["scenes"]] \
-    + [(round(b["t"]*FPS), round((b["t"]+b["sec"])*FPS), b.get("clip") or f'빈화면@{b["t"]}') for b in sc.get("blocks", [])]
+    + [(round(b["t"]*FPS), round((b["t"]+b["sec"])*FPS), b.get("clip") or f'빈화면@{b["t"]:.3f}') for b in sc.get("blocks", [])]
 _iv.sort()
 # **`after` 의 열쇠가 실제 id 를 가리키나.** 안 맞으면 조용히 `default` 로 돌아간다 —
 # 값을 지운 것과 구별이 안 되고 렌더도 통과한다. 특히 클립 없는 구간의 열쇠는

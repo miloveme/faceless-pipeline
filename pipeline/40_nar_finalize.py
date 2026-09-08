@@ -5,7 +5,13 @@
 사용: 40_nar_finalize.py <EP>"""
 import argparse
 from common import *
-ap = argparse.ArgumentParser(); ap.add_argument("ep"); a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
+ap = argparse.ArgumentParser(); ap.add_argument("ep")
+# **화면 쪽 값만 바꿨을 때 소리를 다시 굽지 않는다.** transition·min_sec·inserts 는 시각표에만
+# 걸리는데, 그것 하나 고치자고 29씬을 다시 구우면 음악 감독이 확정한 파일의 시각이 바뀐다.
+# 이 모드는 이미 있는 narration_final 을 그대로 읽어 길이만 다시 잰다. 하나라도 없으면 죽는다.
+ap.add_argument("--keep-audio", action="store_true",
+                help="음성은 그대로 두고 시각표만 다시 만든다 (narration_final 이 다 있어야 한다)")
+a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
 # 무거운 ffmpeg 작업 전에 설정과 입력을 먼저 검증한다 (끝에서 죽으면 한 일이 다 버려진다)
 vcfg = voice_cfg(); pname = provider_name(vcfg); pcfg = provider_cfg(vcfg, pname)
 for f in (p["bounds"], p["scenes_v1"]):
@@ -53,7 +59,7 @@ def place(sid, tbl, t):
         blocks.append({"t": t, "sec": sec, **({"clip": it["clip"]} if it.get("clip") else {})})
         t += sec
     return t
-t = 0.0; rows = []
+t = 0.0; rows = []; _kept = 0
 for s in scenes["scenes"]:
     sid = s["id"]; out = p["nar_final"]/f"{sid}.wav"; src = src_of[sid]
     end = min(info[sid]["last_word_end"] + PAD, info[sid]["dur"])
@@ -63,7 +69,11 @@ for s in scenes["scenes"]:
     # 좌우 같은 신호에 +3.01 dB 를 리미터 뒤에 얹어 TP=-1.5 지시가 +1.5 가 된다(직접 녹음본이 스테레오일 때).
     af = (f"aformat=channel_layouts=mono,aresample=44100,atrim={start:.3f}:{end:.3f},asetpts=PTS-STARTPTS,"
           f"afade=t=out:st={max(0,end-FADE):.3f}:d={FADE},loudnorm=I={NAR_LUFS}:TP=-1.5:LRA=11")
-    run(["ffmpeg","-v","error","-y","-i",str(src),"-af",af,"-ar","44100","-ac","1",str(out)])
+    if a.keep_audio:
+        if not out.exists(): die(f"--keep-audio 인데 {out} 가 없습니다. 그 씬은 먼저 그냥 돌리세요.", 3)
+        _kept += 1
+    else:
+        run(["ffmpeg","-v","error","-y","-i",str(src),"-af",af,"-ar","44100","-ac","1",str(out)])
     d = dur(out); s["narration_file"] = str(out.relative_to(ep)); s["narration_dur"] = round(d,2)
     li, lp = lufs(out)                      # 씬 음량은 여기서 확정된다. 눈으로 볼 수 있게 표에 싣는다
     lc = clipped(out)                       # 클리핑 판정은 TP 값이 아니라 풀스케일 이상 샘플 수로 본다
@@ -86,6 +96,8 @@ if TRANS["after"] or TRANS["default"]: scenes["transition"] = TRANS
 else: scenes.pop("transition", None)
 scenes.pop("intro", None)                                  # 옛 이름
 jdump(scenes, p["scenes_v2"])
+if a.keep_audio:
+    print(f"**소리는 안 건드렸습니다** — 있던 것 {_kept}/{len(scenes['scenes'])}개를 그대로 읽어 길이만 다시 쟀습니다.")
 # raw = 트림 전 원본 길이, final = 트림·정규화 뒤 내레이션 파일 길이(초). 씬 슬롯은 t_end - t_start 이고
 # final 보다 여백 1.3초(앞 LEAD 0.5 + 뒤 GAP 0.8)만큼 길다 — 화면이 쓰는 것은 슬롯 쪽이다.
 print("scene   raw  final  t_start   t_end     LUFS   peak  clip   (raw=트림 전, final=내레이션 파일, 슬롯=t_end-t_start)")

@@ -100,7 +100,11 @@ def at(t):
             return x["id"], off, ""
     return None, None, ""
 
-print(f"정지 비율 **{pct:.1f}%**  ({a.fps}fps 로 {n}장 · 임계 평균 화소 차 {a.th} · 편 {total:.1f}초"
+# **두 값에 다 이름을 붙인다.** 차이가 1%p 도 안 나서 판단은 안 갈리는데,
+# 값이 안 갈리면 아무도 「무엇을 재고 있나」를 안 묻는다. 그래서 더 이름이 정확해야 한다(연출).
+#   편 전체 — 관객이 보는 시간. v5 의 80% 와 대는 값이 이쪽이다
+#   씬 안   — 설계한 화면만. 인트로·꼬리 클립은 설계가 없어 언제나 통과하므로 진단은 이쪽이 예민하다
+print(f"정지 비율(편 전체) **{pct:.1f}%**  ({a.fps}fps 로 {n}장 · 임계 평균 화소 차 {a.th} · 편 {total:.1f}초"
       + f" · 아래 {a.cut_bottom*100:.1f}% 는 빼고 봄 — 자막 띠)")
 if SC:
     # **인트로·꼬리를 뺀 값**(미술 요청). 로고와 끝 카드는 서 있는 것이 설계라
@@ -120,7 +124,7 @@ if SC:
             sec = (~ins[max(0, i0):min(len(still), i1)]).sum() * dt
             if sec >= dt: names.append(f'{b.get("clip") or "전환"} {sec:.1f}'); rest -= sec
         if rest >= dt: names.append(f"이름 없는 구간 {rest:.1f}")
-        print(f"  씬 안만 보면 **{still[ins].sum()/ins.sum()*100:.1f}%**  "
+        print(f"정지 비율(씬 안)   **{still[ins].sum()/ins.sum()*100:.1f}%**  "
               f"(씬 안 {ins.sum()*dt:.1f}초 · 뺀 것 {(len(still)-ins.sum())*dt:.1f}초 = "
               + " + ".join(names) + " · 전부 씬 밖 클립)")
 print(f"  정지 구간 {len(runs)}개 · 가장 긴 것 {max((r[1] for r in runs), default=0):.2f}초")
