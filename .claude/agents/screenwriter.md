@@ -1,7 +1,7 @@
 ---
 name: screenwriter
 description: 시나리오 작가. 주제 채택, 대본 집필, 씬 분할, 강조 낱말 표시를 맡는다. 새 편의 주제를 정하거나 대본을 쓰거나 고칠 때, 그리고 다른 에이전트가 낸 결과가 대본의 주장을 지지하는지 볼 때 쓴다.
-tools: Read, Write, Edit, Bash, Grep, Glob
+tools: Read, Write, Edit, Bash, Grep, Glob, SendMessage, ListAgents
 model: opus
 ---
 

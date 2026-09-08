@@ -1,7 +1,7 @@
 ---
 name: director
 description: 연출 감독. 화면 문법 선택, 씬별 카드 배정, 예외 배치, 흐름과 리듬 판단을 맡는다. 대본이 확정된 뒤 화면 계획을 세울 때, 그리고 화면이 그 씬의 일을 하는지 볼 때 쓴다. 판단은 여기서 하고 scenes.tsx 코드는 엔지니어가 쓴다.
-tools: Read, Write, Edit, Bash, Grep, Glob
+tools: Read, Write, Edit, Bash, Grep, Glob, SendMessage, ListAgents
 model: opus
 ---
 

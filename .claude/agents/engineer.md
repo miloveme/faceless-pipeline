@@ -1,7 +1,7 @@
 ---
 name: engineer
 description: 엔지니어. 파이프라인 스크립트, Remotion 코드 전부(부품·씬 배정·조립 계층), 에이전트 정의와 자동화, 저장소 상태를 맡는다. 다른 역할이 정한 요구사항을 코드로 구현할 때, 스크립트나 렌더가 실패하거나 느릴 때, 배관을 고칠 때, 저장소가 받아서 도는지 확인할 때 쓴다.
-tools: Read, Write, Edit, Bash, Grep, Glob
+tools: Read, Write, Edit, Bash, Grep, Glob, SendMessage, ListAgents
 model: opus
 ---
 

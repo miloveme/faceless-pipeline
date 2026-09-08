@@ -1,7 +1,7 @@
 ---
 name: sound-director
 description: 음악 감독. 내레이션 생성과 검사, 읽기 사전, 자막 데이터, 음량, 배경음악을 맡는다. 음성을 만들거나 다시 만들 때, 읽기가 이상할 때, 자막 타이밍이 어긋날 때 쓴다.
-tools: Read, Write, Edit, Bash, Grep, Glob
+tools: Read, Write, Edit, Bash, Grep, Glob, SendMessage, ListAgents
 model: opus
 ---
 
