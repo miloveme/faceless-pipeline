@@ -25,7 +25,7 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 | | | `script/timing.json` (있으면) | `inserts`(씬 밖 구간)와 `min_sec`(씬 하한)을 넣어 시각표를 다시 잰다 | 내레이션이 안 정하는 길이는 시각표 한 곳에만 들어간다 — 아래 단계는 오프셋을 따로 더하지 않는다 |
 | 45 | `45_visual_plan.py [--force]` | scenes_v2, scenes_v1 | `script/visual_plan.md` | 카드·이유는 사람이 채우고 승인 |
 | 50 | `50_captions_build.py` | narration_final | `captions.json` | 자막 텍스트는 원문 |
-| 55 | `55_remotion_sync.py [--skip-src-check]` | scenes_v2, captions, visual_prep | Remotion `public/`·`src/<slug>/data/` | 소재가 변환본보다 나중인가·**씬 밖 구간의 클립이 있고 소리가 있는가**·`asset()` 을 지나는가·`SLUG` 가 이 편인가 → exit 3 |
+| 55 | `55_remotion_sync.py [--skip-src-check]` | scenes_v2, captions, visual_prep | Remotion `public/`·`src/<slug>/data/` | 소재가 변환본보다 나중인가·**씬 밖 구간의 클립이 있고 소리가 있는가**·**이음매가 프레임에서 맞물리는가**·`asset()` 을 지나는가·`SLUG` 가 이 편인가 → exit 3 |
 | 60 | `60_render_master.sh EP Comp vX` | 컴포지션 | `edit/*_master.mp4` + 720p 프리뷰 | 사람이 프리뷰 검수. loudnorm 은 **두 패스**다 — 한 패스는 구간마다 다른 양을 올려 의도한 음량 관계가 바뀐다 |
 | 65 | `65_render_derived.sh EP` | Thumb/Shorts 컴포지션 | 썸네일·쇼츠 | |
 | 70 | `70_srt_build.py` | captions(+captions_en) | `edit/*_ko.srt`, `*_en.srt` | |
