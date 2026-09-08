@@ -7,7 +7,7 @@
 설정: script/visual_prep.json
 {
   "clips":  {"take_fail": "raw_take_a.mp4"},              영상: 1080p 무음으로 변환
-  "images": {"diagram": "sketch.png", "shot": "still.jpg"}, 이미지: 가로 1920 이하로 맞춰 복사
+  "images": {"diagram": "sketch.png", "shot": "still.jpg"}, 이미지: 가로 1920 이하로 맞춰 복사 (자리가 더 크면 {"src":…,"maxw":3680})
   "stills": {"take_fail": [0, 7, 12.9]},                  영상에서 정지 프레임 뽑기
   "crops":  {"hook_left": {"src":"hook_compare","t":7.8,"box":[0,0,960,380]}},  일부만 잘라 새 이미지로
                                                           (t 는 영상일 때만. box 는 변환본 픽셀 [x0,y0,x1,y1])
@@ -50,13 +50,19 @@ for name, v in cfg.get("clips", {}).items():
     print("clip", name, f"{got:.3f}s", _wh, "소리있음" if c.get("audio") else "무음",
           (f'잘라냄 {c["crop"]}' if c.get("crop") else ""),
           (f'가림 {len(c.get("mask", []))}칸' if c.get("mask") else ""))
+# 그림은 가로 1920 으로 맞춘다. **다만 그 자리가 1920 보다 크게 쓰이면 그 상한이 화질을 깎는다** —
+# 배치가 1840 이면 3680(정확히 2배) 을 1920 으로 줄였다가 그리면서 다시 1840 으로 줄여 **두 번 리샘플**한다.
+# 미술이 「소재를 배치의 정확히 2배로 만들었다」고 한 자리가 그렇다. 그래서 `maxw` 로 열어 둔다 —
+# **값은 미술이 정한다**(그 그림이 화면에서 얼마나 크게 쓰이나). 안 적으면 지금까지처럼 1920 이다.
 for name, v in cfg.get("images", {}).items():
-    s = _src_of(prep_entry(v)["src"])
+    e = prep_entry(v); s = _src_of(e["src"])
     if not s.exists(): die(f"이미지가 없습니다: {s}")
+    maxw = int(e.get("maxw", 1920))
     im = Image.open(s); im = im.convert("RGB") if im.mode not in ("RGB", "RGBA") else im
-    if im.width > 1920: im = im.resize((1920, round(im.height*1920/im.width)), Image.LANCZOS)
+    was = im.width
+    if im.width > maxw: im = im.resize((maxw, round(im.height*maxw/im.width)), Image.LANCZOS)
     out = pub/f"{name}.png"; im.save(out)
-    print("image", name, f"{im.width}x{im.height}")
+    print("image", name, f"{im.width}x{im.height}" + (f"  ← {was} 에서 줄임 (maxw {maxw})" if was > maxw else ""))
 
 # 클립 끝을 넘겨 찍으면 ffmpeg 이 **종료코드 0 으로 아무것도 안 만든다.** 그러면 그 스틸을
 # 쓰는 화면이 404 로 죽거나(운이 좋으면) 옛 파일이 그대로 남아 조용히 나간다.
