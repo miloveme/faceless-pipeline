@@ -248,6 +248,21 @@ if src_dir.is_dir():
               "  기호는 서체에 없으면 두부(□)가 되는데 렌더는 통과합니다 — 판정은 낱말로 하세요.", 3)
     print(f"화면 글자 검사: 파일 {len(tsx)}개 · 경로 조각 0건 · 서체에 없는 기호 0건")
 
+# **같은 파일을 가리키는 소재 키가 둘 이상인가.** 그건 중복이 아니라 **하는 일이 다른 것**일 수 있다 —
+# `outro_clone` 은 `intro_clone` 과 같은 파일인데 **이름이 달라야 라벨이 안 붙는다**
+# (`BLOCK_LABEL` 이 파일이 아니라 **키**로 라벨을 붙인다). 합치면 라벨이 되살아난다(작가).
+# `s00_orig` 과 `intro_orig` 도 같은 원본을 쓴다 — 하나는 씬 안, 하나는 구간이다.
+# **막지 않는다.** 합쳐도 되는 자리가 있을 수 있고, 그 판단은 미술·연출이 한다.
+_vp = jload(p["visual_prep"]).get("clips", {}) if p["visual_prep"].exists() else {}
+_bysrc = {}
+for _k, _v in _vp.items():
+    _bysrc.setdefault(prep_entry(_v)["src"], []).append(_k)
+_dup = {k: v for k, v in _bysrc.items() if len(v) > 1}
+if _dup:
+    print(f"같은 파일을 쓰는 소재 키: {len(_dup)}묶음 — **합치지 마세요. 이름이 라벨을 부릅니다**")
+    for _src, _ks in sorted(_dup.items()):
+        print(f"      {_src} ← {' · '.join(_ks)}")
+
 # **소재를 쓰는 씬이 몇이나 되나.** 안 세면 다음 편이 4/29 가 돼도 아무도 안 알아챈다 —
 # 다 만들고 나서 「PPT 같다」로 알게 된다. E00 이 그렇게 됐고 그래서 이 편이 시작됐다(미술).
 # **문턱을 두지 않는다.** 62% 가 적정한지는 편이 하나뿐이라 견줄 것이 없다 — 기준으로 박으면
