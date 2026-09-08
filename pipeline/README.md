@@ -29,6 +29,7 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 | 55 | `55_remotion_sync.py [--skip-src-check]` | scenes_v2, captions, visual_prep | Remotion `public/`·`src/<slug>/data/` | 소재가 변환본보다 나중인가·**씬 밖 구간의 클립이 있고 소리가 있는가**·**이음매가 프레임에서 맞물리는가**·`asset()` 을 지나는가·`SLUG` 가 이 편인가 → exit 3 |
 | 60 | `60_render_master.sh EP Comp vX` | 컴포지션 | `edit/*_master.mp4` + 720p 프리뷰 | 사람이 프리뷰 검수. loudnorm 은 **두 패스**다 — 한 패스는 구간마다 다른 양을 올려 의도한 음량 관계가 바뀐다 |
 | 65 | `65_render_derived.sh EP` | Thumb/Shorts 컴포지션 | 썸네일·쇼츠 | |
+| 62 | `62_still_check.py <마스터.mp4>` | 마스터 mp4 | (화면에 표) | **읽기만 한다.** 정지 비율과 3초 넘게 안 바뀌는 자리. **면적(%)은 그릇이 바뀌면 같이 바뀌어 판이 다르면 못 대는데 이건 댈 수 있다** |
 | 70 | `70_srt_build.py` | captions(+captions_en) | `edit/*_ko.srt`, `*_en.srt` | |
 | 75 | `75_chapters.py` | `script/chapters.json` | `edit/chapters.txt` | |
 | 80 | `80_whiteboard_srt.py --ids` | scenes_v2, captions | 구간 SRT | 손그림 애니메이션용(선택) |
