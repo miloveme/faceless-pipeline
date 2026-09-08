@@ -121,6 +121,50 @@ if blocks:
             names = " ".join(b["clip"] for b in g if b.get("clip"))
             print(f"  ← 한 구간 안({names})에서 음량이 {max(vs) - min(vs):.1f} LU 갈립니다."
                   f" 나란히 들리는 자리라 큰 쪽이 「더 진짜」로 읽힙니다(판정은 음악 감독).")
+    # **화면에서 세로 크기가 같은가.** 소리는 위에서 봤고 이건 그림이다 —
+    # 원본이 1920×762(방송 마스터의 비)이고 클론이 1920×1080 이라, 인트로에서 원본만
+    # 레터박스로 나왔다. **연달아 보면 컷에서 그림이 커지고** 그건 이 편이 안 하는 주장이다(미술).
+    # 값을 여기서 정하지 않는다 — **재서 보여만 준다.** 다만 자르는 창을 준 클립의 소재 크기가
+    # 컴포지션과 다르면 `cover` 가 좌우를 잘라 내므로 **그건 멈춘다**(구현 오류다).
+    _crop = {}
+    _idx = REMOTION_DIR / "src" / sl / "index.tsx"
+    if _idx.exists():
+        _m = re.search(r"const BLOCK_CROP = \{(.*?)\};", _idx.read_text(encoding="utf-8"), re.S)
+        if _m:
+            for _k in re.findall(r"(\w+)\s*:", _m.group(1)):
+                _crop[_k] = True
+    _crop_val = {}
+    _cp = REMOTION_DIR / "src" / sl / "copy.ts"
+    if _cp.exists():
+        _mc = re.search(r"cloneCrop:\s*\{\s*y0:\s*(\d+),\s*y1:\s*(\d+)\s*\}", _cp.read_text(encoding="utf-8"))
+        if _mc:
+            _crop_val = {"y0": int(_mc.group(1)), "y1": int(_mc.group(2))}
+    _sz, _bad = {}, []
+    for c, _, _ in lv:
+        _o = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0",
+                             "-show_entries", "stream=width,height", "-of", "csv=p=0",
+                             str(pub / f"{c}.mp4")], capture_output=True, text=True).stdout.strip()
+        try:
+            _w, _h = (int(x) for x in _o.split(","))
+        except ValueError:
+            continue
+        if c in _crop and _crop_val:
+            _sz[c] = (_crop_val["y1"] - _crop_val["y0"], f"창 {_crop_val['y0']}~{_crop_val['y1']}")
+            if (_w, _h) != (1920, 1080):
+                _bad.append(f"{c} {_w}×{_h}")
+        else:
+            _sz[c] = (min(1080, round(1920 * _h / _w)), f"소재 {_w}×{_h}")
+    if _bad:
+        die("자르는 창을 준 구간 클립의 소재가 1920×1080 이 아닙니다 — " + " · ".join(_bad) + "\n"
+            "  `objectFit: \"cover\"` 라 좌우가 잘려 나갑니다. 소재를 1920×1080 으로 맞추거나\n"
+            "  창을 빼세요(엔지니어).", 3)
+    if _sz:
+        _vals = sorted({v for v, _ in _sz.values()})
+        print("  화면 세로:", " · ".join(f"{c} **{v}**({why})" for c, (v, why) in _sz.items())
+              + f"  →  서로 다른 값 **{len(_vals)}가지** {_vals}")
+        if len(_vals) > 1:
+            print("    ← 같은 편에서 같은 두 소재가 다른 크기로 나옵니다. "
+                  "나란히 놓이거나 연달아 오는 자리면 「한쪽이 더 크다」로 읽힙니다(판정은 미술).")
     _clip = [(c, n) for c, _, n in lv if n > 0]
     if _clip:
         die("씬 밖 구간의 클립이 클리핑됐습니다 — " + " · ".join(f"{c} {n}샘플" for c, n in _clip) + "\n"
@@ -473,4 +517,129 @@ if _copy.exists():
             + "\n".join(f"  {k}: {w}" for k, w in _open)
             + "\n  연출 감독이 정할 값입니다. 화면에는 빨간 「연출 대기」 상자로 떠 있습니다.\n"
               "  임시 낱말을 넣지 마세요 — 한 번 넣으면 그대로 남습니다.", 3)
+# ── s30 의 청하는 문장 — **화면이 먼저 서고 목소리가 그리로 간다** ────────────
+# 「@JNote 구독」이 **받아쓰기가 아닌 이유 전부**가 이 순서다(연출). 뒤따르면 받아쓰기가 된다.
+# **박자는 코드가 자막에서 셈한다**(마지막 문장 첫 낱말 + 0.5) — 여기서는 **그 결과가 조건을 지키나**만 본다.
+# 값이 아니라 **조건**이라 자막이 다시 만들어질 때마다 다시 재야 한다.
+_LEAD_MIN = 0.8      # 연출 값
+_c30 = (jload(p["caps"]) if p["caps"].exists() else {}).get("s30", [])
+if _c30:
+    _beat = _c30[-1]["start"] + 0.5
+    _sub = [w for ch in _c30 for w in ch.get("words", []) if "구독" in w["t"]]
+    if _sub:
+        _gap = _sub[0]["s"] - _beat
+        print(f"s30 청함: 마지막 문장 첫 낱말 「{_c30[-1]['words'][0]['t']}」 {_c30[-1]['start']:.2f} → "
+              f"박자 **{_beat:.2f}** · 「{_sub[0]['t']}」 {_sub[0]['s']:.2f} → **{_gap:.2f}초 앞섬** "
+              f"(있어야 할 것 {_LEAD_MIN}초 이상)")
+        if _gap < _LEAD_MIN:
+            die(f"s30 화면이 목소리보다 **{_gap:.2f}초**밖에 안 앞섭니다 (있어야 할 것 {_LEAD_MIN}초).\n"
+                f"  **뒤따르면 「@JNote 구독」이 자막을 받아쓴 것이 됩니다**(연출).\n"
+                f"  자막의 마지막 문장이 짧아졌거나 「구독을」이 앞으로 왔습니다 — 연출에 알리세요.", 3)
+    else:
+        print("s30 청함: 자막에 「구독」이 없습니다 — 조건을 못 잽니다")
+
+# ── 씬이 소재보다 긴가 ──────────────────────────────────────────────────────
+# **소재가 끝난 뒤에는 Remotion 이 없는 자리를 찾다가 프레임마다 30초씩 기다리다 죽는다.**
+# v10 이 s04 의 `b_prose.mp4`(20.042초)를 `rate 2` 로 훑다가 **f2755 에서 죽었다** — 16분 태우고.
+# 화면으로는 격자가 덮어 **안 보이는 자리**였다. **조용한 결함이 아니라 조용히 느려지다 죽는 결함**이다.
+# `stopSec`(마지막 장을 붙든다) · `loopSec`(되풀이) · `freeze`(첫 장) 중 하나가 있으면 막힌 것이다.
+_scn_src = (src_dir / "scenes.tsx")
+if _scn_src.exists():
+    _st = _scn_src.read_text(encoding="utf-8")
+    _bodies = {}
+    _marks = [(m.group(1), m.start()) for m in re.finditer(r"^const V(\d\d): React\.FC", _st, re.M)]
+    for _i, (_n, _pos) in enumerate(_marks):
+        _end = _marks[_i + 1][1] if _i + 1 < len(_marks) else len(_st)
+        _bodies["s" + _n] = _st[_pos:_end]
+    _dur = {x["id"]: x["t_end"] - x["t_start"] for x in sc["scenes"]}
+    _lens = {}
+    for _f in sorted(pub.glob("*.mp4")):
+        _o = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                             "-of", "csv=p=0", str(_f)], capture_output=True, text=True).stdout.strip()
+        try:
+            _lens[_f.name] = round(float(_o), 6)
+        except ValueError:
+            pass
+    jdump(_lens, data / "clip_len.json", indent=None)
+    print(f"소재 길이표: `data/clip_len.json` 에 **{len(_lens)}개** 적었습니다 — "
+          f"`Clip` 이 이걸 읽어 소재가 끝나면 **마지막 장을 붙듭니다**(코드에 초를 안 적습니다)")
+    _short, _tails, _skip, _n = [], [], [], 0
+    for _sid, _body in _bodies.items():
+        if _sid not in _dur:
+            continue
+        for _m in re.finditer(r"<Clip\b((?:[^<>]|\n)*?)/>", _body):
+            _a = _m.group(1)
+            _sm = re.search(r'src=\{asset\("([^"]+)"\)\}', _a)
+            if not _sm:
+                continue
+            _f = pub / _sm.group(1)
+            if not _f.exists():
+                continue
+            _n += 1
+            _frozen = "freeze" in _a                       # 통째로 얼린 것 — 꼬리가 아니라 뜻이다
+            _capped = (_frozen or re.search(r"loopSec=\{", _a)
+                       or re.search(r"stopSec=\{", _a) or _sm.group(1) in _lens)
+            def _lit(name):
+                mm = re.search(rf"{name}=\{{([\d.]+)\}}", _a)
+                return float(mm.group(1)) if mm else None
+            _rate = _lit("rate") or 1.0
+            _from = _lit("fromSec")
+            if _frozen:
+                continue                                    # `freeze` 는 첫 장을 보이는 것이 뜻이다
+            if _from is None and re.search(r"fromSec=\{", _a):
+                if not _capped:
+                    _skip.append(f"{_sid} {_sm.group(1)} (`fromSec` 이 식이라 못 셉니다)")
+                continue
+            _from = _from or 0.0
+            # **`Delay` 를 지나야 소재가 언제 끝나는지가 나온다**(연출이 잡았다).
+            # `<Delay sec={N}>` 로 싸인 클립은 씬 시작이 아니라 **그 N 초 뒤에** 돌기 시작한다.
+            #   s09 `Delay 2.8`  → 소재 끝이 씬 안 7.83 이 아니라 **10.63**. 꼬리 2.28초
+            #   s17 `Delay 12.3` → 씬이 16.02 라 소재 시각이 **3.72 까지만** 간다. **안 언다**
+            # 이걸 안 보면 「소재보다 길다」가 여덟으로 나오는데 실제로는 다르다.
+            _pre = _body[:_m.start()]
+            _dl = re.findall(r"<Delay\s+sec=\{([\d.]+)\}", _pre)
+            _cl = _pre.count("</Delay>")
+            _delay = float(_dl[-1]) if len(_dl) > _cl else 0.0
+            if re.search(r"<Delay\s+sec=\{", _pre) and len(_dl) <= _cl:
+                _delay = 0.0
+            _o = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                                 "-of", "csv=p=0", str(_f)], capture_output=True, text=True).stdout.strip()
+            try:
+                _len = float(_o)
+            except ValueError:
+                continue
+            _need = _from + max(0.0, _dur[_sid] - _delay) * _rate
+            _ends = _delay + (_len - _from) / _rate if _rate else 0
+            if _need > _len + 1.0 / FPS:
+                _tails.append((_sid, _sm.group(1), _len, _rate, _from, _delay, _ends,
+                               _dur[_sid] - _ends, _capped))
+                if not _capped:
+                    _short.append((_sid, _sm.group(1), _len, _need, _rate, _from, _delay, _ends))
+    if _tails:
+        # **찍기만 한다.** 「소재가 짧다」와 「소재가 끝난 뒤에도 그 그림이 주인공이다」는 다른 것이고
+        # 뒤엣것은 기계가 못 센다 — **`Delay` 를 지나 소재가 언제 끝나는지까지가 기계 몫**이고
+        # 그 뒤는 연출이 가른다(연출). 실제로 여덟 중 여섯이 뜻이었다.
+        print(f"소재가 씬보다 짧은 자리 **{len(_tails)}곳** — **꼬리(멈춰 있는 시간)**를 찍습니다."
+              f" 뜻인지 남은 것인지는 **연출이 가릅니다**:")
+        for _x in sorted(_tails, key=lambda z: -z[7]):
+            _sid, _nm, _len, _rate, _from, _delay, _ends, _tail, _cap = _x
+            _extra = (f" · rate {_rate:g}" if _rate != 1 else "") + \
+                     (f" · fromSec {_from:g}" if _from else "") + \
+                     (f" · Delay {_delay:g}" if _delay else "")
+            print(f"    {_sid}  {_nm} {_len:.3f}초  →  씬 안 **{_ends:.2f}초**에 끝나고 "
+                  f"씬은 {_dur[_sid]:.2f}초 — **꼬리 {_tail:.2f}초**{_extra}"
+                  + ("" if _cap else "   ← **안 막혔습니다**"))
+    print(f"씬이 소재보다 긴가: 씬 안 클립 **{_n}개** · 꼬리 있는 것 {len(_tails)}개 · "
+          f"안 막힌 것 **{len(_short)}개**"
+          + (f" · 못 센 것 {len(_skip)}개" if _skip else ""))
+    for _x in _skip:
+        print(f"  건너뜀 — {_x}")
+    if _short:
+        for _sid, _nm, _len, _need, _rate, _from, _delay, _ends in _short:
+            print(f"  ← **{_sid} 의 {_nm} 이 안 막혔습니다** — 소재 {_len:.3f}초 · "
+                  f"씬 안 {_ends:.2f}초에 끝남. 그 뒤 프레임마다 기다리다 렌더가 죽습니다")
+        die("**`stopSec`(마지막 장을 붙든다) · `loopSec` · `freeze` 중 하나를 주세요**(엔지니어).\n"
+            "  `stopSec` 은 **소재 시각**이고 소재 길이를 넘으면 여기서 다시 걸립니다.\n"
+            "  그림이 그 자리에서 무엇이어야 하는지는 미술·연출이 정합니다 — 안 보이는 자리면 아무거나 좋습니다.", 3)
+
     print(f"화면 문구 검사: {_copy.name} · 기다리는 자리 0곳 / 값을 기다리게 적어 둔 자리 {len(_wait)}개")

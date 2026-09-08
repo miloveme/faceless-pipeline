@@ -41,21 +41,60 @@ export type Transition = { default: number; after: Record<string, number> };
  * (「T.bg 위로 내려앉으니 필요 없어진다」)가 성립하지 않아 받침을 끝까지 들고 가야 한다.
  * 자리는 (24, 214) 하나이고 x 만 칸 왼쪽 끝을 따라간다 — 규칙 하나로 끝난다.
  *
- * `bg` 는 **받침의 투명도**다. 받침은 사진 위에서만 필요하다 — 미술 계측:
- *   얼린 클론 프레임 (24,214)  평균 224.5 · 최대 255  →  흰 글자(232) 대비 **1.03**  받침 필요
- *   8.3 뒤 T.bg(15) 위                              →  대비 **15.5**            받침 해로움
- *   (72% 검정이 15 위에 얹히면 4.2 라 **바탕보다 어두운 알약**이 보인다)
- * 새 시각 값이 아니라 **칸이 열리는 곡선을 그대로 탄다** — 박자가 안 늘어난다.
+ * **받침을 안 쓴다**(사용자). 받침이 있으면 알약이 되어 「단순해 보인다」 —
+ * 그림자는 **글자 가장자리만 떼어 놓아** 사진 위에서 읽히면서 상자가 안 생긴다.
+ * 그래서 「사진 위에서만 받침을 켠다」는 조건 자체가 없어졌고 `bg` 인자도 없앴다.
  *
  * 2.94 에 바뀌는 것은 **크기뿐이다**. 받침·여백·모서리·색은 인트로부터 끝까지 같다(연출).
  */
+/**
+ * **영상 위에 얹는 글자의 테두리.** 받침 상자 대신 쓴다.
+ *
+ * 사용자가 「글자에 바탕이 있는 것이 별루」라고 했고, 받침을 빼면 흰 글자 대비가 **1.03** 까지
+ * 떨어진다(미술 실측 · 얼린 클론 프레임 (24,214)). 그림자는 **글자 가장자리만 떼어 놓아**
+ * 사진 위에서 읽히면서 상자가 안 생긴다. 인트로 클론 34장으로 재서 통과한 값이다.
+ *
+ * **여기 한 곳에만 있다.** 일곱 자리가 이 값을 부른다 — 값이 흩어지면 한 곳을 흔들 때
+ * 나머지가 조용히 남는다. 실제로 `Corner` 만 0.72 로 고치고 **`rgba(0,0,0,0.55)` 가 네 곳에
+ * 남아 있었다** — 그 0.55 는 미술이 **1.99~2.98 로 실패라고 이미 잰 값**이다(`theme.ts:19`).
+ *
+ * **미술 것이라 여기가 제 자리가 아닐 수 있다** — 토큰으로 옮기고 싶으면 `theme.ts` 에 넣어 주시면
+ * 그쪽을 보게 바꾸겠다(엔지니어).
+ *
+ * **재는 법**(미술) — 획 = 정확히 그 색인 화소 · **획 둘레 각 점에서 바깥 3px 안의 최솟값**,
+ * 그 분포의 **중앙값**. 「띠에서 최댓값」이 아니다 — 최댓값은 **획 자신의 안티에일리어스 껍질**을
+ * 집어 대비가 늘 1.00 근처로 나온다. 그 정의는 **받침을 보고 쓴 것**이라(받침은 바탕을 한 색으로
+ * 덮어 최댓값=중앙값) 그림자에 옮기면서 같이 틀렸다.
+ *
+ * **문턱이 없다. 기준점을 쓴다.** 3.0 은 받침 잣대의 문턱이고 이 잣대에 옮기면
+ * **읽히는 라벨(f550 · 2.48)이 떨어진다.** 그래서 「라벨 2.48 과 견준다」로 잰다 —
+ * **「2.48 이 읽히니 그 위는 읽힌다」까지만 말할 수 있고 그 아래는 모른다**(미술).
+ * 아래를 정하려면 **안 읽히는 판본**이 하나 있어야 한다.
+ *
+ * 실측(미술 · 그림자 넣은 뒤):
+ * ```
+ * s04 카운터 22.55 · s12 「컷 검출 0」 12.69 · s10 인용 6.46 · s06 상단 문장 6.05
+ * s06 앵글 이름 4.93 · s12 「10.04초」 3.35 · s04 요구 문장 **2.87**(제일 낮음)
+ * 기준점 라벨 f550 **2.48**   →  **일곱이 전부 라벨보다 낫다**
+ * 고치기 전 s12 두 줄은 **1.01 · 0.95** 였다
+ * ```
+ * 이 값은 `fsLabel` **26 · 굵기 700 · `T.text`** 에서 나왔고 거는 자리는 30·40·54·70·77 인데,
+ * **위 실측이 그 일곱을 다 잰 것**이라 크기 물음은 닫혔다.
+ */
+export const INK_SHADOW = "0 3px 14px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9)";
+
 export const ClipLabel: React.FC<{
-  text: string; size: number; x: number; y: number; color?: string; bg?: number;
-}> = ({ text, size, x, y, color = T.text, bg = 1 }) => (
+  text: string; size: number; x: number; y: number; color?: string;
+}> = ({ text, size, x, y, color = T.text }) => (
   <div style={{ position: "absolute", left: x, top: y, padding: "8px 16px" }}>
-    <div style={{ position: "absolute", inset: 0, backgroundColor: T.capBg,
-                  borderRadius: T.radiusSm, opacity: bg }} />
-    <span style={{ position: "relative", fontFamily: faceFor(text), fontSize: size, color }}>{text}</span>
+    <span style={{
+      fontFamily: faceFor(text), fontSize: size, color, fontWeight: 700,
+      // **받침 대신 그림자다**(사용자가 직접 말한 것 · 연출 승인). 받침이 있으면 알약이 되어
+      // 「단순해 보인다」. 그림자는 글자 가장자리만 떼어 놓아 **사진 위에서 읽히면서 상자가 안 생긴다.**
+      // 값은 `Stage.tsx:225` 의 것을 그대로 가져왔다 — 「상자가 있으면 끄고 없으면 켠다」의 그 값이라
+      // **새로 만든 수가 아니다.** 최악 배경 240.9 에서 대비 **9.6**(받침 0.72 의 3.44 보다 세다 · 미술).
+      textShadow: INK_SHADOW,
+    }}>{text}</span>
   </div>
 );
 
@@ -113,6 +152,13 @@ export const makeEpisode = (
   // **크기·색은 여기서 안 정한다.** 편이 통째로 준다 — 안 주면 라벨이 안 붙는다.
   // 기본값을 두면 그 수가 어느 편에서든 조용히 쓰이고, 그게 오늘 넷 샌 자리다.
   blockLabel?: { size: number; x: number; y: number; of: Record<string, { text: string; color: string }> },
+  // 구간 클립을 **세로로 자르는 창.** 소재끼리 세로 크기가 다를 때 **하나를 다른 하나에 맞춘다**(미술).
+  // E01 — 원본이 1920×**762**(방송 마스터의 비 · 우리가 만든 띠가 아니다)이고 클론이 1920×1080 이라,
+  // 인트로에서 원본은 레터박스로 클론은 꽉 차게 나왔다. **연달아 보면 컷에서 그림이 커진다** —
+  // 「클론이 더 크다」는 이 편이 안 하는 주장이다. 그래서 **자르는 것은 클론 쪽**이다.
+  // 씬 s00 이 이미 같은 창(159~921)으로 클론을 잘라 견주고 있었다. **두 자리가 갈리면
+  // 같은 두 소재가 편 안에서 다른 크기로 나온다** — 그래서 값을 한 곳에서 받는다.
+  blockCrop?: Record<string, { y0: number; y1: number }>,
 ) => {
   // 전환 길이는 **경계 앞에 오는 것**이 갖는다. 앞 것의 자리를 그만큼 늘려 겹치고,
   // 들어오는 것이 그동안 움직인다. 시각표(t_start·t_end)는 안 건드린다.
@@ -136,7 +182,8 @@ export const makeEpisode = (
   const lastT = Math.max(scenes[scenes.length - 1].t_end, ...blocks.map((b) => b.t + b.sec), 0);
   const EPISODE_FRAMES = Math.ceil(lastT * FPS);
   const Episode: React.FC<{ bgm: string; bgmVolume: number }> = ({ bgm, bgmVolume }) => {
-    const { fps } = useVideoConfig();
+    // 자르는 창이 **컴포지션 크기**를 쓴다 — 1920·1080 을 여기 안 박는다.
+    const { fps, width: WIDTH, height: HEIGHT } = useVideoConfig();
     // word-break 는 상속되는 성질이라 **여기 한 번만** 걸면 그 아래 글자가 다 따라온다.
     // 컴포넌트마다 적으면 다음에 또 빠진다 — 실제로 s08 인용에서 빠져 낱말이 중간에서 쪼개졌다.
     return (
@@ -151,9 +198,31 @@ export const makeEpisode = (
                     premountFor={1 * fps}>
             <Enter sec={enterOf(b.clip ?? blankId(b.t))}>
               <AbsoluteFill style={{ backgroundColor: "#000" }}>
-                {b.clip && (
-                  <Video src={staticFile(`${slug}/${b.clip}.mp4`)} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                )}
+                {/* **여기는 `<Video>` 다.** 씬 안 클립은 `OffthreadVideo`(ffmpeg 이 프레임을 뽑음)로
+                    바꿨는데, 구간은 **소리가 나가야** 해서 그대로 둔다.
+                    그래서 **같은 파일이 한 편에서 두 방식으로 그려지는 자리**가 있다 —
+                    `intro_clone.mp4` 가 여기서 돌고 s00 에서 얼린 한 장으로 다시 나온다.
+                    차는 디코딩에서만 나고 평균 1 안팎이라 안 보인다(미술 실측 · h264 잡음 6.887 의 1/5~1/12).
+                    **다만 두 자리의 수를 나란히 견줄 일이 생기면 「경로가 다르다」를 먼저 적어야 한다**(미술). */}
+                {b.clip && (() => {
+                  const src = staticFile(`${slug}/${b.clip}.mp4`);
+                  const c = blockCrop?.[b.clip];
+                  if (!c) {
+                    return <Video src={src} style={{ width: "100%", height: "100%", objectFit: "contain" }} />;
+                  }
+                  // 자른 띠를 **세로 가운데**에 놓는다 — 원본이 `contain` 으로 앉는 자리와 같아진다.
+                  // 바깥은 이 `AbsoluteFill` 의 `#000` 이라 원본의 레터박스와 같은 색이다.
+                  // `objectFit: "cover"` 다 — 소재가 컴포지션과 다른 크기여도 **늘어나지 않고 잘린다.**
+                  // 늘어나는 것은 조용하고 잘리는 것은 보인다. (55 단계가 크기가 같은지 먼저 본다.)
+                  const h = c.y1 - c.y0;
+                  return (
+                    <div style={{ position: "absolute", left: 0, top: (HEIGHT - h) / 2,
+                                  width: WIDTH, height: h, overflow: "hidden" }}>
+                      <Video src={src} style={{ position: "absolute", left: 0, top: -c.y0,
+                                                width: WIDTH, height: HEIGHT, objectFit: "cover" }} />
+                    </div>
+                  );
+                })()}
                 {b.clip && blockLabel?.of[b.clip] && (
                   <ClipLabel text={blockLabel.of[b.clip].text} size={blockLabel.size}
                              x={blockLabel.x} y={blockLabel.y} color={blockLabel.of[b.clip].color} />
