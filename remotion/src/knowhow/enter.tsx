@@ -1,34 +1,45 @@
 import React from "react";
-import { AbsoluteFill } from "remotion";
-import { useCue } from "./motion";
-
-/** 전환 종류. 미술이 정한다. `none` 이면 앞 것과 겹치지 않고 그냥 갈린다. */
-export type EnterKind = "none" | "slide" | "wipe" | "fade";
-export type EnterFrom = "left" | "right" | "up" | "down";
+import { AbsoluteFill, Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
 /**
- * 들어오는 씬을 `sec` 동안 움직여 앉힌다. **앞 씬은 그만큼 더 남아 있다**(Episode.tsx 가 늘린다).
+ * 들어오는 씬을 `sec` 동안 밀어 넣는다. **앞 씬은 그만큼 더 남아 있다**(Episode.tsx 가 늘린다).
  *
  * `TransitionSeries` 를 안 쓴다. 그것은 겹친 만큼 **전체 길이를 줄이는데**, 우리 시각표는
  * 내레이션이 정하고 소리는 절대 시각에 얹힌다 — 화면만 32곳에서 당겨져 소리와 어긋나고
  * 렌더는 안 죽는다. 여기서는 **시각표를 그대로 두고 그림만 겹친다.**
  *
- * 「이어져야 하는 자리」는 `none` 이고 `sec` 0 이다 — 인트로→s00 처럼 같은 그림에서
- * 이어 시작하는 자리에 무엇이든 끼면 그 이음매가 없어진다(연출).
+ * **등급마다 움직이는 것이 다르다**(연출·미술):
+ * ```
+ *  0f   이어져야 하는 자리.        아무것도 안 한다
+ *  6f   짝 안 — 바뀌는 요소만.     씬 층은 안 움직인다. 그 씬이 스스로 한다
+ * 10f   일반 — 씬 층 전체.         오른쪽 → 왼쪽
+ * 15f   절 사이 — 씬 층 전체.      아래 → 위
+ * ```
+ * **무엇이 밀리는지는 문법의 `unit` 이 정한다** — `episode`(바탕·자막·서명)는 안 밀고
+ * `scene`(담기·글)은 민다. Episode.tsx 가 자막을 이 밖에 두는 이유가 그것이다.
+ *
+ * 이징은 `Easing.out(Easing.cubic)` 이다. 테마의 `EASE_OUT`(0.16,1,0.3,1)을 밀기에 쓰면
+ * 1920px 을 0.2초에 밀 때 **첫 프레임에 1,317px(화면의 69%)** 이 지나가 「컷 + 안착」으로 보인다.
+ * `EASE_OUT` 은 제자리에 나타나는 요소용으로 남는다.
  */
-export const Enter: React.FC<{
-  sec: number; kind?: EnterKind; from?: EnterFrom; children: React.ReactNode;
-}> = ({ sec, kind = "slide", from = "right", children }) => {
-  if (sec <= 0 || kind === "none") return <AbsoluteFill>{children}</AbsoluteFill>;
-  const p = useCue(0, sec);                       // 0 → 1. spring 이라 앉는 것이 부드럽다
+const GRADE = (sec: number) =>
+  sec <= 0 ? null
+  : sec < 0.28 ? null                      // 6f — 씬이 스스로 한다. 씬 층은 안 민다
+  : sec < 0.42 ? ("left" as const)         // 10f — 오른쪽에서 들어와 왼쪽으로
+  : ("up" as const);                       // 15f — 아래에서 올라온다
+
+export const Enter: React.FC<{ sec: number; children: React.ReactNode }> = ({ sec, children }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const dir = GRADE(sec);
+  if (dir === null) return <AbsoluteFill>{children}</AbsoluteFill>;
+  const p = interpolate(frame, [0, Math.round(sec * fps)], [0, 1], {
+    extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.cubic),
+  });
   const off = (1 - p) * 100;
-  const style: React.CSSProperties =
-    kind === "fade" ? { opacity: p }
-    : kind === "wipe" ? { clipPath: from === "left" || from === "right"
-        ? `inset(0 ${from === "right" ? off : 0}% 0 ${from === "left" ? off : 0}%)`
-        : `inset(${from === "up" ? off : 0}% 0 ${from === "down" ? off : 0}% 0)` }
-    : { transform: from === "left" ? `translateX(${-off}%)`
-        : from === "right" ? `translateX(${off}%)`
-        : from === "up" ? `translateY(${-off}%)` : `translateY(${off}%)` };
-  return <AbsoluteFill style={style}>{children}</AbsoluteFill>;
+  return (
+    <AbsoluteFill style={{ transform: dir === "left" ? `translateX(${off}%)` : `translateY(${off}%)` }}>
+      {children}
+    </AbsoluteFill>
+  );
 };
