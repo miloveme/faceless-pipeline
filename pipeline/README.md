@@ -15,6 +15,8 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 | 00 | `00_new_episode.sh E01_slug "제목"` | — | 에피소드 폴더 골격 + 템플릿 | |
 | 01 | `01_status.py [<EP>]` | — | 서버 연결·큐·남은 작업·예상 시간 | **작업 전 먼저** |
 | 05 | `05_script_to_scenes.py [--md] [--renumber] [--force]` | 가장 최신 `script/script_v<N>.md` ([형식](../docs/SCRIPT_FORMAT.md)) | `script/scenes_v1.json` | 씬 번호·`[N]` 누락 검사, 옛 판본이면 exit 2 |
+| 06 | `06_lists_check.py EP` | `script/scenes_v1.json`, `script/points.json`, `source/SOURCES.md`, `source/EVIDENCE.md` | (화면에 표) | **목록이 지금 대본을 가리키는가** → exit 3. **표·칸·절로 좁혀서 본다** — 파일 전체를 훑으면 **설명하려고 쓴 산문이 검사를 초록으로 만든다.** **방향 둘을 다 본다** — 「적힌 씬이 있는가」와 「지금 씬이 목록에 있는가」. 앞엣것만 보면 **새로 생긴 씬이 조용히 빠진다.** 어긋난 줄 번호를 찍는다. 그리고 **표 + 산문 = 대본 전부**(겹침 0)인지도 본다 — 「소재 없는 씬 열여섯」처럼 **설명으로 적은 목록이 낡는 것**을 그 셈이 잡는다. **여기서 고치지 않는다** — 파일의 주인에게 넘긴다 |
+| 07 | `07_requests_check.py EP` | `script/requests.json`(**총괄이 씀**), `edit/*_master.mp4`, `scenes_v1` | (화면에 표) | **사용자가 요청한 것이 들어갔나** → exit 3. **「들어감」과 「재서 확인됨」을 가른다** — 앞엣것은 코드에 넣은 것이고 뒤엣것은 **그 마스터에서 재 본 것**이다. 기계가 보는 것은 **근거**뿐(판본이 있나 · 그 지문의 마스터가 있나 · 잰 수가 적혀 있나 · 자리가 실제로 있나). **「사용자가 원한 뜻인가」는 사람이 본다** |
 | 10 | `10_tts_prep.py [--ids]` | `script/scenes_v1.json` | `narration_tts` 필드, `audio/narration_tts_input.json`(`subs` + **씬별 대본 지문**) | 소리로 못 내는 것(영문·기호)이 남으면 exit 2 |
 | 15 | `15_clip_prep.py` | `source/` 의 영상·이미지, `script/visual_prep.json` (클립은 `{"src","ss","t","audio","mask"}` 객체도 됨) | `public/<slug>/` 클립·이미지·스틸·**잘라낸 그림**·컨택트 시트 | 소재 출처는 [VISUALS](../docs/VISUALS.md) |
 | 18 | `18_bgm_prep.sh EP bgm.mp3` | BGM 원본 | `public/<slug>/bgm_lofi.mp3` (-27 LUFS) | |
@@ -22,9 +24,10 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 | 30 | `30_nar_check.py [--ids] [--quiet-text]` | nar_raw, tts_input 의 `subs`·지문 | `whisper_cer.json`, `speech_bounds.json` | 숫자 누락·CER>0.06·내용 차이면 BAD → exit 3. **대본이 바뀐 뒤 안 만든 씬은 찍기만** |
 | 35 | `35_nar_retry.py --ids` | BAD 씬 | 시드 순회 교체 | 교체 후 30 재실행 |
 | 40 | `40_nar_finalize.py` | nar_raw + bounds | `narration_final/*.wav`, `script/scenes_v2.json` | 트랙을 사람이 들음 |
-| 41 | `41_timetable.py` | `script/scenes_v2.json` | (화면에 표) | **읽기만 한다.** 씬·구간의 시각·프레임·경계 — 옮겨 적지 말고 필요할 때 뽑는다 |
+| 41 | `41_timetable.py [--frames] [--boundaries] [--at "s03 13.5"]` | `script/scenes_v2.json` | (화면에 표) | **읽기만 한다.** 씬·구간의 시각·프레임·경계 — 옮겨 적지 말고 필요할 때 뽑는다. `--at "<씬id> <씬 안 초>"` 는 **씬 안 시각 → 절대 프레임**이다(`ffmpeg -ss` 값까지). 40 이 한 번 돌면 앞 씬이 밀려 **적어 둔 프레임 번호가 조용히 낡는다** — 씬 안 시각으로 주고받고 번호는 여기서 뽑는다. 씬 밖으로 나가면 exit 3 |
 | | | `script/timing.json` (있으면) | `inserts`(씬 밖 구간)와 `min_sec`(씬 하한)을 넣어 시각표를 다시 잰다 | 내레이션이 안 정하는 길이는 시각표 한 곳에만 들어간다 — 아래 단계는 오프셋을 따로 더하지 않는다 |
 | 45 | `45_visual_plan.py [--force]` | scenes_v2, scenes_v1 | `script/visual_plan.md` | 카드·이유는 사람이 채우고 승인 |
+| 47 | `47_points_check.py EP [--master m.mp4]` | `script/points.json`(**작가가 씀**), scenes.tsx·copy.ts, 근거 파일, 마스터 | (화면에 표) | 내레이션이 **가리키는** 자리에서 가리켜진 것이 맞나 → exit 3. `--master` 를 줘야 도는 **`칸의 소재`** 는 칸에서 뜬 그림을 소재 전수와 대 본다 — **코드에 두 소재가 다 적혀 있어도 하나가 다른 하나를 덮을 수 있다**(s22 가 그랬고 정적 검사는 통과했다) |
 | 50 | `50_captions_build.py` | narration_final, scenes_v1 | `captions.json` | 자막 텍스트는 원문. **자막↔대본 글자 대조** — 다르면 찍기만 |
 | 55 | `55_remotion_sync.py [--skip-src-check]` | scenes_v2, captions, visual_prep | Remotion `public/`·`src/<slug>/data/` | 소재가 변환본보다 나중인가·**씬 밖 구간의 클립이 있고 소리가 있는가**·**이음매가 프레임에서 맞물리는가**·`asset()` 을 지나는가·`SLUG` 가 이 편인가 → exit 3 |
 | 60 | `60_render_master.sh EP Comp vX` | 컴포지션 | `edit/*_master.mp4` + 720p 프리뷰 | 사람이 프리뷰 검수. loudnorm 은 **두 패스**다 — 한 패스는 구간마다 다른 양을 올려 의도한 음량 관계가 바뀐다 |
@@ -32,6 +35,7 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 | 62 | `62_still_check.py <마스터.mp4>` | 마스터 mp4 | (화면에 표) | **읽기만 한다.** 정지 비율과 3초 넘게 안 바뀌는 자리. **면적(%)은 그릇이 바뀌면 같이 바뀌어 판이 다르면 못 대는데 이건 댈 수 있다** |
 | 70 | `70_srt_build.py` | captions(+captions_en) | `edit/*_ko.srt`, `*_en.srt` | |
 | 75 | `75_chapters.py` | `script/chapters.json` | `edit/chapters.txt` | |
+| 85 | `85_ship_gate.py EP 마스터.mp4` | `script/requests.json`, `script/editor_verdicts.json`, 마스터 | (화면에 표) | **사용자에게 보내기 전에 서는 관문** → exit 3. **담당이 아니라 총괄을 막는다.** 셋을 막는다 — ㄱ 대장에 「재서 확인됨」이 아닌 것 · ㄴ 확인 지문이 이 마스터와 다름 · ㄷ **이 지문에 대한 편집자 판정이 없음**. 빠진 것은 **이름으로** 찍고 통과해도 **분모**를 찍는다. **「사용자가 원한 뜻인가」는 안 본다** — 사람이 본다 |
 | 80 | `80_whiteboard_srt.py --ids` | scenes_v2, captions | 구간 SRT | 손그림 애니메이션용(선택) |
 
 보조

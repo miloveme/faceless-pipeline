@@ -93,7 +93,15 @@ buf = np.frombuffer(p.stdout, dtype=np.uint8)
 n = buf.size // (W * H)
 if n < 2: die(f"프레임이 {n}장뿐입니다 — 파일을 확인하세요: {a.video}", 1)
 fr = buf[: n * W * H].reshape(n, H, W).astype(np.int16)
-d = np.abs(np.diff(fr, axis=0)).mean(axis=(1, 2))      # 이웃 프레임 평균 화소 차
+_df = np.abs(np.diff(fr, axis=0))
+d = _df.mean(axis=(1, 2))                              # 이웃 프레임 평균 화소 차
+# **평균은 작은 것을 묻는다**(미술). 분모 1920×1080×0.798 = 1,654,732 화소라
+# 평균 0.5 를 넘으려면 잉크가 **3,520 화소(사방 59×59)** 있어야 한다 —
+# `Tick` 하나(288) · 길이 숫자 하나(1,216) · 눈금 여섯이 미끄러지는 것(3,456)이 **다 안 보인다.**
+# 그래서 **차가 8 이상 난 화소를 같이 센다.** 판정은 평균 그대로 두고 **한 칸을 더한다.**
+# 8 은 h264 계측에서 이미 쓰던 값이다 — **새 수를 안 만들려고 그대로 쓴다**(미술).
+INK = 8
+nd = (_df >= INK).sum(axis=(1, 2))                     # 차가 INK 이상 난 화소 수
 dt = 1.0 / a.fps
 still = d < a.th
 
@@ -236,7 +244,13 @@ if a.stills and shown:
     import pathlib as _pl; _pl.Path(a.stills).mkdir(parents=True, exist_ok=True)
 for t, L in shown:
     fnum = round(t * FPS)
-    line = f"      {t:7.2f}초 부터 {L:.2f}초  (프레임 {fnum})"
+    # **그 구간에서 「차가 8 이상 난 화소」의 최댓값.** 평균 차가 문턱 아래라도
+    # 이 수가 0 이 아니면 **화면에 무엇이 일어나고 있다** — 작아서 평균에 묻힌 것이다(미술).
+    _i0, _i1 = int(round(t / dt)), int(round((t + L) / dt))
+    _ink = int(nd[_i0:max(_i1, _i0 + 1)].max()) if _i0 < len(nd) else 0
+    line = (f"      {t:7.2f}초 부터 {L:.2f}초  (프레임 {fnum}) · "
+            f"차 8 이상 난 화소 최대 **{_ink:,d}**"
+            + ("  ← **아무것도 안 움직입니다**" if _ink == 0 else ""))
     if SC:
         sid, off, said = at(t)
         line += (f"\n         {sid} 안 {off:.2f}초" + (f'  자막: 「{said}」' if said else "  자막: (없음)")
@@ -245,6 +259,19 @@ for t, L in shown:
     if a.stills:
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", a.video,
                         "-frames:v", "1", f"{a.stills}/still_{fnum}.png"], check=False)
+if shown:
+    # **「0 인 것」과 「작지만 0 이 아닌 것」이 갈리는가.** 갈리면 그때 선이 필요한지 안다 —
+    # 갈리는지도 모르는 채로 선을 그으면 잣대가 결과를 따라간다(미술).
+    _all = []
+    for _t, _L in shown:
+        _a0, _a1 = int(round(_t / dt)), int(round((_t + _L) / dt))
+        _all.append(int(nd[_a0:max(_a1, _a0 + 1)].max()) if _a0 < len(nd) else 0)
+    _zero = sum(1 for x in _all if x == 0)
+    _sm = sorted(x for x in _all if x)
+    print(f"      **차 8 이상 난 화소** — 0 인 구간 **{_zero}곳** · 0 이 아닌 구간 {len(_sm)}곳"
+          + (f" (제일 작은 것 {_sm[0]:,d} · 중앙 {_sm[len(_sm)//2]:,d} · 제일 큰 것 {_sm[-1]:,d})"
+             if _sm else "")
+          + f"   ※ 이웃 표본은 {dt:.2f}초 사이입니다(--fps {a.fps:g})")
 if a.stills and shown: print(f"      스틸 {len(shown)}장 → {a.stills}/  (**정지가 시작하는 프레임**)")
 
 if a.extra_still or a.extra_frame:
