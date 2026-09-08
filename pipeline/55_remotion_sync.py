@@ -242,6 +242,23 @@ if src_dir.is_dir():
               "  기호는 서체에 없으면 두부(□)가 되는데 렌더는 통과합니다 — 판정은 낱말로 하세요.", 3)
     print(f"화면 글자 검사: 파일 {len(tsx)}개 · 경로 조각 0건 · 서체에 없는 기호 0건")
 
+# **쇼츠가 부르는 씬이 실제로 있나.** Shorts.tsx 는 없는 id 를 **조용히 건너뛴다** —
+# 대본이 덜 된 상태에서도 스튜디오가 열리라고 그렇게 뒀는데, 씬 id 가 바뀌면
+# 쇼츠가 그만큼 짧아지고 렌더는 통과한다. 길이가 줄어도 「원래 그런 길이」로 보인다.
+_comp = src_dir/"compositions.tsx"
+if _comp.exists():
+    _sids = {x["id"] for x in sc["scenes"]}
+    _miss, _used = [], 0
+    for _m in re.finditer(r'sceneIds:\s*\[([^\]]*)\]', _comp.read_text(encoding="utf-8")):
+        for _q in re.findall(r'"([^"]+)"', _m.group(1)):
+            _used += 1
+            if _q not in _sids: _miss.append(_q)
+    if _miss:
+        die(f"쇼츠가 없는 씬을 부릅니다: {', '.join(_miss)}\n"
+            f"  Shorts.tsx 는 없는 id 를 조용히 건너뛰어 그만큼 짧아집니다 — 렌더는 통과합니다.\n"
+            f"  있는 씬 {len(_sids)}개: {', '.join(sorted(_sids))}", 3)
+    print(f"쇼츠 씬 검사: 부르는 씬 {_used}개 다 있습니다")
+
 # 화면 문구가 자막을 받아쓰나 — **겹말 검사**(연출 요청).
 # 목소리·자막·큰 글자가 같은 말을 세 번 하면 화면이 자막의 메아리가 된다.
 # 이 편에서 사람 눈으로 여섯 번 놓쳤다(s16 「사람이 하는 0.7초」· s21 결론 세 줄 · s25 판정 줄 …).

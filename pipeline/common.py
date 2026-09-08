@@ -420,11 +420,15 @@ def tts_generate(text, out_path, cfg, attempt=0, host=None):
     return mod.generate(text, str(out_path), provider_cfg(cfg, name), attempt=attempt, **kw)
 
 def pick_ids(arg, known, what="씬"):
-    """--ids 문자열 → 집합. 빈 문자열이면 None(전체).
-    없는 id 를 주면 조용히 0건 처리하지 않고 죽는다."""
-    if not arg: return None
+    """--ids 문자열 → 집합. **안 주면** None(전체).
+    없는 id 를 주면 조용히 0건 처리하지 않고 죽는다.
+
+    **빈 값과 안 준 값을 가른다.** `if not arg` 로 쓰면 `--ids ""` 가 「전체」가 되어
+    한 씬만 돌리려던 것이 29씬을 다 돈다 — 스크립트로 묶을 때 변수가 비면 그렇게 된다.
+    (같은 자리를 `65_render_derived.sh` 의 `${3:-1,2}` 에서 실제로 밟았다.)"""
+    if arg is None: return None
     ids = [x.strip() for x in arg.split(",") if x.strip()]
-    if not ids: die("--ids 가 비어 있습니다.", 2)
+    if not ids: die("--ids 가 비어 있습니다. 전체를 돌리려면 --ids 를 **아예 주지 마세요**.", 2)
     unknown = [i for i in ids if i not in known]
     if unknown:
         die(f"--ids 에 없는 {what}: {', '.join(unknown)}\n  있는 것: {', '.join(sorted(known))}", 2)
