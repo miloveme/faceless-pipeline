@@ -120,9 +120,15 @@ elif a.per_scene:
     die("--per-scene 은 --ep 가 있어야 합니다 (씬 경계를 알아야 씬마다 셉니다)", 2)
 
 def at(t):
-    """그 시각이 어느 씬 안인가 → (씬 id, 씬 안 시각, 그때 자막). 씬 밖이면 (None, None, "")"""
+    """그 시각이 어느 씬 안인가 → (씬 id, 씬 안 시각, 그때 자막). 씬 밖이면 (None, None, "")
+
+    **초가 아니라 프레임으로 가른다.** 화면은 `round(t_start*fps)` 로 씬을 나누는데
+    초로 재면 경계에서 한 프레임이 갈린다 — E01 시각표로 재 보니 **경계 표본 120개 중 25개**가
+    달랐다(f951 은 초로 s00, 프레임으로 s01). 그러면 엉뚱한 씬을 가리키고 그 씬의 값을 재게 된다.
+    `Episode.tsx` 가 「경계를 절대 시각으로 반올림한다」고 적어 둔 것과 같은 자리다(미술이 잡았다)."""
+    k = round(t * FPS)
     for x in SC:
-        if x["t_start"] <= t < x["t_end"]:
+        if round(x["t_start"] * FPS) <= k < round(x["t_end"] * FPS):
             off = t - x["t_start"]
             for c in CAP.get(x["id"], []):
                 if c["start"] + LEAD <= off < c["end"] + LEAD: return x["id"], off, c["text"]
