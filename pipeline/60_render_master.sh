@@ -13,7 +13,23 @@ RAW=$OUT/${PREFIX}_episode_${VER}.mp4; MASTER=$OUT/${PREFIX}_episode_${VER}_mast
 npx remotion render "$COMP" "$RAW" --codec=h264 --crf=18 --log=error --concurrency=8 2>&1 | tee "$OUT/_render.log" | tail -2
 echo "렌더 로그: $OUT/_render.log"
 [ -s "$RAW" ] || { echo "렌더 결과가 없습니다: $RAW"; echo "  컴포지션 이름이 맞는지 확인하세요 (지금 값: $COMP)"; echo "  목록: cd $REMOTION_DIR && npx remotion compositions"; exit 1; }
-ffmpeg -v error -y -i "$RAW" -vn -af "loudnorm=I=-14:TP=-1.5:LRA=11" -ar 48000 -c:a aac -b:a 192k "$OUT/_audio_norm.m4a"
+# loudnorm 을 **두 패스로** 건다. 한 패스는 dynamic 이라 구간마다 다른 양을 올린다 —
+# 실측: 인트로 클론 +3.9 · 꼬리 +2.8 로 갈려서 의도한 2.6 LU 차이가 3.7 로 벌어졌다.
+# 두 패스(linear)는 전 구간을 같은 +2.8 로 올려 관계를 그대로 둔다. 소리 판단이 화면 밖에서
+# 뒤집히면 안 되는 자리다(음악 감독이 인트로 원본·클론을 0.3 LU 로 맞춰 놓은 것이 그렇다).
+LN="loudnorm=I=-14:TP=-1.5:LRA=11"
+MEAS=$(ffmpeg -nostdin -hide_banner -i "$RAW" -af "$LN:print_format=json" -f null - 2>&1 | sed -n '/^{/,/^}/p')
+LN2=$(python3 -c "
+import json,sys
+try: m = json.loads(sys.argv[1])
+except Exception as e: sys.exit('loudnorm 측정값을 못 읽었습니다: %s' % e)
+need = ('input_i','input_tp','input_lra','input_thresh','target_offset')
+miss = [k for k in need if k not in m]
+if miss: sys.exit('loudnorm 측정값에 %s 가 없습니다' % ', '.join(miss))
+print('$LN:measured_I=%(input_i)s:measured_TP=%(input_tp)s:measured_LRA=%(input_lra)s'
+      ':measured_thresh=%(input_thresh)s:offset=%(target_offset)s:linear=true' % m)" "$MEAS") \
+  || { echo "1패스 측정에 실패했습니다 — 조용히 한 패스로 넘어가지 않습니다(구간 관계가 바뀝니다)"; exit 1; }
+ffmpeg -v error -y -i "$RAW" -vn -af "$LN2" -ar 48000 -c:a aac -b:a 192k "$OUT/_audio_norm.m4a"
 ffmpeg -v error -y -i "$RAW" -i "$OUT/_audio_norm.m4a" -map 0:v -map 1:a -c copy -shortest "$MASTER"
 ffmpeg -v error -y -i "$MASTER" -vf scale=1280:-2 -c:v libx264 -crf 24 -preset fast -c:a aac -b:a 128k "$PREV"
 echo "--- loudness"; ffmpeg -i "$MASTER" -af ebur128=peak=true -f null - 2>&1 | grep -E " I:|Peak:" | tail -2

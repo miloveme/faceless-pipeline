@@ -26,7 +26,7 @@ python3 pipeline/40_nar_finalize.py E01_myepisode
 | 45 | `45_visual_plan.py [--force]` | scenes_v2, scenes_v1 | `script/visual_plan.md` | 카드·이유는 사람이 채우고 승인 |
 | 50 | `50_captions_build.py` | narration_final | `captions.json` | 자막 텍스트는 원문 |
 | 55 | `55_remotion_sync.py [--skip-src-check]` | scenes_v2, captions, visual_prep | Remotion `public/`·`src/<slug>/data/` | 소재가 변환본보다 나중인가·**씬 밖 구간의 클립이 있고 소리가 있는가**·`asset()` 을 지나는가·`SLUG` 가 이 편인가 → exit 3 |
-| 60 | `60_render_master.sh EP Comp vX` | 컴포지션 | `edit/*_master.mp4` + 720p 프리뷰 | 사람이 프리뷰 검수 |
+| 60 | `60_render_master.sh EP Comp vX` | 컴포지션 | `edit/*_master.mp4` + 720p 프리뷰 | 사람이 프리뷰 검수. loudnorm 은 **두 패스**다 — 한 패스는 구간마다 다른 양을 올려 의도한 음량 관계가 바뀐다 |
 | 65 | `65_render_derived.sh EP` | Thumb/Shorts 컴포지션 | 썸네일·쇼츠 | |
 | 70 | `70_srt_build.py` | captions(+captions_en) | `edit/*_ko.srt`, `*_en.srt` | |
 | 75 | `75_chapters.py` | `script/chapters.json` | `edit/chapters.txt` | |
