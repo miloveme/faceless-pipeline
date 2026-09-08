@@ -50,8 +50,10 @@ export const BarWithRest: React.FC<{
   restKind: "outline" | "tail"; radius?: number;
 }> = ({ px, restPx, h, at, over, restKind, radius = 8 }) => (
   <div style={{ position: "relative", width: px + restPx, height: h }}>
+    {/* **남는 것은 둘 다 막대 끝 뒤에 붙는다.** 못 간 만큼도 잘린 만큼도 `u` 에서 max(want,have) 까지다 —
+        꼬리를 left:0 에 두면 막대 밑에 깔려 안 보인다(실제로 그렇게 돼 있어 「자름」 넷이 안 갈렸다). */}
     <div style={{
-      position: "absolute", left: restKind === "outline" ? px : 0, top: 0,
+      position: "absolute", left: px, top: 0,
       width: restPx, height: h, borderRadius: radius,
       ...(restKind === "outline"
         ? { border: `${T.lineW}px solid ${T.panelLine}` }

@@ -211,3 +211,36 @@ if _copy.exists():
             + "\n  연출 감독이 정할 값입니다. 화면에는 빨간 「연출 대기」 상자로 떠 있습니다.\n"
               "  임시 낱말을 넣지 마세요 — 한 번 넣으면 그대로 남습니다.", 3)
     print(f"화면 문구 검사: {_copy.name} · 기다리는 자리 0곳")
+
+# 화면에 나가면 안 되는 글자. **낱말 목록으로는 못 막는다** — 실제로 금지 목록에
+# URL·계정 주소·작업 시각만 있어서 `ref/source.mp4`(원본 드라마 파일 이름)가 s27 화면에 떴다.
+# 그래서 **모양**으로 잡는다.
+#   경로 조각   슬래시가 든 문자열. 파일 이름 자체는 화면에 쓰는 자리가 있지만(s21 의 폐기본 이름들)
+#               **경로는 없다** — 우리 작업 폴더 구조와 원본 파일을 드러낸다
+#   없는 글자   ✗(U+2717) 은 Apple SD Gothic Neo 에 없어 두부(□)로 나온다. 렌더는 통과한다.
+#               한 쌍 중 하나만 있으면 짝이 깨지므로 이 편은 ✓ 도 안 쓴다(미술).
+_STR = re.compile(r'"((?:[^"\\]|\\.)*)"')
+_PATH = re.compile(r'(?:^|[\s(\[])(?:ref|out|assets|analysis|stills|reedit|DC|src|public)/|/Users|/private/tmp|~/|https?://')
+# **목록이다. 서체를 여기서 열어 볼 수 없어서** — 폰트는 렌더할 때 브라우저가 받는다.
+# 그래서 「없다고 확인된 것」만 막는다. 화살표(→ U+2192)처럼 이미 쓰고 있고 잘 나오는 것은 안 막는다.
+# 새로 걸리는 글자가 나오면 여기 더한다.
+_GLYPH = re.compile(r'[\u2713\u2714\u2715\u2716\u2717\u2718\u2611\u2612\u274c\u2705]')
+if src_dir.is_dir():
+    _bad = []
+    for _f in tsx:
+        for _i, _line in enumerate(_f.read_text(encoding="utf-8").split("\n"), 1):
+            _t = _line.lstrip()
+            if _t.startswith(("//", "*", "/*")): continue          # 주석은 화면에 안 나간다
+            _clean = re.sub(r'asset\(\s*"[^"]*"\s*\)', "asset()", _line)   # 소재 경로는 이 검사 대상이 아니다
+            for _m in _STR.finditer(_clean):
+                _v = _m.group(1)
+                if _PATH.search(_v): _bad.append((_f.name, _i, "경로 조각", _v))
+                for _g in set(_GLYPH.findall(_v)):
+                    _bad.append((_f.name, _i, f"서체에 없을 수 있는 글자 U+{ord(_g):04X}", _v))
+    if _bad:
+        die(f"화면에 나가면 안 되는 글자가 있습니다 — {len(_bad)}건:\n"
+            + "\n".join(f"  {a}:{b}  {c}  {d[:70]}" for a, b, c, d in _bad)
+            + "\n  경로는 우리 작업 폴더와 원본 파일을 드러냅니다. 파일 **이름**을 화면에 쓰는 자리는 있어도\n"
+              "  **경로**를 쓰는 자리는 없습니다(연출). 소재는 asset() 으로 부르므로 이 검사에 안 걸립니다.\n"
+              "  기호는 서체에 없으면 두부(□)가 되는데 렌더는 통과합니다 — 판정은 낱말로 하세요.", 3)
+    print(f"화면 글자 검사: 파일 {len(tsx)}개 · 경로 조각 0건 · 서체에 없는 기호 0건")
