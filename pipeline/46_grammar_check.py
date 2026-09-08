@@ -111,9 +111,12 @@ print("\n  ○ 씬마다 그 문법이 카드를 담습니다.")
 if a.verify:
     src = REMOTION_DIR / "src" / slug(ep) / "scenes.tsx"
     if not src.exists(): die(f"구현이 없습니다: {src}")
-    impl = {sid: card for card, sid in
-            re.findall(r'//\s*card:\s*(\w+)\s*\n\s*case "(s\d\d)":',
-                       src.read_text(encoding="utf-8"))}
+    # 선언 형태는 둘 다 받는다 — 씬을 switch 로 쓰던 때와 컴포넌트로 쓰는 지금.
+    #   `// card: still` 다음 줄에 `case "s00":`   (옛 형태)
+    #   `// s00 card: still`                       (씬 하나가 컴포넌트 하나일 때. id 를 선언이 들고 있다)
+    _txt = src.read_text(encoding="utf-8")
+    impl = {sid: card for card, sid in re.findall(r'//\s*card:\s*(\w+)\s*\n\s*case "(s\d\d)":', _txt)}
+    impl.update({sid: card for sid, card in re.findall(r'//\s*(s\d\d)\s+card:\s*(\w+)', _txt)})
     print(f"\n계획서 ↔ 구현 대조 ({src.name})")
     miss = sorted(set(used) - set(impl))
     extra = sorted(set(impl) - set(used))

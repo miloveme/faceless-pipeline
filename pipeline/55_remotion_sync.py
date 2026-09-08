@@ -175,3 +175,39 @@ else:
             f'  소재는 asset("파일명") 으로 씁니다 — public/{sl}/ 아래를 가리킵니다. slug 는 slug.ts 한 곳에만 둡니다.\n'
             f"  절차: remotion/README.md 의 새 에피소드 만들기", 3)
     print(f"소재 경로 검사: 파일 {n}개 · 직접 적은 경로 0건 · SLUG=\"{sl}\"")
+
+    # 이름이 실제로 있는가. **asset() 을 지나도 파일 이름이 틀리면 렌더는 안 죽는다** —
+    # 그 프레임에서 404 가 나고 그 씬만 검게 빈다. E01 에서 실제로 여섯 개가 .jpg 로 적혀 있었고
+    # (15_clip_prep 은 그림을 전부 png 로 만든다) 그 씬을 렌더해 보기 전에는 아무 데서도 안 걸렸다.
+    _lit, _dyn = set(), 0
+    for _f in tsx:
+        for _line in _f.read_text(encoding="utf-8").split("\n"):
+            _t = _line.lstrip()
+            if _t.startswith("//") or _t.startswith("*") or _t.startswith("/*"): continue
+            _lit |= set(re.findall(r'asset\(\s*"([^"]+)"\s*\)', _line))
+            _dyn += len(re.findall(r"asset\(\s*[`$a-zA-Z_]", _line))
+    _gone = sorted(x for x in _lit if not (pub/x).exists())
+    if _gone:
+        _have = sorted(p.name for p in pub.iterdir() if p.is_file())
+        die(f"소재 이름이 public/{sl}/ 에 없습니다 — {len(_gone)}개:\n"
+            + "\n".join(f"  {x}" for x in _gone)
+            + f"\n  있는 것 {len(_have)}개: " + " ".join(_have[:24]) + (" …" if len(_have) > 24 else "")
+            + "\n  15_clip_prep 은 그림을 전부 .png 로 만듭니다. 확장자를 먼저 보세요.\n"
+              "  이름이 틀려도 렌더는 안 죽습니다 — 그 씬만 검게 빕니다.", 3)
+    print(f"소재 이름 검사: 이름으로 적은 것 {len(_lit)}개 다 있습니다"
+          + (f" · 조립해서 부르는 자리 {_dyn}곳은 못 봅니다(그 씬을 스틸로 확인하세요)" if _dyn else ""))
+
+# 안 정해진 문구 검사 — copy.ts 의 `null` 은 **아직 담당이 정하지 않은 값**이다.
+# 화면에는 빨간 「연출 대기」 상자로 뜨지만 그것만으로는 못 막는다. 렌더는 통과하고
+# 마스터에 그대로 실려 나간다. 임시 낱말을 안 넣기로 한 규칙이 값을 하려면 여기서 세어야 한다.
+_copy = src_dir/"copy.ts"
+if _copy.exists():
+    _wait = re.findall(r"^\s*(\w+)Wait:\s*\"([^\"]*)\"", _copy.read_text(encoding="utf-8"), re.M)
+    _null = set(re.findall(r"^\s*(\w+):\s*null\s+as\s+Pend<", _copy.read_text(encoding="utf-8"), re.M))
+    _open = [(k, w) for k, w in _wait if k in _null]
+    if _open:
+        die(f"화면 문구가 아직 안 정해졌습니다 — {len(_open)}자리 ({_copy.name}):\n"
+            + "\n".join(f"  {k}: {w}" for k, w in _open)
+            + "\n  연출 감독이 정할 값입니다. 화면에는 빨간 「연출 대기」 상자로 떠 있습니다.\n"
+              "  임시 낱말을 넣지 마세요 — 한 번 넣으면 그대로 남습니다.", 3)
+    print(f"화면 문구 검사: {_copy.name} · 기다리는 자리 0곳")

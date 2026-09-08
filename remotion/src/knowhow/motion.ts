@@ -17,6 +17,29 @@ export const CUE_SPRING = { damping: 200, mass: 1, stiffness: 100 };
 //    글자·상자가 목표를 지나쳤다 돌아오면 읽는 눈이 따라가느라 피로하다.
 //    튕김이 필요한 자리가 생기면 그 씬에서 config 를 따로 준다.
 
+/**
+ * 훅이 아닌 알맹이. **`map` 안에서 박자를 여럿 쓸 때 쓴다** — 반복문 안에서 훅을 부르면
+ * 개수가 데이터에 따라 바뀌는 순간 훅 순서가 어긋난다. 프레임은 `useCues()` 로 한 번만 읽는다.
+ */
+export const cue = (frame: number, fps: number, atSec: number, overSec = 0.5, linear = false) => {
+  if (linear) {
+    return interpolate(frame, [atSec * fps, (atSec + overSec) * fps], [0, 1], {
+      extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(...EASE_OUT),
+    });
+  }
+  const dur = Math.max(1, Math.round(overSec * fps));
+  const f = frame - atSec * fps;
+  if (f >= dur) return 1;
+  return spring({ frame: f, fps, durationInFrames: dur, config: CUE_SPRING });
+};
+
+/** 한 씬에서 박자를 여럿 쓰는 자리. 훅은 한 번만 부르고 함수를 받는다. */
+export const useCues = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  return (atSec: number, overSec = 0.5, linear = false) => cue(frame, fps, atSec, overSec, linear);
+};
+
 export const useCue = (atSec: number, overSec = 0.5, opts?: { linear?: boolean }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
