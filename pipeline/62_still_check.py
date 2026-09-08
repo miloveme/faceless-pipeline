@@ -7,7 +7,15 @@
   정지 비율 = (이웃 프레임 차가 임계 아래인 시간) / 편 길이
   이어진 정지 구간이 `--max-still` 초를 넘으면 그 자리를 찍는다
 
-사용: 62_still_check.py <마스터.mp4> [--fps 10] [--th 1.0] [--max-still 3.0] [--report]"""
+**자막 띠를 뺀 값과 안 뺀 값을 나란히 놓지 마라.** 보는 화소가 20% 줄면 같은 움직임이라도
+평균 차가 그만큼 커진다. 잣대가 다른 두 수다 — 어느 쪽으로 잰 값인지 적고 비교해라.
+
+**이 값은 가르는 잣대가 아니라 자리를 찾는 잣대다.** 「길게 안 바뀐다」가 곧 「지루하다」는 아니다 —
+새로 뜬 것을 읽는 시간일 수도 있다. **가르는 것은 미술·연출이다.**
+`--ep` `--stills` 를 주면 그쪽이 가를 수 있는 형태로 낸다 — 씬·씬 안 시각·길이·그때 자막·시작 프레임 스틸.
+
+사용: 62_still_check.py <마스터.mp4> [--fps 10] [--th 0.5] [--max-still 3.0]
+                        [--ep E01_… --stills <폴더>]"""
 import argparse, subprocess, sys, numpy as np
 from common import die
 
@@ -35,6 +43,8 @@ ap.add_argument("--max-still", type=float, default=3.0, help="이 초를 넘게 
 ap.add_argument("--cut-bottom", type=float, default=218 / 1080,
                 help="아래 이 비율만큼 빼고 잰다 (기본 218/1080 = 자막 안전영역)")
 ap.add_argument("--report", action="store_true", help="차이값 분포를 같이 찍는다 — 임계를 정할 때 본다")
+ap.add_argument("--ep", help="에피소드. 주면 정지 자리를 **씬·씬 안 시각·그때 자막**으로 풀어 준다")
+ap.add_argument("--stills", help="정지가 시작하는 프레임을 이 폴더에 뽑는다 (마스터에서 바로 뜬다)")
 a = ap.parse_args()
 
 W, H = 160, 90                      # 정지 판정에 해상도는 필요 없다. 작게 봐야 인코더 잡음이 씻긴다
@@ -69,7 +79,36 @@ print(f"  정지 구간 {len(runs)}개 · 가장 긴 것 {max((r[1] for r in run
 long = [r for r in runs if r[1] > a.max_still]
 if long:
     print(f"  ← **{a.max_still}초를 넘게 안 바뀌는 자리 {len(long)}곳**")
-    for t, L in long: print(f"      {t:7.2f}초 부터 {L:.2f}초  (프레임 {round(t*30)})")
+    # **숫자만으로는 못 가른다**(미술) — 「그 순간 화면에 새로 읽을 것이 있었나」를 봐야 하고
+    # 「자막은 새 얘기로 넘어갔는데 그림이 앞 얘기에 서 있나」도 봐야 한다.
+    # 그래서 씬·씬 안 시각·그때 자막·시작 프레임 스틸을 같이 낸다. **가르는 것은 미술·연출이다.**
+    ctx = None
+    if a.ep:
+        from common import ep_dir, P, jload
+        _p = P(ep_dir(a.ep)); _sc = jload(_p["scenes_v2"]); _cap = jload(_p["caps"])
+        ctx = (_sc, _cap, _sc["lead"])
+    if a.stills:
+        import pathlib as _pl; _pl.Path(a.stills).mkdir(parents=True, exist_ok=True)
+    for t, L in long:
+        fr = round(t * 30)
+        line = f"      {t:7.2f}초 부터 {L:.2f}초  (프레임 {fr})"
+        if ctx:
+            _sc, _cap, LEAD = ctx
+            hit = [x for x in _sc["scenes"] if x["t_start"] <= t < x["t_end"]]
+            if hit:
+                sid = hit[0]["id"]; off = t - hit[0]["t_start"]
+                said = ""
+                for c in _cap.get(sid, []):
+                    if c["start"] + LEAD <= off < c["end"] + LEAD: said = c["text"]; break
+                line += f"\n         {sid} 안 {off:.2f}초" + (f'  자막: 「{said}」' if said else "  자막: (없음)")
+            else:
+                line += "\n         씬 밖 구간"
+        print(line)
+        if a.stills:
+            out = f"{a.stills}/still_{fr}.png"
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", a.video,
+                            "-frames:v", "1", out], check=False)
+    if a.stills: print(f"      스틸 {len(long)}장 → {a.stills}/  (**정지가 시작하는 프레임**)")
 else:
     print(f"  {a.max_still}초를 넘게 안 바뀌는 자리 0곳")
 if a.report:
