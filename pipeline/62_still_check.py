@@ -78,11 +78,11 @@ pct = still.sum() * dt / total * 100
 
 # **씬·자막을 붙인다.** 숫자만으로는 못 가른다(미술) — 「그 순간 화면에 새로 읽을 것이 있었나」를 봐야 하고
 # 「자막은 새 얘기로 넘어갔는데 그림이 앞 얘기에 서 있나」도 봐야 한다. **가르는 것은 미술·연출이다.**
-SC = CAP = LEAD = None
+SC = CAP = LEAD = BLK = None
 if a.ep:
     from common import ep_dir, P, jload
     _p = P(ep_dir(a.ep)); _j = jload(_p["scenes_v2"])
-    SC, CAP, LEAD = _j["scenes"], jload(_p["caps"]), _j["lead"]
+    SC, CAP, LEAD, BLK = _j["scenes"], jload(_p["caps"]), _j["lead"], _j.get("blocks", [])
 elif a.per_scene:
     die("--per-scene 은 --ep 가 있어야 합니다 (씬 경계를 알아야 씬마다 셉니다)", 2)
 
@@ -107,11 +107,18 @@ if SC:
     for x in SC:
         ins[max(0, round(x["t_start"] / dt)):min(len(still), round(x["t_end"] / dt))] = True
     if ins.sum():
-        # **씬 밖은 두 가지다** — 앞의 인트로·꼬리와, 씬과 씬 사이의 틈. 섞어 놓으면 뺀 것이 뭔지 모른다.
-        gap = sum(SC[i + 1]["t_start"] - SC[i]["t_end"] for i in range(len(SC) - 1))
-        out = (len(still) - ins.sum()) * dt
+        # **뺀 것의 이름은 데이터에서 읽는다.** 처음에 「씬 사이 틈」이라 불렀는데
+        # 그 자리에 `tail_m3` 클립이 들어 있었다 — 틈이 아니라 클립이다(연출이 잡았다).
+        # 이름을 코드에 박으면 씬 배치가 바뀔 때 조용히 틀린 이름이 남는다. blocks[] 가 이미 안다.
+        names, rest = [], (len(still) - ins.sum()) * dt
+        for b in BLK:
+            i0, i1 = round(b["t"] / dt), round((b["t"] + b["sec"]) / dt)
+            sec = (~ins[max(0, i0):min(len(still), i1)]).sum() * dt
+            if sec >= dt: names.append(f'{b.get("clip") or "전환"} {sec:.1f}'); rest -= sec
+        if rest >= dt: names.append(f"이름 없는 구간 {rest:.1f}")
         print(f"  씬 안만 보면 **{still[ins].sum()/ins.sum()*100:.1f}%**  "
-              f"(씬 안 {ins.sum()*dt:.1f}초 · 뺀 것 {out:.1f}초 = 인트로·꼬리 {out-gap:.1f}초 + 씬 사이 틈 {gap:.1f}초)")
+              f"(씬 안 {ins.sum()*dt:.1f}초 · 뺀 것 {(len(still)-ins.sum())*dt:.1f}초 = "
+              + " + ".join(names) + " · 전부 씬 밖 클립)")
 print(f"  정지 구간 {len(runs)}개 · 가장 긴 것 {max((r[1] for r in runs), default=0):.2f}초")
 
 long = [r for r in runs if r[1] > a.max_still]
