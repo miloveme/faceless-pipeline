@@ -36,20 +36,27 @@ export type Transition = { default: number; after: Record<string, number> };
  * 인트로에서 뜬 것이 s00 으로 **그대로 이어져야** 해서, 두 곳이 같은 부품이어야 한다 —
  * 부품이 갈리면 이음매에서 자리나 농도가 미세하게 튀고 그게 「다시 뜬 것」으로 읽힌다.
  *
- * **담는 상자의 좌상단에 붙는다.** 상자가 움직이면 따라간다 — 자리 값을 아무도 안 준다.
- * 좌표를 주고받으면 갈린다(오늘 트랙 폭이 세 번 갈렸다).
+ * **상자 안에 넣지 않는다**(연출). 8.3 뒤에 두 얼굴 위로 알약이 올라앉으면
+ * **증거를 그림으로 덮는다.** 그리고 상자 안에 있으면 8.3 에 받침이 빠지는 근거
+ * (「T.bg 위로 내려앉으니 필요 없어진다」)가 성립하지 않아 받침을 끝까지 들고 가야 한다.
+ * 자리는 (24, 214) 하나이고 x 만 칸 왼쪽 끝을 따라간다 — 규칙 하나로 끝난다.
  *
- * `size` 만 밖에서 준다. s00 이 2.94 에 26 → 34 로 한 번 키우는데 **그때 바뀌는 것은 크기뿐이다** —
- * 받침·여백·모서리·색은 인트로부터 s00 끝까지 같다(연출).
+ * `bg` 는 **받침의 투명도**다. 받침은 사진 위에서만 필요하다 — 미술 계측:
+ *   얼린 클론 프레임 (24,214)  평균 224.5 · 최대 255  →  흰 글자(232) 대비 **1.03**  받침 필요
+ *   8.3 뒤 T.bg(15) 위                              →  대비 **15.5**            받침 해로움
+ *   (72% 검정이 15 위에 얹히면 4.2 라 **바탕보다 어두운 알약**이 보인다)
+ * 새 시각 값이 아니라 **칸이 열리는 곡선을 그대로 탄다** — 박자가 안 늘어난다.
+ *
+ * 2.94 에 바뀌는 것은 **크기뿐이다**. 받침·여백·모서리·색은 인트로부터 끝까지 같다(연출).
  */
-export const ClipLabel: React.FC<{ text: string; size: number; color?: string }> = ({
-  text, size, color = T.text,
-}) => (
-  <div style={{
-    position: "absolute", left: 0, top: 0,
-    fontFamily: faceFor(text), fontSize: size, color,
-    backgroundColor: T.capBg, padding: "8px 16px", borderRadius: T.radiusSm,
-  }}>{text}</div>
+export const ClipLabel: React.FC<{
+  text: string; size: number; x: number; y: number; color?: string; bg?: number;
+}> = ({ text, size, x, y, color = T.text, bg = 1 }) => (
+  <div style={{ position: "absolute", left: x, top: y, padding: "8px 16px" }}>
+    <div style={{ position: "absolute", inset: 0, backgroundColor: T.capBg,
+                  borderRadius: T.radiusSm, opacity: bg }} />
+    <span style={{ position: "relative", fontFamily: faceFor(text), fontSize: size, color }}>{text}</span>
+  </div>
 );
 
 /** 자막을 그리는 층. grammars.json 의 caption.layer 이름이 이걸로 풀린다. */
@@ -105,7 +112,7 @@ export const makeEpisode = (
   // 구간에 붙는 라벨. **사용자가 두 번 말한 것이다** — 「보고 있는 영상이 어떤 건지 알고 봐야」 한다.
   // **크기·색은 여기서 안 정한다.** 편이 통째로 준다 — 안 주면 라벨이 안 붙는다.
   // 기본값을 두면 그 수가 어느 편에서든 조용히 쓰이고, 그게 오늘 넷 샌 자리다.
-  blockLabel?: { size: number; of: Record<string, { text: string; color: string }> },
+  blockLabel?: { size: number; x: number; y: number; of: Record<string, { text: string; color: string }> },
 ) => {
   // 전환 길이는 **경계 앞에 오는 것**이 갖는다. 앞 것의 자리를 그만큼 늘려 겹치고,
   // 들어오는 것이 그동안 움직인다. 시각표(t_start·t_end)는 안 건드린다.
@@ -149,7 +156,7 @@ export const makeEpisode = (
                 )}
                 {b.clip && blockLabel?.of[b.clip] && (
                   <ClipLabel text={blockLabel.of[b.clip].text} size={blockLabel.size}
-                             color={blockLabel.of[b.clip].color} />
+                             x={blockLabel.x} y={blockLabel.y} color={blockLabel.of[b.clip].color} />
                 )}
               </AbsoluteFill>
             </Enter>
