@@ -42,6 +42,11 @@ ap.add_argument("--max-still", type=float, default=3.0, help="이 초를 넘게 
 # 기본 0.2019 = grammars.json 의 safeBottom 218 ÷ 1080. **문법이 다르면 그 값으로 바꾼다.**
 ap.add_argument("--cut-bottom", type=float, default=218 / 1080,
                 help="아래 이 비율만큼 빼고 잰다 (기본 218/1080 = 자막 안전영역)")
+# **검정 구간은 따로 훑는다.** 정지 훑기는 자막 띠를 빼고 보는데, 검정은 **화면 전부가** 검어야
+# 검정이라 자막이 떠 있으면 검정이 아니다. 같은 배열을 나눠 쓰면 「그림은 검고 자막은 떠 있는」
+# 프레임이 검정으로 잡힌다. 임계 5 는 미술이 준 값이다 — h264 가 #000 을 정확히 0 으로 내지 않는다.
+ap.add_argument("--dark", type=float, metavar="밝기", nargs="?", const=5.0,
+                help="화면 전부의 밝기 평균이 이 아래인 구간도 찾는다 (기본 5 · 0~255)")
 ap.add_argument("--report", action="store_true", help="차이값 분포를 같이 찍는다 — 임계를 정할 때 본다")
 ap.add_argument("--ep", help="에피소드. 주면 정지 자리를 **씬·씬 안 시각·그때 자막**으로 풀어 준다")
 ap.add_argument("--stills", help="정지가 시작하는 프레임을 이 폴더에 뽑는다 (마스터에서 바로 뜬다)")
@@ -171,6 +176,35 @@ if a.extra_still:
                         "-frames:v", "1", f"{a.stills}/at_{fnum}.png"], check=False)
         where = f"{at(t)[0]} 안 {at(t)[1]:.2f}초" if SC and at(t)[0] else "씬 밖"
         print(f"      {t:7.2f}초  (프레임 {fnum})  {where}  → at_{fnum}.png")
+
+if a.dark is not None:
+    p2 = subprocess.run(["ffmpeg", "-v", "error", "-i", a.video,
+                         "-vf", f"fps={a.fps},scale={W}:{H},format=gray", "-f", "rawvideo", "-"],
+                        capture_output=True)
+    if p2.returncode != 0: die(f"ffmpeg 실패(검정 훑기): {p2.stderr.decode()[:300]}", 1)
+    b2 = np.frombuffer(p2.stdout, dtype=np.uint8)
+    n2 = b2.size // (W * H)
+    m = b2[: n2 * W * H].reshape(n2, H, W).mean(axis=(1, 2))      # **자르지 않은 전 화면** 밝기
+    dark, dr, i = m < a.dark, [], 0
+    while i < n2:
+        if dark[i]:
+            j = i
+            while j < n2 and dark[j]: j += 1
+            dr.append((i * dt, (j - i) * dt)); i = j
+        else: i += 1
+    print(f"  검정 구간 **{len(dr)}곳** (전 화면 밝기 평균 {a.dark} 아래 · 자막 띠도 포함해서 봄)"
+          + (f" · 합 {sum(x[1] for x in dr):.2f}초" if dr else " — 편에 검정이 없습니다"))
+    # **평균만으로는 「고른 검정」과 「어두운 무늬」가 안 갈린다.** 화소 최대까지 같이 낸다 —
+    # 최대도 0 에 가까우면 전 화면이 같은 값이고, 크면 어딘가에 띠나 무늬가 남아 있다.
+    _b2 = b2[: n2 * W * H].reshape(n2, H, W)
+    for t, L in dr:
+        i0, i1 = round(t / dt), round((t + L) / dt)
+        w = ""
+        if SC:
+            sid, off, _ = at(t)
+            w = f"  {sid} 안 {off:.2f}초" if sid else "  씬 밖 구간"
+        print(f"      {t:7.2f}초 부터 {L:.2f}초  (프레임 {round(t*30)} · 평균 {m[i0:i1].min():.1f}~{m[i0:i1].max():.1f}"
+              f" · 가장 밝은 화소 {int(_b2[i0:i1].max())}){w}")
 
 if a.report:
     q = np.percentile(d, [1, 5, 10, 25, 50, 75, 90, 99])
