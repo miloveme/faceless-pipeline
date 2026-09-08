@@ -59,7 +59,7 @@ def place(sid, tbl, t):
         blocks.append({"t": t, "sec": sec, **({"clip": it["clip"]} if it.get("clip") else {})})
         t += sec
     return t
-t = 0.0; rows = []; _kept = 0
+t = 0.0; rows = []; _kept = 0; _stale = []
 for s in scenes["scenes"]:
     sid = s["id"]; out = p["nar_final"]/f"{sid}.wav"; src = src_of[sid]
     end = min(info[sid]["last_word_end"] + PAD, info[sid]["dur"])
@@ -72,6 +72,10 @@ for s in scenes["scenes"]:
           f"afade=t=out:st={max(0,end-FADE):.3f}:d={FADE},loudnorm=I={NAR_LUFS}:TP=-1.5:LRA=11")
     if a.keep_audio:
         if not out.exists(): die(f"--keep-audio 인데 {out} 가 없습니다. 그 씬은 먼저 그냥 돌리세요.", 3)
+        # **원본이 더 새것이면 알려 준다.** 씬을 다시 만든 뒤 --keep-audio 를 쓰면
+        # 옛 트림본을 그대로 읽어 **옛 길이로 시각표를 만든다** — 실제로 s28 이 14.51초로 들어갔다.
+        # 막지는 않는다. 소리 판단은 음악 감독 것이고, 일부러 옛것을 쓰는 자리가 있을 수 있다.
+        if src.stat().st_mtime > out.stat().st_mtime: _stale.append(sid)
         _kept += 1
     else:
         run(["ffmpeg","-v","error","-y","-i",str(src),"-af",af,"-ar","44100","-ac","1",str(out)])
@@ -99,6 +103,10 @@ scenes.pop("intro", None)                                  # 옛 이름
 jdump(scenes, p["scenes_v2"])
 if a.keep_audio:
     print(f"**소리는 안 건드렸습니다** — 있던 것 {_kept}/{len(scenes['scenes'])}개를 그대로 읽어 길이만 다시 쟀습니다.")
+    if _stale:
+        print(f"  ← **원본이 더 새것인 씬 {len(_stale)}개: {', '.join(_stale)}**")
+        print("     그 씬은 nar_raw 가 narration_final 보다 새것입니다 — 다시 만든 음성이 안 들어갔습니다.")
+        print("     새 음성을 쓰려면 --keep-audio 없이 돌리세요. 막지는 않습니다.")
 # raw = 트림 전 원본 길이, final = 트림·정규화 뒤 내레이션 파일 길이(초). 씬 슬롯은 t_end - t_start 이고
 # final 보다 여백 1.3초(앞 LEAD 0.5 + 뒤 GAP 0.8)만큼 길다 — 화면이 쓰는 것은 슬롯 쪽이다.
 print("scene   raw  final  t_start   t_end     LUFS   peak  clip   (raw=트림 전, final=내레이션 파일, 슬롯=t_end-t_start)")
