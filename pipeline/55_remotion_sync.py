@@ -274,6 +274,38 @@ if _copy.exists() and _caps_p.exists():
     else:
         print("겹말 검사: 화면 문구가 자막을 받아쓰는 자리 0건 (이어서 5자 이상 · 문구의 절반 이상)")
 
+# 참조가 끊긴 소재 — visual_prep 에 있는데 **어느 씬도 안 부르는** 항목(음악 감독 요청).
+# 씬이 바뀌어 안 쓰게 돼도 항목은 남고 15 는 계속 굽는다. 렌더에 안 나가니 해롭지는 않지만
+# 「이건 왜 있지」가 다음 편까지 간다.
+#
+# **막지 않고 센다.** 지금 안 쓰여도 다음 편에 쓸 수 있고 **그 판단은 항목 주인(연출·미술)이 한다.**
+# 검사는 「이건 지금 안 쓰인다」까지만 말한다. 그리고 **조립해서 부르는 자리는 못 본다** — 그 수를 같이 찍는다.
+if p["visual_prep"].exists() and src_dir.is_dir():
+    _vp = jload(p["visual_prep"])
+    _keys = {k for sec in ("clips", "images", "stills", "crops")
+             for k in _vp.get(sec, {}) if k != "_"}
+    _used, _dyn2 = set(), 0
+    for _f in tsx:
+        for _line in _f.read_text(encoding="utf-8").split("\n"):
+            _t = _line.lstrip()
+            if _t.startswith(("//", "*", "/*")): continue
+            for _m in re.findall(r'asset\(\s*"([^"]+)"\s*\)', _line):
+                _used.add(_m.rsplit(".", 1)[0])
+            for _m in re.findall(r'"([A-Za-z0-9_]+)\.(?:mp4|png|jpg)"', _line):
+                _used.add(_m)                      # 배열에 담아 asset(f) 로 부르는 자리
+            _dyn2 += len(re.findall(r"asset\(\s*[`$]", _line))
+    # **씬만 보면 안 된다.** 씬 밖 구간은 Episode.tsx 가 blocks 의 clip 이름으로 직접 부르고,
+    # crops 는 그 원본 클립을 물고 있다. 그것을 안 세면 인트로·꼬리가 「안 쓰는 것」으로 나온다.
+    _used |= {b["clip"] for b in sc.get("blocks", []) if b.get("clip")}
+    _used |= {v["src"] for v in _vp.get("crops", {}).values() if isinstance(v, dict) and v.get("src")}
+    _idle = sorted(k for k in _keys if k not in _used)
+    print(f"소재 쓰임 검사: visual_prep 항목 {len(_keys)}개 · 씬이 부르는 것 {len(_keys) - len(_idle)}개"
+          + (f" · **어느 씬도 안 부르는 것 {len(_idle)}개**" if _idle else " · 안 쓰는 것 0개")
+          + (f" · 조립해서 부르는 자리 {_dyn2}곳은 못 봅니다" if _dyn2 else ""))
+    if _idle:
+        print("  " + " · ".join(_idle))
+        print("  지울지는 항목 주인(연출·미술)이 정합니다. 막지 않습니다.")
+
 # 안 정해진 문구 검사 — copy.ts 의 `null` 은 **아직 담당이 정하지 않은 값**이다.
 # 화면에는 빨간 「연출 대기」 상자로 뜨지만 그것만으로는 못 막는다. 렌더는 통과하고
 # 마스터에 그대로 실려 나간다. 임시 낱말을 안 넣기로 한 규칙이 값을 하려면 여기서 세어야 한다.
