@@ -47,6 +47,14 @@ ap.add_argument("--cut-bottom", type=float, default=218 / 1080,
 # 프레임이 검정으로 잡힌다. 임계 5 는 미술이 준 값이다 — h264 가 #000 을 정확히 0 으로 내지 않는다.
 ap.add_argument("--dark", type=float, metavar="밝기", nargs="?", const=5.0,
                 help="화면 전부의 밝기 평균이 이 아래인 구간도 찾는다 (기본 5 · 0~255)")
+# **안전영역 안에서 자막이 절대 안 쓰는 띠**에 씬 요소가 들어왔나.
+# 「아래 218px 이 바탕색이 아닌 프레임」을 그냥 세면 **자막이 늘 걸린다** — 자막이 거기 있는 게 정상이다.
+# 그래서 자막 상자 **위쪽** 띠만 본다. E01 실측으로 자막 상자가 y937 부터라 862~930 을 본다.
+# **낱말로 세는 것(`<Bleed>` · `inset: 0`)을 화소로 대는 검사다**(미술) — 다른 꼴로 화면을 채우는
+# 자리가 있어도 여기서는 잡힌다. 자막 상자 자리가 바뀌면 이 값도 바꿔야 한다.
+ap.add_argument("--safe-band", nargs="?", const="862:930", metavar="위:아래",
+                help="안전영역 중 자막이 안 쓰는 띠에 씬 요소가 있나 (기본 862:930)")
+ap.add_argument("--bg", type=int, default=17, help="바탕색 회색값 (기본 17 = #0f1115)")
 ap.add_argument("--report", action="store_true", help="차이값 분포를 같이 찍는다 — 임계를 정할 때 본다")
 ap.add_argument("--ep", help="에피소드. 주면 정지 자리를 **씬·씬 안 시각·그때 자막**으로 풀어 준다")
 ap.add_argument("--stills", help="정지가 시작하는 프레임을 이 폴더에 뽑는다 (마스터에서 바로 뜬다)")
@@ -214,6 +222,34 @@ if a.dark is not None:
             w = f"  {sid} 안 {off:.2f}초" if sid else "  씬 밖 구간"
         print(f"      {t:7.2f}초 부터 {L:.2f}초  (프레임 {round(t * FPS)} · 평균 {m[i0:i1].min():.1f}~{m[i0:i1].max():.1f}"
               f" · 가장 밝은 화소 {int(_b2[i0:i1].max())}){w}")
+
+if a.safe_band is not None:
+    _t0, _b0 = (int(x) for x in a.safe_band.split(":"))
+    _hh = _b0 - _t0
+    if _hh <= 0: die(f"--safe-band 는 「위:아래」이고 아래가 커야 합니다 — 받은 값 {a.safe_band}", 2)
+    # 씬 요소는 한 화소만 들어와도 들어온 것이다. 그래서 **줄이지 않고 가로만 줄인다** —
+    # 세로를 줄이면 띠 안 얇은 선이 이웃 줄과 섞여 사라진다.
+    _P = subprocess.run(["ffmpeg", "-v", "error", "-i", a.video,
+                         "-vf", f"crop=1920:{_hh}:0:{_t0},scale=480:{_hh},format=gray",
+                         "-f", "rawvideo", "-"], capture_output=True)
+    if _P.returncode != 0: die(f"ffmpeg 실패(안전영역 띠): {_P.stderr.decode()[:300]}", 1)
+    _b = np.frombuffer(_P.stdout, dtype=np.uint8)
+    _n = _b.size // (480 * _hh)
+    _fr = _b[: _n * 480 * _hh].reshape(_n, _hh, 480)
+    _th = a.bg + 13                      # h264 가 평평한 바탕도 ±10 쯤 흔든다. 그 위로 잡는다
+    _hit = (_fr > _th).reshape(_n, -1).sum(axis=1)
+    _idx = np.nonzero(_hit)[0]
+    print(f"안전영역 띠 검사: y{_t0}~{_b0} · {_n}프레임 중 **바탕 아닌 것 {len(_idx)}프레임**"
+          f" (임계 {_th} · 바탕 {a.bg})")
+    if len(_idx):
+        _by = {}
+        for i in _idx:
+            _k = at(i / FPS)[0] if SC else None
+            _by[_k or "씬 밖"] = _by.get(_k or "씬 밖", 0) + 1
+        for _k, _v in sorted(_by.items(), key=lambda x: -x[1]):
+            print(f"      {_k} {_v}프레임 ({_v/FPS:.2f}초)")
+    else:
+        print("      **0곳** — 자막 위 띠에 씬 요소가 한 프레임도 안 들어옵니다")
 
 if a.report:
     q = np.percentile(d, [1, 5, 10, 25, 50, 75, 90, 99])
