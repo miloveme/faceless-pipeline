@@ -45,6 +45,8 @@ ap.add_argument("--cut-bottom", type=float, default=218 / 1080,
 ap.add_argument("--report", action="store_true", help="차이값 분포를 같이 찍는다 — 임계를 정할 때 본다")
 ap.add_argument("--ep", help="에피소드. 주면 정지 자리를 **씬·씬 안 시각·그때 자막**으로 풀어 준다")
 ap.add_argument("--stills", help="정지가 시작하는 프레임을 이 폴더에 뽑는다 (마스터에서 바로 뜬다)")
+# 임계를 낮추면(0.8) 박자 사이가 다 걸려 목록이 길어진다. 그때는 **씬마다 가장 긴 것 하나**만 본다(연출).
+ap.add_argument("--per-scene", action="store_true", help="씬마다 가장 긴 정지 하나씩만 찍는다 (--ep 필요)")
 a = ap.parse_args()
 
 W, H = 160, 90                      # 정지 판정에 해상도는 필요 없다. 작게 봐야 인코더 잡음이 씻긴다
@@ -73,44 +75,75 @@ while i < len(still):
 
 total = n * dt
 pct = still.sum() * dt / total * 100
+
+# **씬·자막을 붙인다.** 숫자만으로는 못 가른다(미술) — 「그 순간 화면에 새로 읽을 것이 있었나」를 봐야 하고
+# 「자막은 새 얘기로 넘어갔는데 그림이 앞 얘기에 서 있나」도 봐야 한다. **가르는 것은 미술·연출이다.**
+SC = CAP = LEAD = None
+if a.ep:
+    from common import ep_dir, P, jload
+    _p = P(ep_dir(a.ep)); _j = jload(_p["scenes_v2"])
+    SC, CAP, LEAD = _j["scenes"], jload(_p["caps"]), _j["lead"]
+elif a.per_scene:
+    die("--per-scene 은 --ep 가 있어야 합니다 (씬 경계를 알아야 씬마다 셉니다)", 2)
+
+def at(t):
+    """그 시각이 어느 씬 안인가 → (씬 id, 씬 안 시각, 그때 자막). 씬 밖이면 (None, None, "")"""
+    for x in SC:
+        if x["t_start"] <= t < x["t_end"]:
+            off = t - x["t_start"]
+            for c in CAP.get(x["id"], []):
+                if c["start"] + LEAD <= off < c["end"] + LEAD: return x["id"], off, c["text"]
+            return x["id"], off, ""
+    return None, None, ""
+
 print(f"정지 비율 **{pct:.1f}%**  ({a.fps}fps 로 {n}장 · 임계 평균 화소 차 {a.th} · 편 {total:.1f}초"
       + f" · 아래 {a.cut_bottom*100:.1f}% 는 빼고 봄 — 자막 띠)")
+if SC:
+    # **인트로·꼬리를 뺀 값**(미술 요청). 로고와 끝 카드는 서 있는 것이 설계라
+    # 그것까지 세면 「화면이 안 움직인다」가 실제보다 나빠 보인다. **판정은 씬 안 값으로 한다.**
+    # **경계는 반올림이다.** ceil/floor 로 자르면 씬마다 양끝에서 최대 한 장씩 빠져
+    # 29씬이면 2.8초가 조용히 「씬 밖」으로 샌다. 처음에 그렇게 짰다가 24.9 vs 22.1 로 어긋났다.
+    ins = np.zeros(len(still), bool)
+    for x in SC:
+        ins[max(0, round(x["t_start"] / dt)):min(len(still), round(x["t_end"] / dt))] = True
+    if ins.sum():
+        # **씬 밖은 두 가지다** — 앞의 인트로·꼬리와, 씬과 씬 사이의 틈. 섞어 놓으면 뺀 것이 뭔지 모른다.
+        gap = sum(SC[i + 1]["t_start"] - SC[i]["t_end"] for i in range(len(SC) - 1))
+        out = (len(still) - ins.sum()) * dt
+        print(f"  씬 안만 보면 **{still[ins].sum()/ins.sum()*100:.1f}%**  "
+              f"(씬 안 {ins.sum()*dt:.1f}초 · 뺀 것 {out:.1f}초 = 인트로·꼬리 {out-gap:.1f}초 + 씬 사이 틈 {gap:.1f}초)")
 print(f"  정지 구간 {len(runs)}개 · 가장 긴 것 {max((r[1] for r in runs), default=0):.2f}초")
+
 long = [r for r in runs if r[1] > a.max_still]
-if long:
-    print(f"  ← **{a.max_still}초를 넘게 안 바뀌는 자리 {len(long)}곳**")
-    # **숫자만으로는 못 가른다**(미술) — 「그 순간 화면에 새로 읽을 것이 있었나」를 봐야 하고
-    # 「자막은 새 얘기로 넘어갔는데 그림이 앞 얘기에 서 있나」도 봐야 한다.
-    # 그래서 씬·씬 안 시각·그때 자막·시작 프레임 스틸을 같이 낸다. **가르는 것은 미술·연출이다.**
-    ctx = None
-    if a.ep:
-        from common import ep_dir, P, jload
-        _p = P(ep_dir(a.ep)); _sc = jload(_p["scenes_v2"]); _cap = jload(_p["caps"])
-        ctx = (_sc, _cap, _sc["lead"])
-    if a.stills:
-        import pathlib as _pl; _pl.Path(a.stills).mkdir(parents=True, exist_ok=True)
+if a.per_scene:
+    best = {}
     for t, L in long:
-        fr = round(t * 30)
-        line = f"      {t:7.2f}초 부터 {L:.2f}초  (프레임 {fr})"
-        if ctx:
-            _sc, _cap, LEAD = ctx
-            hit = [x for x in _sc["scenes"] if x["t_start"] <= t < x["t_end"]]
-            if hit:
-                sid = hit[0]["id"]; off = t - hit[0]["t_start"]
-                said = ""
-                for c in _cap.get(sid, []):
-                    if c["start"] + LEAD <= off < c["end"] + LEAD: said = c["text"]; break
-                line += f"\n         {sid} 안 {off:.2f}초" + (f'  자막: 「{said}」' if said else "  자막: (없음)")
-            else:
-                line += "\n         씬 밖 구간"
-        print(line)
-        if a.stills:
-            out = f"{a.stills}/still_{fr}.png"
-            subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", a.video,
-                            "-frames:v", "1", out], check=False)
-    if a.stills: print(f"      스틸 {len(long)}장 → {a.stills}/  (**정지가 시작하는 프레임**)")
+        sid = at(t)[0]
+        if sid and L > best.get(sid, (0, 0))[1]: best[sid] = (t, L)
+    order = {x["id"]: k for k, x in enumerate(SC)}
+    shown = sorted(best.values(), key=lambda r: order[at(r[0])[0]])
+    print(f"  ← {a.max_still}초를 넘는 자리 {len(long)}곳 중 **씬마다 가장 긴 것 {len(shown)}줄**"
+          f" (씬 {len(SC)}개 중 {len(shown)}개에 있음 · 씬 밖은 안 셈)")
 else:
-    print(f"  {a.max_still}초를 넘게 안 바뀌는 자리 0곳")
+    shown = long
+    print(f"  ← **{a.max_still}초를 넘게 안 바뀌는 자리 {len(shown)}곳**" if shown
+          else f"  {a.max_still}초를 넘게 안 바뀌는 자리 0곳")
+
+if a.stills and shown:
+    import pathlib as _pl; _pl.Path(a.stills).mkdir(parents=True, exist_ok=True)
+for t, L in shown:
+    fnum = round(t * 30)
+    line = f"      {t:7.2f}초 부터 {L:.2f}초  (프레임 {fnum})"
+    if SC:
+        sid, off, said = at(t)
+        line += (f"\n         {sid} 안 {off:.2f}초" + (f'  자막: 「{said}」' if said else "  자막: (없음)")
+                 if sid else "\n         씬 밖 구간 — 인트로·꼬리는 서 있는 것이 설계다")
+    print(line)
+    if a.stills:
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.3f}", "-i", a.video,
+                        "-frames:v", "1", f"{a.stills}/still_{fnum}.png"], check=False)
+if a.stills and shown: print(f"      스틸 {len(shown)}장 → {a.stills}/  (**정지가 시작하는 프레임**)")
+
 if a.report:
     q = np.percentile(d, [1, 5, 10, 25, 50, 75, 90, 99])
     print("  차이값 분포:", " · ".join(f"{p}%={v:.2f}" for p, v in zip([1,5,10,25,50,75,90,99], q)))
