@@ -16,7 +16,10 @@ from common import *
 # 카드 이름은 화면 문법과 같은 낱말을 쓴다 (Remotion/src/knowhow/grammars.json 의 carries).
 # 어휘가 갈리면 46_grammar_check.py 가 대조를 못 한다.
 CARDS = ["clip", "still", "contact", "compare", "log", "text", "table", "list",
-         "diagram", "lead", "beats", "shot", "page", "whiteboard"]
+         "diagram", "lead", "beats", "shot", "page", "whiteboard",
+         # 제작 과정을 보이는 편에서 쓰는 셋. grammars.json 의 carries 와 같은 낱말이어야
+         # 46_grammar_check 가 대조한다 — carries 는 미술 결과물이라 그쪽에서 넣는다.
+         "prompt", "inout", "timeline"]
 SOURCE_DESC = {
     "existing": "이미 있는 자산 — 원본 클립·스틸, 지난 프로젝트 파일",
     "record": "화면 녹화 — 터미널, 편집 화면, 브라우저 (OBS 등)",

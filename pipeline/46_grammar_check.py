@@ -27,14 +27,19 @@ plan = ep / "script" / "visual_plan.md"
 if not plan.exists(): die("script/visual_plan.md 없음 — 45단계를 먼저 돌리세요.")
 
 # 계획서 표에서 씬별 카드를 뽑는다. 열 순서는 머리글로 찾는다(바뀌어도 따라간다).
-used, i_scene, i_card = {}, None, None
+# **머리글을 만난 그 표만 읽고 표가 끝나면 멈춘다.** 예전에는 인덱스를 그 뒤 모든 `|` 줄에
+# 적용해서, 뒤에 오는 다른 표(씬 id 로 시작하는 박자 표·슬롯 표)가 카드를 덮어썼다 —
+# 카드가 「글」·「8.8」 로 읽혔고 검사는 엉뚱한 이유로 종료코드 3 을 냈다.
+used, i_scene, i_card, ncol = {}, None, None, 0
 for line in plan.read_text(encoding="utf-8").splitlines():
-    if not line.startswith("|"): continue
+    if not line.startswith("|"):
+        i_scene = i_card = None       # 표가 끝났다. 다음 머리글을 다시 기다린다
+        continue
     cells = [c.strip() for c in line.strip("|").split("|")]
     if "카드" in cells and "씬" in cells:
-        i_scene, i_card = cells.index("씬"), cells.index("카드"); continue
-    if i_card is None or len(cells) <= i_card: continue
-    m = re.match(r"(s\d{2})", cells[i_scene])
+        i_scene, i_card, ncol = cells.index("씬"), cells.index("카드"), len(cells); continue
+    if i_card is None or len(cells) != ncol: continue
+    m = re.match(r"(s\d{2})", cells[i_scene].strip("*` "))
     card = cells[i_card].strip("*` ")
     if m and card:
         used[m.group(1)] = card
