@@ -5,7 +5,7 @@
 
   --staged     커밋 직전. 스테이지에 올라간 파일 이름과 **추가된 줄**
   --msg-file F 커밋 메시지 파일 (commit-msg 훅)
-  --range A..B 밀기 직전. 그 범위 커밋의 메시지와 추가된 줄
+  --range A..B 밀기 직전. 그 범위 커밋의 메시지와 추가된 줄, 그리고 **추가된 파일 이름**
   (아무것도 안 주면) 지금 추적 중인 파일 전체의 이름과 내용
 
 찾는 것: 개인 경로(/Users/·/home/·C:\\Users\\), 사설 IP, 이메일, MAC 주소, 이 기계의 이름,
@@ -29,7 +29,10 @@ MEDIA_EXTS = ("mp3", "wav", "m4a", "flac", "aac", "ogg",
               "mp4", "mov", "mkv", "avi", "webm",
               "png", "jpg", "jpeg", "gif", "webp", "bmp", "tif", "tiff", "zip")
 # 이름만으로 걸러야 하는 것 (.gitignore 와 겹치지만, ignore 는 이미 추적된 파일을 못 막는다)
-BAD_NAME = re.compile(r"\.(" + "|".join(MEDIA_EXTS) + r")$|(^|/)voice\.json$|^episodes/|^assets/(?!README\.md$)")
+# **편 폴더(`remotion/src/e<두 자리>/`)도 여기 있어야 한다** — `^episodes/` 만 있고 이게 빠져 있어서
+# 한 번 추적되면 아무 검사도 안 울었다. 편 내용물은 공개 저장소에 올리지 않는다(사용자).
+BAD_NAME = re.compile(r"\.(" + "|".join(MEDIA_EXTS) + r")$|(^|/)voice\.json$|^episodes/"
+                      r"|^remotion/src/e\d\d/|^assets/(?!README\.md$)")
 DOC_IP = re.compile(r"^(127\.|192\.0\.2\.|198\.51\.100\.|203\.0\.113\.)")
 OK_MAIL = re.compile(r"^noreply@|@users\.noreply\.github\.com$|^[a-z]+@example\.(com|org)$")
 
@@ -65,13 +68,25 @@ def scan_text(label, text, hits):
                 hits.append((label, line_no, what, m.group(0), line.strip()[:100]))
 
 def ignore_gaps():
-    """미디어 확장자가 .gitignore 에 다 있는가. 목록의 누락은 조용히 샌다 —
-    png 가 빠져 있어서 15_clip_prep 이 만드는 원본 프레임 PNG 가 추적 대상이 될 뻔했다."""
-    probes = [f"remotion/public/_probe/x.{e}" for e in MEDIA_EXTS]
-    r = subprocess.run(["git", "check-ignore", "--stdin"], input="\n".join(probes),
+    """제외돼야 하는 것을 .gitignore 가 실제로 막는가를 **git 에게 물어본다.**
+    목록의 누락은 조용히 샌다 — png 가 빠져 있어서 15_clip_prep 이 만드는 원본 프레임 PNG 가
+    추적 대상이 될 뻔했다.
+
+    편 폴더 모양(`remotion/src/e<두 자리>/`)은 **네 곳이 따로 믿고 있다** —
+    `.gitignore`, `Root.tsx` 의 등록 정규식, `55_remotion_sync.py` 의 슬러그 검사, 그리고 여기.
+    그래서 여기에 모양을 또 적지 않고 **대표 경로를 git 에 물어서** 갈리면 울게 한다."""
+    probes = {f"remotion/public/_probe/x.{e}": f"*.{e}" for e in MEDIA_EXTS}
+    probes["remotion/src/e01/_probe.tsx"] = "remotion/src/e<두 자리>/ (편 폴더)"
+    probes["pipeline/voice.json"] = "pipeline/voice.json (목소리 설정)"
+    probes["episodes/_probe/x.txt"] = "episodes/ (편 폴더)"
+    keys = list(probes)
+    # `--no-index` 가 있어야 **규칙만** 본다. 없으면 git 이 «이미 추적 중인 파일»을
+    # 무시 대상에서 빼므로, 실수로 추적된 voice.json 이 「.gitignore 에 규칙이 없다」로 둔갑한다 —
+    # 실제 결함(추적됐다)은 아래 BAD_NAME 이 따로 잡으니, 여기서는 거짓 경보만 된다.
+    r = subprocess.run(["git", "check-ignore", "--no-index", "--stdin"], input="\n".join(keys),
                        capture_output=True, text=True)
-    covered = {line.rsplit(".", 1)[-1] for line in r.stdout.split("\n") if line}
-    return [e for e in MEDIA_EXTS if e not in covered]
+    covered = {line.strip() for line in r.stdout.split("\n") if line.strip()}
+    return [probes[k] for k in keys if k not in covered]
 
 def added_lines(*log_args):
     return "\n".join(l[1:] for l in git(*log_args).split("\n")
@@ -89,8 +104,8 @@ hits, scope = [], []
 
 gaps = ignore_gaps()
 if gaps:
-    hits.append((".gitignore", 0, "미디어 확장자가 빠졌습니다",
-                 " ".join("*." + e for e in gaps), "이 종류가 추적 대상이 됩니다"))
+    hits.append((".gitignore", 0, "제외 규칙이 빠졌습니다",
+                 " · ".join(gaps), "이것들이 추적 대상이 됩니다"))
 
 if a.staged:
     names = [f for f in git("diff", "--cached", "--name-only", "--diff-filter=ACR").split("\n") if f]
@@ -111,8 +126,16 @@ if a.range:
     for sha in [s for s in git("log", "--format=%H", a.range).split("\n") if s]:
         scan_text(f"커밋 {sha[:7]} 메시지", git("log", "-1", "--format=%B", sha), hits)
     scan_text(f"커밋 diff({a.range})", added_lines("log", "-p", "--format=", a.range), hits)
+    # **이름도 봐야 한다.** 줄만 훑으면 바이너리가 그냥 지나간다 — 미디어 파일은 `+` 줄이
+    # 아예 안 나오므로 내용 검사에 안 걸린다. `--force` 로 밀어 넣은 png·voice.json·편 파일이
+    # pre-push 관문을 0건으로 통과하던 자리다(실제로 재서 확인했다).
+    added = sorted({f for f in git("log", "--diff-filter=ACR", "--name-only", "--format=",
+                                   a.range).split("\n") if f})
+    for f in added:
+        if BAD_NAME.search(f):
+            hits.append((f, 0, "올리면 안 되는 파일", f.split("/")[-1], "이 범위의 커밋이 추가했습니다"))
     n = len([s for s in git("log", "--format=%H", a.range).split("\n") if s])
-    scope.append(f"커밋 {n}개 ({a.range})")
+    scope.append(f"커밋 {n}개 ({a.range}) · 그 커밋들이 추가한 파일 {len(added)}개")
 
 if not (a.staged or a.msg_file or a.range):        # 기본 — 지금 추적 중인 것 전부
     files = [f for f in git("ls-files").split("\n") if f]
