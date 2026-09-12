@@ -8,7 +8,7 @@
 읽는 것: script/visual_plan.md 의 표(카드 열), script/grammar.json, grammars.json
 사용: 46_grammar_check.py <EP> [--set panel|stage|workshop]
 """
-import argparse, json
+import argparse, ast, itertools, json
 from common import *
 
 ap = argparse.ArgumentParser(); ap.add_argument("ep")
@@ -30,23 +30,97 @@ if not plan.exists(): die("script/visual_plan.md 없음 — 45단계를 먼저 �
 # **머리글을 만난 그 표만 읽고 표가 끝나면 멈춘다.** 예전에는 인덱스를 그 뒤 모든 `|` 줄에
 # 적용해서, 뒤에 오는 다른 표(씬 id 로 시작하는 박자 표·슬롯 표)가 카드를 덮어썼다 —
 # 카드가 「글」·「8.8」 로 읽혔고 검사는 엉뚱한 이유로 종료코드 3 을 냈다.
-used, i_scene, i_card, ncol = {}, None, None, 0
+# 「왜 그 카드인가」가 적히는 열. **이름이 편마다 다르다** — 45 가 뽑는 템플릿은 「이유」이고
+# E01 은 손으로 「이해시킬 것」으로 바꿔 썼다. 둘 다 받는다. 없으면 아래에서 따로 운다.
+REASON_COLS = ("이유", "이해시킬 것")
+used, reasons, i_scene, i_card, i_reason, ncol = {}, {}, None, None, None, 0
+had_reason_col = False
 for line in plan.read_text(encoding="utf-8").splitlines():
     if not line.startswith("|"):
-        i_scene = i_card = None       # 표가 끝났다. 다음 머리글을 다시 기다린다
+        i_scene = i_card = i_reason = None   # 표가 끝났다. 다음 머리글을 다시 기다린다
         continue
     cells = [c.strip() for c in line.strip("|").split("|")]
     if "카드" in cells and "씬" in cells:
-        i_scene, i_card, ncol = cells.index("씬"), cells.index("카드"), len(cells); continue
+        i_scene, i_card, ncol = cells.index("씬"), cells.index("카드"), len(cells)
+        i_reason = next((cells.index(r) for r in REASON_COLS if r in cells), None)
+        had_reason_col = had_reason_col or i_reason is not None
+        continue
     if i_card is None or len(cells) != ncol: continue
     m = re.match(r"(s\d{2})", cells[i_scene].strip("*` "))
     card = cells[i_card].strip("*` ")
     if m and card:
         used[m.group(1)] = card
+        if i_reason is not None:
+            reasons[m.group(1)] = cells[i_reason].strip("*` ")
 if not used: die("계획서에서 씬별 카드를 못 찾았습니다. 표에 '씬'과 '카드' 머리글이 있는지 확인하세요.")
 
 shapes = sorted(set(used.values()))
 print(f"씬 {len(used)}개 · 쓰는 카드 {len(shapes)}종: {', '.join(shapes)}\n")
+
+# ── 계획서 자체를 본다 ──────────────────────────────────────────────────
+# 이 셋은 **45 가 사람용 체크박스로 적어 두기만 하던 것**이다. 적어 둔 규칙은 잊히고,
+# 다섯이 다 통과시킨 것이 E01 에서 셋이었다. 기계가 셀 수 있는 것은 기계가 센다.
+plan_bad = []
+
+# ① 카드 이름이 45 의 CARDS 안에 있나. 오타는 「담을 수 있나」 검사에서도 걸리지만
+#    그때 나오는 말이 「그 문법이 못 담는다」라서 **오타를 찾는 데 시간이 든다.**
+#    **45 를 import 하면 안 된다.** 그 파일은 모듈이 아니라 스크립트라
+#    불러오는 순간 argparse 가 돌고 계획서를 만들려 든다 — 처음에 그렇게 썼다가
+#    「이미 있습니다」를 뱉었다. `--force` 가 없어서 안 지워졌을 뿐이다.
+#    **읽기만 한다** — ast 로 `CARDS = [...]` 대입 하나만 꺼낸다.
+_c45 = PIPE_DIR / "45_visual_plan.py"
+CARDS = []
+try:
+    _tree = ast.parse(_c45.read_text(encoding="utf-8"))
+    for _n in _tree.body:
+        if isinstance(_n, ast.Assign) and any(
+                isinstance(t, ast.Name) and t.id == "CARDS" for t in _n.targets):
+            CARDS = [e.value for e in _n.value.elts if isinstance(e, ast.Constant)]
+            break
+except (OSError, SyntaxError, AttributeError):
+    CARDS = []
+if CARDS:
+    unknown = sorted({c for c in used.values() if c not in CARDS})
+    if unknown:
+        plan_bad.append(("없는 카드 이름", ", ".join(unknown),
+                         f"쓸 수 있는 것: {', '.join(CARDS)}"))
+else:
+    print("  (45_visual_plan.py 의 CARDS 를 못 읽어 카드 이름 대조는 건너뜁니다)")
+
+# ② 「왜 그 카드인가」가 비어 있나. 안 적으면 다음 사람이 못 되짚고, 즉흥으로 정한 것과
+#    생각해서 정한 것이 같아 보인다.
+if not had_reason_col:
+    plan_bad.append(("이유 열이 없음", "—",
+                     f"표에 {' 나 '.join(REASON_COLS)} 열을 두세요 — 왜 그 카드인지가 남아야 합니다"))
+else:
+    blank = sorted(s for s in used if not reasons.get(s) or reasons[s] in ("—", "-"))
+    if blank:
+        plan_bad.append(("이유가 빈 씬", f"{len(blank)}개", ", ".join(blank)))
+
+# ③ 같은 카드가 세 번 이상 연속. **이 수는 연출이 정한 값이다** —
+#    45 가 뽑는 계획서에 「같은 카드가 세 번 연속되지 않는가」로 이미 적혀 있었다.
+#    일부러 그런 자리는 script/grammar.json 의 `run_exceptions` 에 **이유와 함께** 적는다.
+_runs = []
+for _card, _grp in itertools.groupby(sorted(used), key=lambda s: used[s]):
+    _g = list(_grp)
+    if len(_g) >= 3: _runs.append((_card, _g))
+_run_exc = {}
+_gp = ep / "script" / "grammar.json"
+if _gp.exists(): _run_exc = (jload(_gp).get("run_exceptions") or {})
+for _card, _g in _runs:
+    if any(s in _run_exc for s in _g):
+        print(f"  (같은 카드 {len(_g)}연속 {_card} {', '.join(_g)} — 일부러 둔 것으로 적혀 있습니다: "
+              f"{_run_exc[next(s for s in _g if s in _run_exc)]})")
+        continue
+    plan_bad.append((f"같은 카드가 {len(_g)}번 연속", _card, ", ".join(_g)))
+
+if plan_bad:
+    print("\n  ✕ 계획서 자체에 걸리는 것")
+    for what, val, note in plan_bad:
+        print(f"    {what}: {val}\n        {note}")
+    print("    → 계획서를 고치거나, 일부러 그런 것이면 script/grammar.json 의\n"
+          "      `run_exceptions` 에 {\"s13\": \"왜 일부러 그런지\"} 처럼 이유와 함께 적으세요.")
+    sys.exit(3)
 
 gpath = ep / "script" / "grammar.json"
 cur = jload(gpath) if gpath.exists() else {"base": "", "exceptions": {}}
