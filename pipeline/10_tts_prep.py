@@ -6,12 +6,22 @@ narration_tts 필드와 audio/narration_tts_input.json을 만든다.
 소리로 못 내는 것이 남으면 종료코드 2 — 영문은 script/tts_overrides.json에 읽기를 추가하고,
 기호는 어떻게 읽을지 정해서 사전에 넣거나 대본에서 뺀 뒤 다시 실행.
 사용: 10_tts_prep.py <EP> [--ids s01,s02]"""
-import sys, argparse
+import sys, argparse, pathlib, subprocess
 from common import *
 # **안 준 것과 빈 것을 가른다.** default 를 "" 로 두면 --ids 를 안 줘도 pick_ids 가
 # 「비어 있다」로 죽인다 — 네 스크립트가 다 그랬다(음악 감독이 잡았다). 기본은 None 이다.
 ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--ids")
+ap.add_argument("--skip-readings-check", action="store_true",
+                help="읽기 변환 자체 검사를 건너뛴다 (변환기를 고치는 중일 때만)")
 a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep)
+# **변환기부터 재고 시작한다.** 이 파일이 쓰는 `tts_preprocess` 가 조용히 틀리면
+# 여기서 나온 것이 그대로 음성이 되고, 30단계 받아쓰기까지 가서야 이상해 보인다.
+# 대본에 그 표기가 없어도 코드는 남으므로 **대본과 무관한 대조표로** 잰다.
+if not a.skip_readings_check:
+    _r = subprocess.run([sys.executable, str(pathlib.Path(__file__).resolve().parent / "check_readings.py")])
+    if _r.returncode != 0:
+        die("읽기 변환 검사가 걸렸습니다 — 위 줄을 보고 common.py 의 변환을 고치세요.\n"
+            "  이 검사를 건너뛰려면 --skip-readings-check (변환기를 고치는 중일 때만).", 3)
 readings = readings_for(ep)
 if not p["scenes_v1"].exists(): die(f"씬 JSON 이 없습니다: {p['scenes_v1']}\n  먼저 05_script_to_scenes.py 를 돌리세요.")
 d = jload(p["scenes_v1"]); only = pick_ids(a.ids, {s["id"] for s in d["scenes"]})
