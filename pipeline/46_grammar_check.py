@@ -10,6 +10,7 @@
 """
 import argparse, ast, itertools, json
 from common import *
+from _plan import REASON_COLS, plan_cards
 
 ap = argparse.ArgumentParser(); ap.add_argument("ep")
 ap.add_argument("--set", default="", help="이 편의 기조 문법을 정하고 저장한다")
@@ -30,28 +31,8 @@ if not plan.exists(): die("script/visual_plan.md 없음 — 45단계를 먼저 �
 # **머리글을 만난 그 표만 읽고 표가 끝나면 멈춘다.** 예전에는 인덱스를 그 뒤 모든 `|` 줄에
 # 적용해서, 뒤에 오는 다른 표(씬 id 로 시작하는 박자 표·슬롯 표)가 카드를 덮어썼다 —
 # 카드가 「글」·「8.8」 로 읽혔고 검사는 엉뚱한 이유로 종료코드 3 을 냈다.
-# 「왜 그 카드인가」가 적히는 열. **이름이 편마다 다르다** — 45 가 뽑는 템플릿은 「이유」이고
-# E01 은 손으로 「이해시킬 것」으로 바꿔 썼다. 둘 다 받는다. 없으면 아래에서 따로 운다.
-REASON_COLS = ("이유", "이해시킬 것")
-used, reasons, i_scene, i_card, i_reason, ncol = {}, {}, None, None, None, 0
-had_reason_col = False
-for line in plan.read_text(encoding="utf-8").splitlines():
-    if not line.startswith("|"):
-        i_scene = i_card = i_reason = None   # 표가 끝났다. 다음 머리글을 다시 기다린다
-        continue
-    cells = [c.strip() for c in line.strip("|").split("|")]
-    if "카드" in cells and "씬" in cells:
-        i_scene, i_card, ncol = cells.index("씬"), cells.index("카드"), len(cells)
-        i_reason = next((cells.index(r) for r in REASON_COLS if r in cells), None)
-        had_reason_col = had_reason_col or i_reason is not None
-        continue
-    if i_card is None or len(cells) != ncol: continue
-    m = re.match(r"(s\d{2})", cells[i_scene].strip("*` "))
-    card = cells[i_card].strip("*` ")
-    if m and card:
-        used[m.group(1)] = card
-        if i_reason is not None:
-            reasons[m.group(1)] = cells[i_reason].strip("*` ")
+# 표 읽기는 `_plan.py` 한 곳에 있다 — 85 도 같은 표를 본다. **옮겨 적으면 갈린다.**
+used, reasons, had_reason_col = plan_cards(plan.read_text(encoding="utf-8"))
 if not used: die("계획서에서 씬별 카드를 못 찾았습니다. 표에 '씬'과 '카드' 머리글이 있는지 확인하세요.")
 
 shapes = sorted(set(used.values()))

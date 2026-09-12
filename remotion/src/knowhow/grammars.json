@@ -85,7 +85,8 @@
       "table",
       "list",
       "diagram",
-      "whiteboard"
+      "whiteboard",
+      "outro"
     ]
   },
   "stage": {
@@ -122,7 +123,8 @@
       "beats",
       "clip",
       "lead",
-      "still"
+      "still",
+      "outro"
     ]
   },
   "sheet": {
@@ -166,7 +168,8 @@
       "contact",
       "text",
       "table",
-      "list"
+      "list",
+      "outro"
     ]
   },
   "workshop": {
@@ -205,7 +208,8 @@
       "page",
       "shot",
       "still",
-      "table"
+      "table",
+      "outro"
     ]
   }
 }

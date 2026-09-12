@@ -19,7 +19,10 @@ CARDS = ["clip", "still", "contact", "compare", "log", "text", "table", "list",
          "diagram", "lead", "beats", "shot", "page", "whiteboard",
          # 제작 과정을 보이는 편에서 쓰는 셋. grammars.json 의 carries 와 같은 낱말이어야
          # 46_grammar_check 가 대조한다 — carries 는 미술 결과물이라 그쪽에서 넣는다.
-         "prompt", "inout", "timeline"]
+         "prompt", "inout", "timeline",
+         # 끝맺음. **마지막 씬은 이것이어야 한다** — `85_ship_gate` 가 막는다.
+         # E01 이 일반 글 카드로 끝나서 편집자가 「그냥 멎었다」고 봤다.
+         "outro"]
 SOURCE_DESC = {
     "existing": "이미 있는 자산 — 원본 클립·스틸, 지난 프로젝트 파일",
     "record": "화면 녹화 — 터미널, 편집 화면, 브라우저 (OBS 등)",
@@ -45,6 +48,7 @@ CARD_DESC = {
     "text": "텍스트 카드 — 규칙, 정리, 결론",
     "diagram": "도식 — 관계나 구조를 그림으로(이 편 전용 컴포넌트)",
     "whiteboard": "손그림 애니메이션 — 단계가 쌓이는 설명, 볼 실물이 없을 때",
+    "outro": "끝맺음 — 무엇을 한 편이었나·감사·구독. **마지막 씬은 이것이어야 한다**",
 }
 
 ap = argparse.ArgumentParser(); ap.add_argument("ep"); ap.add_argument("--force", action="store_true")

@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""**사용자에게 보내기 전에 서는 관문.** 마스터 하나를 받아 셋을 막는다.
+"""**사용자에게 보내기 전에 서는 관문.** 마스터 하나를 받아 넷을 막는다.
 
 **이 관문은 담당이 아니라 총괄을 막는다.** 2026-09-09 E01 에서 난 둘이 다 총괄 자리였다 —
 최종 편집자를 다섯 판 미룬 것, 사용자 요청을 표 없이 기억으로 관리한 것.
 **마음먹으면 건너뛸 수 있는 것은 시스템이 아니다**(총괄).
 
 ```
-막는 것 셋
+막는 것 넷
   ㄱ  요청 대장에 **「재서 확인됨」이 아닌 항목**이 있다
   ㄴ  확인은 됐는데 그 **지문이 이 마스터와 다르다**   ← 「어느 판본의」가 오늘 세 번 났다
   ㄷ  **최종 편집자 판정이 이 지문에 대해 없다**
+  ㄹ  **마지막 씬의 카드가 `outro` 가 아니다** — 끝맺음 없이 그냥 멎는다
+      「끝이 있는가」는 **「올릴 수 있는가」의 질문**이지 「렌더할 수 있는가」가 아니라
+      46 이 아니라 여기 있다(연출). 끝 카드를 만드는 동안 렌더가 막히면 안 된다.
 통과해도 찍는 것
   **분모** — 「대장 17건 중 17건 확인 · 편집자 판정 있음(지문 …)」
   **분모 없는 통과가 오늘 여러 번 속였다.**  빠진 것은 **이름으로** 찍는다
@@ -40,6 +43,11 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from common import ep_dir  # noqa: E402
+from _plan import plan_cards  # noqa: E402
+
+# 끝맺음 카드의 낱말. `45_visual_plan.py` 의 CARDS 와 `grammars.json` 의 carries 에
+# 같은 낱말이 있어야 한다 — 계획서에 적을 수 있어야 하고 문법이 담을 수 있어야 한다.
+END_CARD = "outro"
 
 
 def die(msg, code=2):
@@ -104,6 +112,26 @@ else:
         blocked.append(f"**이 마스터({FP})를 편집자가 안 봤습니다** — "
                        f"기록에 있는 것은 {' · '.join(sorted({v.get('판본', '—') for v in vs})) or '없음'}")
 
+# ── ㄹ 끝이 있는가 ─────────────────────────────────────────────────────────
+# **「끝이 있는가」는 「올릴 수 있는가」의 질문이지 「렌더할 수 있는가」가 아니다**(연출).
+# 그래서 46 이 아니라 여기 있다 — 끝 카드를 만드는 동안 렌더가 막히면 안 된다.
+# E01 이 일반 글 카드로 끝나서 편집자가 「미검증 5 로 그냥 멎었다」고 봤다.
+print()
+plan_p = ep / "script" / "visual_plan.md"
+sc_p = ep / "script" / "scenes_v2.json"
+if not plan_p.exists() or not sc_p.exists():
+    print(f"ㄹ 끝맺음 — **못 봤습니다** ({'visual_plan.md' if not plan_p.exists() else 'scenes_v2.json'} 없음)")
+    blocked.append(f"끝맺음을 못 봤습니다 — `{plan_p.name if not plan_p.exists() else sc_p.name}` 가 없습니다")
+else:
+    used, _r, _h = plan_cards(plan_p.read_text(encoding="utf-8"))
+    sids = [s["id"] for s in json.loads(sc_p.read_text(encoding="utf-8"))["scenes"]]
+    last = sids[-1] if sids else None
+    card = used.get(last)
+    print(f"ㄹ 끝맺음 — 마지막 씬 **{last}** 의 카드 **{card or '계획서에 없음'}** (씬 {len(sids)}개)")
+    if card != END_CARD:
+        blocked.append(f"**마지막 씬 {last} 이 `{END_CARD}` 가 아닙니다** (지금 `{card or '계획서에 없음'}`) — "
+                       f"끝맺음 없이 그냥 멎습니다")
+
 print()
 if blocked:
     print("**막혔습니다.**")
@@ -113,5 +141,5 @@ if blocked:
     print("  **「사용자가 원한 뜻인가」는 여기서 안 봅니다** — 사람이 봅니다(총괄).")
     print("  이 관문이 묻는 것은 **「봤는가 · 어느 판본에서 봤는가」**까지입니다.")
     sys.exit(3)
-print(f"**통과** — 대장 {len(items)}건 중 {len(items)}건 확인 · 편집자 판정 있음(지문 {FP})")
+print(f"**통과** — 대장 {len(items)}건 중 {len(items)}건 확인 · 편집자 판정 있음(지문 {FP}) · 마지막 씬이 `{END_CARD}`")
 print("  **뜻이 맞는지는 여기서 안 봅니다.** 그건 사람이 봅니다(총괄).")
