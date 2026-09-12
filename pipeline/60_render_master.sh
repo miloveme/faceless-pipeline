@@ -37,7 +37,8 @@ echo "렌더 로그: $OUT/_render.log"
 # 실측: 인트로 클론 +3.9 · 꼬리 +2.8 로 갈려서 의도한 2.6 LU 차이가 3.7 로 벌어졌다.
 # 두 패스(linear)는 전 구간을 같은 +2.8 로 올려 관계를 그대로 둔다. 소리 판단이 화면 밖에서
 # 뒤집히면 안 되는 자리다(음악 감독이 인트로 원본·클론을 0.3 LU 로 맞춰 놓은 것이 그렇다).
-LN="loudnorm=I=-14:TP=-1.5:LRA=11"
+# 값은 `common.py` 한 곳에서 온다 — 여기 -14·-1.5·11 을 다시 적으면 갈린다.
+LN=$(python3 -c "import sys;sys.path.insert(0,'$HERE');from common import MASTER_LUFS,MASTER_TP,MASTER_LRA;print('loudnorm=I=%s:TP=%s:LRA=%s'%(MASTER_LUFS,MASTER_TP,MASTER_LRA))")
 MEAS=$(ffmpeg -nostdin -hide_banner -i "$RAW" -af "$LN:print_format=json" -f null - 2>&1 | sed -n '/^{/,/^}/p')
 LN2=$(python3 -c "
 import json,sys
@@ -52,14 +53,11 @@ print('$LN:measured_I=%(input_i)s:measured_TP=%(input_tp)s:measured_LRA=%(input_
 ffmpeg -v error -y -i "$RAW" -vn -af "$LN2" -ar 48000 -c:a aac -b:a 192k "$OUT/_audio_norm.m4a"
 ffmpeg -v error -y -i "$RAW" -i "$OUT/_audio_norm.m4a" -map 0:v -map 1:a -c copy -shortest "$MASTER"
 ffmpeg -v error -y -i "$MASTER" -vf scale=1280:-2 -c:v libx264 -crf 24 -preset fast -c:a aac -b:a 128k "$PREV"
+# **찍기만 하던 것을 가르게 한다.** 전에는 0.5 LU 를 넘어도 한 줄 띄우고 그냥 지나갔고,
+# **클리핑은 아예 안 봤다.** 늘 켜진 경고는 세 번째부터 안 읽힌다.
+# 문턱과 목표는 전부 `common.py` 에 있다 — 여기서 수를 정하지 않는다.
 echo "--- loudness"
-LOUD=$(ffmpeg -nostdin -i "$MASTER" -af ebur128=peak=true -f null - 2>&1 | grep -E " I:|Peak:" | tail -2); echo "$LOUD"
-# 두 패스(linear)는 TP 한계에 걸리면 **게인을 스스로 낮춰** 목표에 못 닿는다. 그래도 멈추지 않는다 —
-# 그때는 목표 도달보다 구간 관계 보존이 더 중요하다(음악 감독). 다만 조용히 -15.2 로 나가면
-# 유튜브 정규화가 다시 올리면서 맞춰 놓은 관계가 흔들리므로, 벗어난 것을 한 줄 찍는다. 0.5 LU 는 음악 감독 값.
-printf '%s\n' "$LOUD" | sed -n 's/.*I:[[:space:]]*\(-\{0,1\}[0-9.]*\) LUFS.*/\1/p' | tail -1 \
-  | awk '{ d = $1 + 14; if (d < 0) d = -d;
-           if (d > 0.5) printf "  ← 목표 -14 에서 %.1f LU 벗어났습니다. linear 가 TP 한계에 걸려 게인을 낮춘 것입니다 — 음악 감독에게 알리세요\n", d }' 
+python3 "$HERE/_master_loudness.py" "$MASTER" || exit $?
 echo "--- duration $(ffprobe -v error -show_entries format=duration -of csv=p=0 "$MASTER")s"
 # 무음이 하나도 없으면 grep 이 1 을 돌려준다 — 그건 정상이므로 || true
 echo "--- silences >2.5s"; ffmpeg -i "$MASTER" -af "silencedetect=noise=-45dB:d=2.5" -f null - 2>&1 | grep -o "silence_start: [0-9.]*\|silence_duration: [0-9.]*" | paste - - | head || true
