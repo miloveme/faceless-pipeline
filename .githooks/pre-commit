@@ -4,3 +4,4 @@ set -e
 ROOT=$(git rev-parse --show-toplevel)
 python3 "$ROOT/pipeline/check_private.py" --staged   # 개인 자산
 python3 "$ROOT/pipeline/check_imports.py" --staged   # 클론이 컴파일되는가
+python3 "$ROOT/pipeline/check_docs_cli.py"           # 문서의 `--옵션` 이 실재하는가
