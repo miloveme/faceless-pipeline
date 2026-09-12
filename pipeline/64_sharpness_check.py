@@ -14,6 +14,16 @@ E01 에서 훅 소재가 **233 → 6.6** 으로 떨어진 채 나갔다. 소재�
 아직 아무도 정한 적이 없다. `62_still_check` 와 같은 자리다. 선을 그으려면
 **안 읽히는 판본을 만들어서 재야** 한다. `--min-ratio` 를 주면 그때부터 가른다.
 
+**칸에서 그 그림을 못 찾으면 안 잰다.** 씬 한가운데 프레임이 그 소재를 안 보여 주는 자리가 많다
+(Delay·전환·갈아 끼는 칸). 그때 나온 배수는 흐려진 것이 아니라 **딴 데를 잰 수**다.
+실제로 첫 판이 그렇게 속았다 — `s04` 가 「배수 0.176」으로 나와 흐려진 줄 알았는데
+**상관이 0.079** 였다(그 칸에 그 그림이 없었다). 상관 바닥(`--min-corr` 0.5)으로 가린다.
+그 바닥을 넣자 **잰 칸 4개 → 1개**가 됐다.
+
+**배수를 둘 찍는다.** `배수(원본)` 은 줄이기 전 소재와 대는 것(연출이 말한 233→6.6 = 0.028 이 이것),
+`배수(줄인뒤)` 는 칸 크기로 줄인 소재와 대는 것이다. 앞엣것은 **줄인 만큼도 같이 잡히고**
+뒤엣것은 **굽다가 잃은 것만** 남는다. 어느 쪽으로 선을 그을지는 정해지지 않았다.
+
 **못 잰 자리는 세어서 찍는다.** 영상 소재는 **어느 프레임인지**를 알아야 대는데 그건
 `from`·`stopSec`·`Freeze` 를 따라가야 나온다 — 지금은 그림(png·jpg)만 정확히 댈 수 있다.
 영상은 「안 잼」으로 세어서 남긴다. **「걸린 것 0건」과 「본 것이 0건」이 같아 보이면 안 된다.**
@@ -34,6 +44,8 @@ IMG_EXT = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
 ap = argparse.ArgumentParser()
 ap.add_argument("ep")
 ap.add_argument("--master", required=True)
+ap.add_argument("--min-corr", type=float, default=0.5,
+                help="이 상관 아래면 「칸에서 그 그림을 못 찾았다」로 보고 안 잰다")
 ap.add_argument("--min-ratio", type=float, default=None,
                 help="이 배수 아래면 종료코드 3 (안 주면 찍기만 한다 — 선은 미술이 정한다)")
 a = ap.parse_args()
@@ -56,6 +68,13 @@ def lap_var(arr: np.ndarray) -> float:
     out = (k[0, 1] * x[:-2, 1:-1] + k[1, 0] * x[1:-1, :-2] + k[1, 1] * x[1:-1, 1:-1]
            + k[1, 2] * x[1:-1, 2:] + k[2, 1] * x[2:, 1:-1])
     return float(out.var())
+
+
+def corr(x, y):
+    x = x.astype("float32").ravel() - x.mean()
+    y = y.astype("float32").ravel() - y.mean()
+    d = float(np.linalg.norm(x) * np.linalg.norm(y))
+    return float(x @ y / d) if d else 0.0
 
 
 def master_frame(t: float) -> Image.Image:
@@ -91,28 +110,43 @@ for s in sc:
         except RuntimeError as e:
             unmeasured.append(f"{sid} {asset} — 마스터에서 프레임을 못 떴습니다 ({e})"); continue
         cut = np.asarray(fr.crop((x, y, x + w, y + h)))
-        with Image.open(src) as im:
-            ref = np.asarray(im.convert("L").resize((w, h), Image.LANCZOS))
+        with Image.open(src) as im0:
+            im = im0.convert("L"); iw, ih = im.size
+            ref = np.asarray(im.resize((w, h), Image.LANCZOS))        # 칸 크기로 줄인 소재
+            v_raw = lap_var(np.asarray(im))                           # 줄이기 **전** 소재
+            sc_cov = max(w / iw, h / ih)
+            rw, rh = max(1, round(iw * sc_cov)), max(1, round(ih * sc_cov))
+            cov = np.asarray(im.resize((rw, rh), Image.LANCZOS).crop(
+                ((rw - w) // 2, (rh - h) // 2, (rw - w) // 2 + w, (rh - h) // 2 + h)))
+        # **닮지 않으면 그 칸에서 그 그림을 못 찾은 것이다.** 안 가리면 「배수 0.18」 같은 수가
+        # 나오는데 그건 흐려진 게 아니라 **딴 데를 잰 것**이다. 63 에서 실제로 그렇게 속았다.
+        c_best = max(corr(cut, ref), corr(cut, cov))
+        if c_best < a.min_corr:
+            unmeasured.append(f"{sid} {asset} — 칸에서 그 그림을 못 찾았습니다 "
+                              f"(상관 {c_best:.3f} < {a.min_corr})"); continue
         v_m, v_s = lap_var(cut), lap_var(ref)
         ratio = (v_m / v_s) if v_s else float("nan")
-        rows.append((sid, asset, w, h, v_s, v_m, ratio))
+        raw_ratio = (v_m / v_raw) if v_raw else float("nan")
+        rows.append((sid, asset, w, h, v_s, v_m, ratio, v_raw, raw_ratio))
 
 print(f"칸 선명도 — 마스터 {master.name} · 잰 칸 {len(rows)}개 · 못 잰 것 {len(unmeasured)}개"
       + (f" · 문턱 {a.min_ratio}" if a.min_ratio else " · **판정 안 함**(선은 미술이 정합니다)"))
 if rows:
-    print(f"  {'씬':5} {'소재':26} {'칸':>11}  {'소재(줄인 뒤)':>12} {'마스터':>9} {'배수':>7}")
-    for sid, asset, w, h, vs, vm, r in sorted(rows, key=lambda x: x[6]):
-        print(f"  {sid:5} {asset[:26]:26} {w:5}×{h:<5} {vs:12.1f} {vm:9.1f} {r:7.3f}")
-    rs = sorted(x[6] for x in rows)
-    print(f"  배수 분포 — 최소 {rs[0]:.3f} · 중앙 {rs[len(rs)//2]:.3f} · 최대 {rs[-1]:.3f}")
+    print(f"  {'씬':5} {'소재':24} {'칸':>11} {'소재원본':>9} {'소재(줄인뒤)':>11} {'마스터':>9} "
+          f"{'배수(원본)':>9} {'배수(줄인뒤)':>11}")
+    for sid, asset, w, h, vs, vm, r, vraw, rraw in sorted(rows, key=lambda x: x[8]):
+        print(f"  {sid:5} {asset[:24]:24} {w:5}×{h:<5} {vraw:9.1f} {vs:11.1f} {vm:9.1f} "
+              f"{rraw:9.3f} {r:11.3f}")
+    rs = sorted(x[8] for x in rows)
+    print(f"  배수(원본) 분포 — 최소 {rs[0]:.3f} · 중앙 {rs[len(rs)//2]:.3f} · 최대 {rs[-1]:.3f}")
 for u in unmeasured:
     print(f"  ? {u}")
 
 if a.min_ratio is not None:
-    bad = [r for r in rows if r[6] < a.min_ratio]
+    bad = [r for r in rows if r[8] < a.min_ratio]
     if bad:
-        print(f"\n  ✕ 배수가 {a.min_ratio} 아래인 칸 {len(bad)}개", file=sys.stderr)
-        for sid, asset, w, h, vs, vm, r in bad:
-            print(f"    {sid} {asset} 칸 {w}×{h} · 소재 {vs:.1f} → 마스터 {vm:.1f} (배수 {r:.3f})",
+        print(f"\n  ✕ 배수(원본)가 {a.min_ratio} 아래인 칸 {len(bad)}개", file=sys.stderr)
+        for sid, asset, w, h, vs, vm, r, vraw, rraw in bad:
+            print(f"    {sid} {asset} 칸 {w}×{h} · 소재 {vraw:.1f} → 마스터 {vm:.1f} (배수 {rraw:.3f})",
                   file=sys.stderr)
         sys.exit(3)
