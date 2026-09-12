@@ -14,16 +14,24 @@ E01 s03 에서 **가로가 2.02배 늘어난 채 나갔고 사용자가 찾았�
 맞는 자리는 실측 **0.01%·0.12%** 로 맞았고 틀린 자리는 **102%** 였다. 그 사이가 비어 있어
 문턱이 크게 중요하지 않다. 2% 를 쓴다(렌더 반올림과 lerp 양 끝의 흔들림을 덮는다).
 
-**`--render-tol` 3% 는 임시값이다 — 분포를 본 뒤 바꾼다**(연출).
-근거가 아직 E01 s03 의 102% 하나뿐이라 선을 그을 표본이 없다.
-그리고 **지금 렌더 스틸로 잴 수 있는 칸이 23곳 중 1곳뿐이다** — 아래 「못 잰 것」 참고.
-분모가 이런 동안에는 이 쪽 문턱이 사실상 아무것도 안 막는다. **코드로 재는 ①②가 실효다.**
+**부품을 셀 때 주석을 걷는다.** 안 걷으면 `Label` 이 「늘리는 부품」으로 걸린다 —
+그 뒤에 오는 `CropPlate` 설명 주석이 `objectFit: "fill"` 이라는 **글자**를 담고 있고
+그게 `Label` 블록 끝에 붙어 있다. 실제로 「늘리는 부품 2종」이 나왔었고 진짜는 하나다.
+**다음 편에서 거짓 경보가 날 자리가 여기다** — 부품이 늘면 설명 주석도 는다.
+
+**칸 비 쪽 문턱 2% 는 확정이다**(연출). 기하로 잡은 값이고 옛 `794×470` 에서
+102.16% 가 실제로 잡혔다.
+
+**렌더 스틸 쪽(`--render-tol`)은 가르지 않는다.** 기본으로는 찍기만 한다 —
+지금 잴 수 있는 칸이 **23곳 중 1곳**이고 그 하나도 정사각 로고라 세 방식을 못 가른다.
+표본 하나로 문턱을 걸면 `62`·`64` 에서 피한 것을 여기서 하게 된다.
+가르려면 `--render-gate` 를 준다.
 
 **못 푼 칸은 세어서 찍는다.** 칸 크기가 코드에서 안 풀리면 조용히 통과시키지 않는다 —
 「걸린 것 0건」과 「본 것이 0건」이 같아 보이면 안 된다.
 
 종료코드: 0 통과 · 2 설정 오류 · 3 늘어난 칸이 있음
-사용: 63_aspect_check.py <EP> [--tol 0.02]
+사용: 63_aspect_check.py <EP> [--tol 0.02] [--master <mp4> [--render-gate]]
 """
 import argparse, io, pathlib, re, subprocess, sys
 import numpy as np
@@ -41,7 +49,9 @@ ap.add_argument("--master", help="주면 **렌더된 스틸**에서도 잰다 (�
 ap.add_argument("--min-corr", type=float, default=0.5,
                 help="이 상관 아래면 「칸에서 그 그림을 못 찾았다」로 보고 안 잰다")
 ap.add_argument("--render-tol", type=float, default=0.03,
-                help="렌더 스틸 쪽 허용 찌그러짐 (기본 0.03 = 3%%). **임시값이다** — 독스트링 참고")
+                help="렌더 스틸 쪽 찌그러짐 기준 (기본 0.03). --render-gate 와 같이 줘야 가른다")
+ap.add_argument("--render-gate", action="store_true",
+                help="렌더 스틸 쪽으로도 가른다 (기본은 찍기만 — 표본이 1/23 이다)")
 a = ap.parse_args()
 ep = ep_dir(a.ep); sl = slug(ep)
 SRC = REMOTION_DIR / "src" / sl
@@ -266,7 +276,10 @@ if a.master:
     for u in skipped:
         print(f"  ? {u}")
     over = [r for r in rows if r[6] > a.render_tol]
-    if over:
+    if over and not a.render_gate:
+        print(f"  ← 기준 {a.render_tol*100:g}% 를 넘은 칸 {len(over)}개 — **안 가릅니다**"
+              f"(가르려면 --render-gate). 표본이 모자랍니다.")
+    if over and a.render_gate:
         print(f"\n  ✕ 찌그러진 칸 {len(over)}개 (임시 문턱 {a.render_tol*100:g}%)", file=sys.stderr)
         for sid, asset, w, h, best, cs, st in over:
             print(f"    {sid} {asset} 칸 {w}×{h} · 그린 방식 {best} · {st*100:.2f}%", file=sys.stderr)
