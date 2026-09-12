@@ -35,11 +35,9 @@
    - **`split` 의 헤드라인은 한 줄 기준이고 두 칸에 걸쳐 하단에 깔립니다.** 한쪽 칸에만 얹으면 그 칸의 얼굴만 가려서, 두 칸을 같은 크기로 맞춰 놔도 **보이는 크기**가 갈립니다. 시청자가 보는 것은 얼굴이 아니라 **가려지지 않은 얼굴**입니다. 두 줄을 넣으면 블록이 아래로 넘치고 잘려도 렌더는 안 죽습니다
    - **쇼츠에서 세로로 다시 앉힐 씬이 있으면** `scenes.tsx` 에 `shortsVisualFor` 를 만들어 `makeShorts(..., shortsVisualFor)` 로 넘깁니다. 그 씬만 돌려주고 나머지는 `null` — 기본은 16:9 를 그대로 줄여 놓습니다. 좌우로 붙은 대조 소재처럼 **가로로 납작한 화면은 폭 1080 에서 높이가 200px 대로 떨어져** 훅이 서지 않습니다
    - **BGM 을 넣으려면** `bgm: asset("bgm_lofi.mp3")` — 기본값 `""` 는 음악 없음입니다. 파일은 `pipeline/18_bgm_prep.sh` 가 `public/<slug>/` 에 -27 LUFS 로 만들어 둡니다
-5. `src/Root.tsx` 에 두 줄 추가 — 복사본은 export 이름이 템플릿과 같으므로 import 에서 바꿔 줍니다. 아래는 slug 가 `e01` 일 때의 **예시**이니 `e01`·`E01` 을 이 편 것으로 바꾸세요
-   ```tsx
-   import { TemplateCompositions as E01Compositions } from "./e01/compositions";
-   //  <RemotionRoot> 안에:  <E01Compositions />
-   ```
+5. **등록은 할 일이 없습니다.** `src/Root.tsx` 가 `src/e<두 자리>/compositions.tsx` 를 스스로 훑어 붙입니다 — 1번에서 폴더를 그 이름으로 만들었으면 그걸로 끝입니다. `export` 이름은 템플릿 그대로(`TemplateCompositions`) 두세요. **구별은 2번의 `PREFIX` 가 합니다**
+   - **`Root.tsx` 에 편 이름을 적지 마세요.** 편 폴더는 `.gitignore` 에 있어 저장소에 안 들어가는데 `import "./e01/compositions"` 는 남습니다. 받아 간 사람은 폴더가 없으니 **빌드가 깨지고**, 적은 사람 기계에서는 폴더가 있어 `tsc` 가 통과해 안 보입니다
+   - 폴더 이름이 `e<두 자리>` 가 아니면 **등록도 안 되고 `.gitignore` 도 못 걸러 편 소재가 저장소에 올라갑니다.** 둘 다 에러 없이 지나가므로 `55_remotion_sync.py` 가 슬러그 모양을 재서 종료코드 2 로 멈춥니다
 6. `pipeline/55_remotion_sync.py` 가 `src/<slug>/data/` 와 `public/<slug>/nar/` 를 채웁니다. 그 밖의 소재는 `15_clip_prep.py` 가 `public/<slug>/` 에 둡니다
 7. 확인 — 세 개가 다 통과해야 합니다
    ```bash

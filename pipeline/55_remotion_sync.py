@@ -10,6 +10,18 @@ ap = argparse.ArgumentParser(); ap.add_argument("ep")
 ap.add_argument("--skip-src-check", action="store_true", help="소재 경로 검사를 건너뛴다(컴포넌트를 아직 쓰는 중이거나, 검사가 잘못 잡을 때)")
 a = ap.parse_args(); ep = ep_dir(a.ep); p = P(ep); sl = slug(ep)
 
+# 슬러그 모양은 **두 곳이 같이 믿고 있다.** 어느 쪽도 어긋나면 조용히 틀린다.
+#   .gitignore:44  `remotion/src/e[0-9][0-9]/`      — 편 폴더를 공개 저장소에서 뺀다
+#   src/Root.tsx   `/^\.\/e\d\d\/compositions\.tsx$/` — 편 컴포지션을 스스로 등록한다
+# 모양이 안 맞으면 **편 폴더가 저장소에 올라가고**(공개 저장소에 원본 프레임이 들어간다)
+# **컴포지션은 안 뜬다.** 둘 다 에러 없이 지나가므로 여기서 센다.
+if not re.fullmatch(r"e\d\d", sl):
+    die(f'에피소드 폴더 이름이 "{ep.name}" 이라 슬러그가 "{sl}" 입니다 — `e01` 처럼 **영문 e + 두 자리 숫자**여야 합니다.\n'
+        f"  이대로 두면 둘이 같이 틀립니다:\n"
+        f"    · `.gitignore:44` 가 `remotion/src/{sl}/` 을 못 걸러 **공개 저장소에 편 폴더가 올라갑니다**\n"
+        f"    · `src/Root.tsx` 가 못 찾아 **컴포지션이 안 뜹니다**(렌더할 때 없는 id 라고 죽습니다)\n"
+        f"  고치는 법: 에피소드 폴더 이름을 `E01_{ep.name.split('_', 1)[-1]}` 꼴로 바꾸세요.", 2)
+
 MEDIA = r"mp4|mov|webm|png|jpg|jpeg|gif|svg|webp|mp3|wav|m4a"
 HARDCODED = re.compile(r'["`\'][^"`\']*/[^"`\']*\.(?:' + MEDIA + r')["`\']')
 SLUG_LINE = re.compile(r'export\s+const\s+SLUG\s*=\s*["\']([^"\']+)["\']')
