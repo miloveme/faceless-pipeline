@@ -75,6 +75,9 @@ python3 "$HERE/_silence_check.py" "$MASTER" "$1" || exit 3
 # 같은 수가 되어, 근거 파일이 없는 것과 화면이 틀린 것을 부르는 쪽이 못 가른다.
 echo "--- 계획서의 카드를 이 문법이 담는가"
 python3 "$HERE/46_grammar_check.py" "$EP" || exit $?
+# 칸에 넣은 그림이 늘어나 있나. **코드만 본다** — 굽기 전에도 돌릴 수 있다.
+echo "--- 칸 비가 소재 조각의 비와 맞는가"
+python3 "$HERE/63_aspect_check.py" "$EP" || exit $?
 echo "--- 내레이션이 가리키는 자리에 그것이 있는가"
 python3 "$HERE/47_points_check.py" "$EP" --master "$MASTER" || exit $?
 # **62 는 가르지 않는다.** 정지 비율의 합격선은 미술·연출 값이고 아직 아무도 정한 적이 없다 —
