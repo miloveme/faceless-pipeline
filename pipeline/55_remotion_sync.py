@@ -655,3 +655,8 @@ if _scn_src.exists():
             "  그림이 그 자리에서 무엇이어야 하는지는 미술·연출이 정합니다 — 안 보이는 자리면 아무거나 좋습니다.", 3)
 
     print(f"화면 문구 검사: {_copy.name} · 기다리는 자리 0곳 / 값을 기다리게 적어 둔 자리 {len(_wait)}개")
+
+# **몇 개 중 몇 개인지 세서 말한다.** 55 는 Remotion 이 읽을 데이터를 넣는 마지막 자리라,
+# 여기서 반쪽인 채로 넘어가면 그대로 렌더된다. 찍기만 한다(판정 아님).
+import subprocess as _sp, sys as _sys, pathlib as _pl
+_sp.run([_sys.executable, str(_pl.Path(__file__).resolve().parent / "_coverage.py"), str(ep)])

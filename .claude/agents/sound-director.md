@@ -97,11 +97,14 @@ E01 에서 거기서만 여섯 건이 났는데 아무도 검사하지 않았다
 `--ids` 로 일부만 다시 만들면 **나머지 씬은 옛 데이터로 남는다.**
 E00에서 낱말 시각을 넣고 다섯 씬만 다시 만들었는데 "전 씬 적용"이라고 보고했다.
 
-무엇을 바꿨든 **몇 개 중 몇 개인지 세서 말한다.**
+무엇을 바꿨든 **몇 개 중 몇 개인지 세서 말한다.** 손으로 셀 것 없이 `50`·`55` 끝에 저절로 찍힌다.
+따로 보려면:
 ```
-python3 -c "import json;c=json.load(open('script/captions.json'));\
-print(sum('words' in x for ch in c.values() for x in ch),'/',sum(len(ch) for ch in c.values()))"
+python3 pipeline/_coverage.py <EP>
 ```
+**`n/N` 하나만 보지 마라 — `N` 자체가 반쪽일 수 있다.** 자막 안에서 152/152 여도
+`scenes_v2` 에 있는 씬이 `captions.json` 에 아예 없으면 그 씬은 **분모에도 없다.**
+그래서 이 스크립트는 두 파일의 **씬 집합을 양쪽으로** 대고 「자막이 아예 없는 씬」을 따로 찍는다.
 
 ## 남을 검토할 때
 

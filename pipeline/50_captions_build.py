@@ -297,4 +297,9 @@ else:
 jdump(wc, p["caps_whisper"]); jdump(caps, p["caps"])
 bad, line = speed_report(caps, done, f"자막 생성 → {p['caps']}")
 print(line)
+# **몇 개 중 몇 개인지 세서 말한다.** `--ids` 로 일부만 돌리면 나머지는 옛 데이터로 남는데
+# 화면은 멀쩡해 보인다 — 낱말 시각이 없는 씬은 노래방 강조만 안 될 뿐 자막은 그대로 나온다.
+# E00 에서 다섯 씬만 넣고 「전 씬 적용」이라고 보고했다. 찍기만 한다(판정 아님).
+import subprocess as _sp, pathlib as _pl
+_sp.run([sys.executable, str(_pl.Path(__file__).resolve().parent / "_coverage.py"), str(ep)])
 sys.exit(3 if bad else 0)
