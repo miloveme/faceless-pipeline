@@ -8,7 +8,8 @@ set -o pipefail
 # v10 이 다 구워 놓고 **마지막 검사에서 「파일이 없습니다」로 종료코드 2** 를 냈다.
 # 여기서 한 번 절대경로로 굳힌다.
 HERE=$(cd "$(dirname "$0")" && pwd)
-EP=$(python3 -c "import sys;sys.path.insert(0,'$(dirname "$0")');from common import ep_dir;print(ep_dir('$1'))"); COMP=$2; VER=$3
+. "$HERE/_py.sh"
+EP=$("$PY" -c "import sys;sys.path.insert(0,'$(dirname "$0")');from common import ep_dir;print(ep_dir('$1'))"); COMP=$2; VER=$3
 SLUG=$(basename "$EP" | cut -d_ -f1 | tr A-Z a-z); PREFIX=$(basename "$EP" | cut -d_ -f1)
 REMOTION_DIR=${REMOTION_DIR:-$(cd "$(dirname "$0")/../remotion" 2>/dev/null && pwd)}; OUT=$REMOTION_DIR/out/$SLUG; mkdir -p "$OUT" "$EP/edit"
 [ -d "$REMOTION_DIR/node_modules" ] || { echo "Remotion 이 설치되지 않았습니다: $REMOTION_DIR"; echo "  cd $REMOTION_DIR && npm install"; exit 1; }
@@ -38,9 +39,9 @@ echo "렌더 로그: $OUT/_render.log"
 # 두 패스(linear)는 전 구간을 같은 +2.8 로 올려 관계를 그대로 둔다. 소리 판단이 화면 밖에서
 # 뒤집히면 안 되는 자리다(음악 감독이 인트로 원본·클론을 0.3 LU 로 맞춰 놓은 것이 그렇다).
 # 값은 `common.py` 한 곳에서 온다 — 여기 -14·-1.5·11 을 다시 적으면 갈린다.
-LN=$(python3 -c "import sys;sys.path.insert(0,'$HERE');from common import MASTER_LUFS,MASTER_TP,MASTER_LRA;print('loudnorm=I=%s:TP=%s:LRA=%s'%(MASTER_LUFS,MASTER_TP,MASTER_LRA))")
+LN=$("$PY" -c "import sys;sys.path.insert(0,'$HERE');from common import MASTER_LUFS,MASTER_TP,MASTER_LRA;print('loudnorm=I=%s:TP=%s:LRA=%s'%(MASTER_LUFS,MASTER_TP,MASTER_LRA))")
 MEAS=$(ffmpeg -nostdin -hide_banner -i "$RAW" -af "$LN:print_format=json" -f null - 2>&1 | sed -n '/^{/,/^}/p')
-LN2=$(python3 -c "
+LN2=$("$PY" -c "
 import json,sys
 try: m = json.loads(sys.argv[1])
 except Exception as e: sys.exit('loudnorm 측정값을 못 읽었습니다: %s' % e)
@@ -57,7 +58,7 @@ ffmpeg -v error -y -i "$MASTER" -vf scale=1280:-2 -c:v libx264 -crf 24 -preset f
 # **클리핑은 아예 안 봤다.** 늘 켜진 경고는 세 번째부터 안 읽힌다.
 # 문턱과 목표는 전부 `common.py` 에 있다 — 여기서 수를 정하지 않는다.
 echo "--- loudness"
-python3 "$HERE/_master_loudness.py" "$MASTER" || exit $?
+"$PY" "$HERE/_master_loudness.py" "$MASTER" || exit $?
 echo "--- duration $(ffprobe -v error -show_entries format=duration -of csv=p=0 "$MASTER")s"
 # 무음이 하나도 없으면 grep 이 1 을 돌려준다 — 그건 정상이므로 || true
 echo "--- silences >2.5s"; ffmpeg -i "$MASTER" -af "silencedetect=noise=-45dB:d=2.5" -f null - 2>&1 | grep -o "silence_start: [0-9.]*\|silence_duration: [0-9.]*" | paste - - | head || true
@@ -66,7 +67,7 @@ echo "--- silences >2.5s"; ffmpeg -i "$MASTER" -af "silencedetect=noise=-45dB:d=
 # v10 에서 s07 의 마지막 1.84초가 통째로 빠졌는데 `silencedetect` 로는 안 보였다 —
 # 다른 자리와 같은 「무음」이고 **길이만 1.9초 길었다**(33곳이 1.30~1.41, 한 곳이 3.22).
 echo "--- 무음이 시각표와 맞는가"
-python3 "$HERE/_silence_check.py" "$MASTER" "$1" || exit 3
+"$PY" "$HERE/_silence_check.py" "$MASTER" "$1" || exit 3
 # **있는 검사를 여기서 부른다.** 검사가 있어도 부르는 데가 없으면 문서와 같다 —
 # `check_imports.py` 는 오늘 실제로 그랬다. 있었는데 스테이지만 봐서 안 울렸다.
 # 에피소드는 절대경로(`$EP`)로 넘긴다. 위에서 `cd "$REMOTION_DIR"` 을 했으므로
@@ -74,27 +75,27 @@ python3 "$HERE/_silence_check.py" "$MASTER" "$1" || exit 3
 # **종료코드를 그대로 넘긴다.** `|| exit 3` 으로 뭉개면 「설정 오류(2)」와 「검사 실패(3)」가
 # 같은 수가 되어, 근거 파일이 없는 것과 화면이 틀린 것을 부르는 쪽이 못 가른다.
 echo "--- 계획서의 카드를 이 문법이 담는가"
-python3 "$HERE/46_grammar_check.py" "$EP" || exit $?
+"$PY" "$HERE/46_grammar_check.py" "$EP" || exit $?
 # 칸에 넣은 그림이 늘어나 있나. **코드만 본다** — 굽기 전에도 돌릴 수 있다.
 echo "--- 칸 비가 소재 조각의 비와 맞는가"
-python3 "$HERE/63_aspect_check.py" "$EP" || exit $?
+"$PY" "$HERE/63_aspect_check.py" "$EP" || exit $?
 echo "--- 내레이션이 가리키는 자리에 그것이 있는가"
-python3 "$HERE/47_points_check.py" "$EP" --master "$MASTER" || exit $?
+"$PY" "$HERE/47_points_check.py" "$EP" --master "$MASTER" || exit $?
 # **62 는 가르지 않는다.** 정지 비율의 합격선은 미술·연출 값이고 아직 아무도 정한 적이 없다 —
 # 그 파일 독스트링이 「가르는 잣대가 아니라 자리를 찾는 잣대」라고 못박아 두었다.
 # 엔지니어가 여기서 수를 정하면 검사 기준을 만든 사람이 혼자 정하는 것이 된다.
 # 여기서 하는 일은 **매 렌더마다 그 수가 찍히게** 하는 것까지다. 죽는 것은 검사가 못 돌 때뿐이다.
 echo "--- 얼마나 정지해 있나 (판정 아님 — 미술·연출이 읽는 수다)"
-python3 "$HERE/62_still_check.py" "$MASTER" --ep "$EP" || exit $?
+"$PY" "$HERE/62_still_check.py" "$MASTER" --ep "$EP" || exit $?
 # **64 도 가르지 않는다.** 「얼마나 떨어지면 다시 구워야 하는가」는 미술 값이고 아직 없다.
 # 그리고 지금 **잴 수 있는 칸이 23곳 중 4곳**이라(영상은 어느 프레임인지를 못 댄다)
 # 문턱을 걸면 안 잰 것이 통과로 읽힌다. 분모를 같이 찍는다.
 echo "--- 깐 소재가 화면에서 흐려졌나 (판정 아님 · 분모를 같이 봅니다)"
-python3 "$HERE/64_sharpness_check.py" "$EP" --master "$MASTER" || exit $?
+"$PY" "$HERE/64_sharpness_check.py" "$EP" --master "$MASTER" || exit $?
 cp "$MASTER" "$PREV" "$EP/edit/" && echo "COPIED → $EP/edit/"
 # **묶은 뒤에 바뀐 원본이 있나.** 있으면 이 마스터는 지금 코드와 다르다 — 종료코드 3.
 # 「없다」도 **몇 개를 봤는지** 같이 찍는다. 검사가 깨져 0 이 나온 것과 구별되지 않으면 안 된다.
-STALE=$(python3 "$HERE/_render_stale.py" "$REMOTION_DIR" "$BUNDLE_AT")
+STALE=$("$PY" "$HERE/_render_stale.py" "$REMOTION_DIR" "$BUNDLE_AT")
 SEEN=$(printf '%s\n' "$STALE" | head -1); LATE=$(printf '%s\n' "$STALE" | tail -n +2 | sed '/^$/d')
 if [ -n "$LATE" ]; then
   N=$(printf '%s\n' "$LATE" | wc -l | tr -d ' ')

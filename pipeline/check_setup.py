@@ -77,11 +77,14 @@ if vj.exists():
         line("API 키 환경변수", bool(__import__("os").environ.get(pv["api_key_env"])),
              f"{pv['api_key_env']} — export {pv['api_key_env']}=...")
     if host.startswith("http"):
-        import socket, urllib.parse
+        # **소켓으로 붙지 않는다** — 이 파이썬은 사설망에 못 붙는다(net.py 머리 참고).
+        # 공정이 실제로 쓰는 길과 **같은 길**로 확인해야 검사가 거짓말을 안 한다.
+        import urllib.parse
+        from net import get_json, NetError
         u = urllib.parse.urlparse(host)
         try:
-            socket.create_connection((u.hostname, u.port or 8188), timeout=3).close(); reach = True
-        except Exception: reach = False
+            get_json(host.rstrip("/") + "/system_stats", timeout=5); reach = True
+        except (NetError, Exception): reach = False
         line("ComfyUI 연결", reach, f"{u.hostname}:{u.port or 8188}" + ("" if reach else
              " — 서버가 꺼져 있거나 주소가 다릅니다"))
         if not reach:

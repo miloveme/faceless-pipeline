@@ -9,7 +9,16 @@
 - 쓸 수 있는 서버가 여럿이면 나눠서 동시에 돌린다(먼저 끝난 쪽이 다음 것을 집어가는 방식).
 - 전부 바쁘면 가장 덜 바쁜 한 대에 맡긴다. 기다리는 게 안 하는 것보다 낫다.
 """
-import json, time, urllib.request
+import json, time
+
+# **HTTP 는 `net.py` 한 곳으로 나간다** — anaconda 파이썬이 사설망에 못 붙어서 `curl` 로 돈다.
+# 이유와 잰 값은 그 파일 머리에 있다.
+try:
+    from net import get_json, NetError
+except ImportError:                      # 다른 폴더에서 불릴 때
+    import pathlib, sys
+    sys.path.insert(0, str(pathlib.Path(__file__).parent))
+    from net import get_json, NetError
 
 DEFAULT_CPS = 8.4          # 실측 처리량(초당 글자). 서버 성능 차가 크지 않았다.
 
@@ -18,13 +27,17 @@ def probe(host, timeout=4):
     h = host.rstrip("/")
     out = {"host": h, "alive": False, "queue": None, "gpu": None, "err": None}
     try:
-        q = json.loads(urllib.request.urlopen(h + "/queue", timeout=timeout).read())
+        q = get_json(h + "/queue", timeout=timeout)
         out["alive"] = True
         out["queue"] = len(q.get("queue_running", [])) + len(q.get("queue_pending", []))
+    except NetError as e:
+        # **무슨 일이 났는지 남긴다.** 전에는 `type(e).__name__` 만 남겨 `URLError` 한 낱말이었고,
+        # 그것 때문에 「서버가 죽었다」와 「내 쪽이 막혔다」를 못 갈랐다.
+        out["err"] = str(e)[:160]; return out
     except Exception as e:
-        out["err"] = type(e).__name__; return out
+        out["err"] = f"{type(e).__name__}: {e}"[:160]; return out
     try:
-        s = json.loads(urllib.request.urlopen(h + "/system_stats", timeout=timeout).read())
+        s = get_json(h + "/system_stats", timeout=timeout)
         d = (s.get("devices") or [{}])[0]
         out["gpu"] = d.get("name", "?").split(":")[0][:28]
     except Exception:

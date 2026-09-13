@@ -2,8 +2,9 @@
 # 썸네일 스틸(<PREFIX>-Thumb-A/B/C, 축소본 포함)과 쇼츠(<PREFIX>-Shorts-1/2) 렌더 + 정규화 → <EP>/edit
 # 사용: 65_render_derived.sh <EP> [thumbs=A,B,C] [shorts=1,2] [widths=168,300,480]
 set -e
+. "$(cd "$(dirname "$0")" && pwd)/_py.sh"
 set -o pipefail
-EP=$(python3 -c "import sys;sys.path.insert(0,'$(dirname "$0")');from common import ep_dir;print(ep_dir('$1'))")
+EP=$("$PY" -c "import sys;sys.path.insert(0,'$(dirname "$0")');from common import ep_dir;print(ep_dir('$1'))")
 # **빈 값은 「없음」이다.** `${2:-…}` 로 쓰면 `""` 를 줘도 기본값이 들어와 안 부른 것이 돌아간다 —
 # 썸네일만 뽑으려고 shorts 에 "" 를 줬더니 쇼츠 둘이 같이 구워졌다. `${2-…}` 는 **안 준 것만** 채운다.
 THUMBS=${2-A,B,C}; SHORTS=${3-1,2}

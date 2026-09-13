@@ -2,6 +2,7 @@
 # 손그림 애니메이션 도구 설치 (선택).
 # 개념 설명 구간에서만 쓰는 도구라 필요할 때 설치하면 됩니다. → docs/VISUALS.md
 set -e
+. "$(cd "$(dirname "$0")" && pwd)/_py.sh"
 set -o pipefail
 DEST="${WHITEBOARD_DIR:-$HOME/.claude/skills/srt-whiteboard-animation}"
 REPO="https://github.com/miloveme/srt-whiteboard-animation.git"
@@ -17,9 +18,9 @@ fi
 
 echo
 echo "파이썬 환경 준비 (저장소 자체 .venv 사용)"
-python3 "$DEST/scripts/prepare_env.py" || {
+"$PY" "$DEST/scripts/prepare_env.py" || {
   echo "환경 준비에 실패했습니다. 직접 실행해 보세요:"
-  echo "  python3 \"$DEST/scripts/prepare_env.py\""
+  echo "  "$PY" \"$DEST/scripts/prepare_env.py\""
   exit 1
 }
 

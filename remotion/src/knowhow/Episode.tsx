@@ -5,6 +5,7 @@ import { T, faceFor } from "./theme";
 import { CaptionChunk } from "./Captions";
 import { captionLayerOf } from "./captionRegistry";
 import { Enter } from "./enter";
+import { getGrammar } from "./grammar";
 
 // 채널 공용 에피소드 조립기. 에피소드는 (씬 시각표 JSON, 자막 JSON, visualFor)만 넘긴다.
 export const FPS = 30;
@@ -98,6 +99,75 @@ export const ClipLabel: React.FC<{
   </div>
 );
 
+/**
+ * **인용 출처 한 줄.** 남의 저작물을 화면에 쓴 자리에만 붙인다.
+ *
+ * **화면 기준 덧층이다 — 문법 상자 안에 넣으면 안 된다.** `Container` 는 안쪽이
+ * `overflow: hidden` 이라 그 안에 두면 좌표가 상자 기준이 되고 아래가 **잘린다.**
+ * E01 s29 에서 실제로 그랬다 — 재니 명암비 **1.00**(글자가 아예 안 그려짐)이었다.
+ *
+ * **자리는 자막 안전영역 위다.** `safeBottom` 을 넘겨받아 식으로 쓴다 —
+ * 숫자를 여기 박으면 문법마다 다른 안전영역(218·232)에서 조용히 틀린다.
+ * 26px 글자를 `H − safeBottom − 50` 에 두면 바닥까지 18px 이 남는다.
+ *
+ * **씬과 구간(블록) 둘 다 이걸 쓴다.** 두 곳에 따로 적으면 한쪽만 고쳐진다.
+ */
+export const SourceNote: React.FC<{
+  text: string; safeBottom: number; at?: number;
+}> = ({ text, safeBottom, at = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps, width, height } = useVideoConfig();
+  const o = interpolate(frame, [at * fps, (at + 0.4) * fps], [0, 1],
+                        { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div style={{ position: "absolute", left: 80, top: height - safeBottom - 50,
+                    width: width - 160, fontFamily: faceFor(text), fontSize: T.fsLabel,
+                    color: T.text, letterSpacing: 1, opacity: o,
+                    // **사진 위에 오는 자리가 있다**(E01 s26 은 얼굴 대조가 화면을 꽉 채운다).
+                    // 검은 바탕만 가정하고 `T.muted` 로 뒀더니 거기서 **명암비 1.89** 였다.
+                    // `ClipLabel` 이 쓰는 그림자를 그대로 쓴다 — 받침을 두면 알약이 되고,
+                    // 그림자는 글자 가장자리만 떼어 놓아 사진 위에서 읽히면서 상자가 안 생긴다.
+                    // 색도 `T.muted` 대신 `T.text` 다 — theme 에 **「영상 위에 muted 를 두지 마라」**가 있다.
+                    textShadow: INK_SHADOW }}>{text}</div>
+    </AbsoluteFill>
+  );
+};
+
+/**
+ * 편의 **마지막 `sec` 초**를 검정으로 덮는다. 값은 한 곳(`FADE_OUT_SEC`)에 있다.
+ * `pointerEvents: none` 이라 위에 덮여도 아래가 안 막힌다.
+ */
+export const FADE_OUT_SEC = 0.8;
+const FinalFade: React.FC<{ totalFrames: number; sec: number }> = ({ totalFrames, sec }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const o = interpolate(frame, [totalFrames - sec * fps, totalFrames - 1], [0, 1],
+                        { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return <AbsoluteFill style={{ backgroundColor: "#000", opacity: o, pointerEvents: "none" }} />;
+};
+
+/**
+ * 구간 위에 세우는 채널 한 줄. **영상 위에 오므로 `ClipLabel` 의 그림자를 쓴다.**
+ * 자리는 출처 줄과 같은 띠(자막 안전영역 위)이고 **가운데 맞춤**이다 —
+ * 출처는 왼쪽 구석의 고지이고 이것은 화면이 시청자에게 건네는 마지막 말이라 자리가 갈린다.
+ */
+const BlockChannel: React.FC<{ text: string; safeBottom: number }> = ({ text, safeBottom }) => {
+  const { width, height } = useVideoConfig();
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div style={{ position: "absolute", left: 0, top: height - safeBottom - 76, width,
+                    textAlign: "center" }}>
+        {text.split(" ").map((part, i) => (
+          <span key={part} style={{ fontFamily: faceFor(part), fontSize: 52,
+                                    color: i === 0 ? T.text : T.muted,
+                                    marginLeft: i ? "0.6em" : 0, textShadow: INK_SHADOW }}>{part}</span>
+        ))}
+      </div>
+    </AbsoluteFill>
+  );
+};
+
 /** 자막을 그리는 층. grammars.json 의 caption.layer 이름이 이걸로 풀린다. */
 export type CaptionLayer = React.FC<{ chunks: CaptionChunk[]; offsetSec: number }>;
 
@@ -151,7 +221,8 @@ export const makeEpisode = (
   // 구간에 붙는 라벨. **사용자가 두 번 말한 것이다** — 「보고 있는 영상이 어떤 건지 알고 봐야」 한다.
   // **크기·색은 여기서 안 정한다.** 편이 통째로 준다 — 안 주면 라벨이 안 붙는다.
   // 기본값을 두면 그 수가 어느 편에서든 조용히 쓰이고, 그게 오늘 넷 샌 자리다.
-  blockLabel?: { size: number; x: number; y: number; of: Record<string, { text: string; color: string }> },
+  blockLabel?: { size: number; x: number; y: number;
+                 of: Record<string, { text: string; color: string; source?: string; channel?: string }> },
   // 구간 클립을 **세로로 자르는 창.** 소재끼리 세로 크기가 다를 때 **하나를 다른 하나에 맞춘다**(미술).
   // E01 — 원본이 1920×**762**(방송 마스터의 비 · 우리가 만든 띠가 아니다)이고 클론이 1920×1080 이라,
   // 인트로에서 원본은 레터박스로 클론은 꽉 차게 나왔다. **연달아 보면 컷에서 그림이 커진다** —
@@ -227,6 +298,23 @@ export const makeEpisode = (
                   <ClipLabel text={blockLabel.of[b.clip].text} size={blockLabel.size}
                              x={blockLabel.x} y={blockLabel.y} color={blockLabel.of[b.clip].color} />
                 )}
+                {/* 남의 저작물이 든 구간에만 붙는다. 씬 쪽과 **같은 부품**이라 자리가 안 갈린다. */}
+                {b.clip && blockLabel?.of[b.clip]?.source && (
+                  <SourceNote text={blockLabel.of[b.clip].source as string}
+                              safeBottom={getGrammar(grammar).safeBottom} />
+                )}
+                {/**
+                  * **끝 구간에 채널을 세운다.** 검수자가 이렇게 읽었다 —
+                  * 「요약 카드에서 끝났다고 읽혔는데 카드가 사라지고 클립이 8.1초 다시 시작된다.
+                  *  왼쪽 위 칩은 편 내내 **「이제 예시를 보여 드립니다」**를 뜻하던 표시다.
+                  *  첫 2~3초를 「아직 한 꼭지 남았나」로 읽었다」
+                  * 그리고 **마지막 8.9초에 채널도 구독도 없었다** — 유튜브 끝 화면이 얹히는 자리가 거기다.
+                  * 칩은 출처(우리 출력임)를 말하니 그대로 두고, **아래에 채널을 세워 「끝이다」를 말한다.**
+                  */}
+                {b.clip && blockLabel?.of[b.clip]?.channel && (
+                  <BlockChannel text={blockLabel.of[b.clip].channel as string}
+                                safeBottom={getGrammar(grammar).safeBottom} />
+                )}
               </AbsoluteFill>
             </Enter>
           </Sequence>
@@ -249,6 +337,15 @@ export const makeEpisode = (
           );
         })}
         {bgm !== "" && <Audio src={staticFile(bgm)} volume={bgmVolume} loop />}
+        {/**
+          * **마지막 페이드.** 편이 페이드도 검정도 없이 **한 프레임에서 딱 끊기고 있었다** —
+          * 검수자가 「507초에서 다음이 있는 줄 알고 기다렸다」고 했다. 끝났다는 신호가 없으면
+          * 시청자는 끊긴 줄 안다(유튜브에서 끝은 정해진 모양이 있다).
+          *
+          * **소리는 안 건드린다.** 음량은 `40` 단계와 마스터 검사가 잡고 있는 값이라
+          * 여기서 줄이면 그 수가 거짓이 된다. 화면만 검정으로 덮는다.
+          */}
+        <FinalFade totalFrames={EPISODE_FRAMES} sec={FADE_OUT_SEC} />
       </AbsoluteFill>
     );
   };

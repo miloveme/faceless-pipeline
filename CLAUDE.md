@@ -15,7 +15,7 @@
 | 화면 카드 종류를 본다 | `remotion/README.md` |
 | **화면 생김새를 바꾼다** — 색, 글꼴, 글자 크기, 여백, 모서리, 자막 위치·크기, 카드 배치, 전체 톤 | `docs/DESIGN.md` — 어느 층을 고칠지 먼저 판단한다 |
 | 어떤 스크립트가 무엇을 하나 | `pipeline/README.md` — 단계별 입출력 표 |
-| 설치가 됐는지 본다 | `python3 pipeline/check_setup.py` |
+| 설치가 됐는지 본다 | `source .venv/bin/activate` 뒤 `python3 pipeline/check_setup.py` — **가상환경(uv)에서 돕니다** |
 
 **새 편을 만들거나 기존 편을 고칠 때는 런북을 먼저 읽으세요.** 나머지는 필요할 때 펴 보면 됩니다.
 

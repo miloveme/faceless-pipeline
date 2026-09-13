@@ -1,9 +1,33 @@
 """채널 공정 공통 모듈. 모든 단계 스크립트가 이 파일만 import한다.
 경로 규약: <EP>/script, <EP>/audio, <EP>/edit, <EP>/source  (EP = Channel/E06_popfilter 같은 에피소드 폴더)
 """
-import hashlib, json, os, re, subprocess, sys, time, pathlib, urllib.request, difflib
+import hashlib, json, os, re, subprocess, sys, time, pathlib, difflib
 
 CHANNEL = pathlib.Path(__file__).resolve().parent.parent          # 저장소 루트
+
+# ---------- 어느 파이썬으로 도는가 ----------
+# **틀린 파이썬으로 돌면 여기서 멈춘다.** 2026-09-13 에 anaconda 에서 uv 로 갈아탔는데,
+# 그전에는 `python3` 가 무엇을 가리키는지가 **셸이 뜬 순서와 PATH 에 달려 있었다.**
+# 같은 스크립트가 창마다 다른 환경에서 돌고, 의존이 한쪽에만 있으면 **조용히 다르게 실패한다.**
+# 문서 스무 곳이 `python3 pipeline/...` 라고 적어 둔 것을 다 고치는 대신 여기서 막는다 —
+# 적어 둔 규칙은 잊히지만 공정 안에 있으면 어길 수가 없다.
+#
+# 일부러 다른 환경에서 돌려야 하면 `FACELESS_ALLOW_ANY_PYTHON=1` 을 준다.
+_VENV = CHANNEL / ".venv"
+if not os.environ.get("FACELESS_ALLOW_ANY_PYTHON"):
+    _here = pathlib.Path(sys.prefix).resolve()
+    if _here != _VENV.resolve():
+        sys.stderr.write(
+            f"ERROR: 이 공정은 프로젝트 가상환경에서 돕니다.\n"
+            f"  지금:  {sys.executable}\n"
+            f"  써야:  {_VENV}/bin/python\n"
+            f"\n"
+            f"  켜기:    source .venv/bin/activate      (그 뒤 python3 pipeline/... 그대로)\n"
+            f"  없으면:  uv venv --python 3.12 .venv\n"
+            f"           uv pip install --python .venv/bin/python -r requirements.txt\n"
+            f"\n"
+            f"  일부러 다른 환경이면 FACELESS_ALLOW_ANY_PYTHON=1 을 주세요.\n")
+        raise SystemExit(2)
 PIPE_DIR = pathlib.Path(__file__).resolve().parent                # <repo>/pipeline — 읽기 사전·whisper 교정표
 VOICE_DIR = PIPE_DIR                                              # voice.json 과 참조 음성도 pipeline/ 안
 # Remotion 위치는 환경변수가 우선, 없으면 저장소의 remotion/ (60/65_render_*.sh, check_setup.py 와 같은 곳)
@@ -355,18 +379,21 @@ def hyp_normalize_readings(hyp: str, readings: dict) -> str:
     return h
 
 # ---------- 원격 ComfyUI ----------
+# **HTTP 는 `net.py` 한 곳으로 나간다** — 프로젝트 파이썬(uv·conda 둘 다)이 ad-hoc 서명이라
+# macOS 로컬 네트워크 권한 목록에 등록조차 안 돼 사설망에 못 붙는다. 이유와 잰 값은 net.py 머리.
+from net import get_json as _net_get, post_json_body as _net_post, download as _net_dl, upload_file as _net_up  # noqa: E402
+
 class Comfy:
     def __init__(self, host): self.host = host.rstrip("/")
     def _get(self, path):
-        return json.loads(urllib.request.urlopen(self.host + path, timeout=30).read())
+        return _net_get(self.host + path, timeout=30)
     def alive(self):
         try: self._get("/system_stats"); return True
         except Exception: return False
     def upload_input(self, path):
-        run(["curl","-s","-m","60","-F",f"image=@{path}","-F","type=input","-F","overwrite=true",self.host+"/upload/image"],stdout=subprocess.DEVNULL)
+        _net_up(self.host, path, pathlib.Path(path).name, kind="input", timeout=60)
     def submit(self, wf):
-        req = urllib.request.Request(self.host+"/prompt", data=json.dumps({"prompt": wf}).encode(), headers={"Content-Type":"application/json"})
-        r = json.loads(urllib.request.urlopen(req, timeout=30).read())
+        r = _net_post(self.host + "/prompt", {"prompt": wf}, timeout=30)
         if r.get("node_errors"): die("ComfyUI node_errors: " + json.dumps(r["node_errors"])[:500])
         return r["prompt_id"]
     def wait(self, pid, timeout=900, poll=3):
@@ -383,7 +410,7 @@ class Comfy:
         return [f for o in hist.get("outputs", {}).values() for f in o.get("audio", [])]
     def download(self, f, out):
         url = self.host + f"/view?filename={f['filename']}&subfolder={f.get('subfolder','')}&type={f.get('type','output')}"
-        open(out, "wb").write(urllib.request.urlopen(url, timeout=120).read())
+        _net_dl(url, out, timeout=120)
     @staticmethod
     def exec_secs(hist):
         ts = {m[0]: m[1].get("timestamp") for m in hist["status"].get("messages", []) if isinstance(m, list) and len(m) > 1 and isinstance(m[1], dict)}

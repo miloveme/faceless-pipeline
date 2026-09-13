@@ -37,8 +37,11 @@ docs/        목소리 준비·녹음 가이드
 git clone <이 저장소> faceless-pipeline
 cd faceless-pipeline
 
-# 1) 파이썬 의존성
-python3 -m pip install -r requirements.txt
+# 1) 파이썬 — **프로젝트 가상환경에 넣는다**(uv)
+#    전역에 깔지 않는다. 창마다 다른 파이썬이 잡히면 같은 스크립트가 다르게 실패한다.
+uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python -r requirements.txt
+source .venv/bin/activate        # 이 뒤로 `python3 pipeline/...` 가 그대로 돈다
 
 # 2) 시스템 도구 (macOS 기준)
 brew install ffmpeg node
@@ -53,6 +56,10 @@ cp pipeline/voice.example.json pipeline/voice.json
 # 5) 점검 — 설치 상태를 보고, 개인 자산이 커밋에 섞이지 않게 훅도 연결합니다
 python3 pipeline/check_setup.py
 ```
+
+**가상환경을 안 켜면 공정이 멈춥니다.** `common.py` 가 어느 파이썬으로 도는지 보고
+아니면 종료코드 2 로 막습니다 — 의존이 반쯤 있는 환경에서 조용히 다르게 실패하는 것보다 낫습니다.
+셸 스크립트(`60_render_master.sh` 등)는 `pipeline/_py.sh` 를 읽어 `.venv` 를 직접 씁니다.
 
 ## 첫 한 편 만들기
 

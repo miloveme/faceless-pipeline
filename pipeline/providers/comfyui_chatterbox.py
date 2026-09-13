@@ -4,12 +4,16 @@
 필요: ComfyUI 실행 + 커스텀 노드 팩(Manager 에서 'chatterbox' 검색).
 cfg 예시는 voice.example.json 의 providers.comfyui_chatterbox 참고.
 """
-import json, pathlib, shutil, tempfile, time, urllib.request, subprocess
+import json, pathlib, shutil, tempfile, time
+
+# **HTTP 는 `net.py` 한 곳으로.** 이 파일은 이미 업로드만 `curl` 로 하고 있었는데
+# 나머지 호출도 같은 길로 모았다 — anaconda 파이썬은 사설망에 못 붙는다(net.py 머리 참고).
+import sys
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+from net import get_json, post_json_body, download, upload_file, NetError  # noqa: E402
 
 def _post(host, path, data):
-    req = urllib.request.Request(host + path, data=json.dumps(data).encode(),
-                                 headers={"Content-Type": "application/json"})
-    return json.loads(urllib.request.urlopen(req, timeout=30).read())
+    return post_json_body(host + path, data, timeout=30)
 
 def _upload_ref(host, cfg, base_dir):
     src = (base_dir / cfg["ref_file"]).expanduser()
@@ -17,9 +21,7 @@ def _upload_ref(host, cfg, base_dir):
         raise SystemExit(f"참조 음성이 없습니다: {src}\n  docs/RECORDING.md 를 보고 만든 뒤 이 경로에 두세요.")
     tmp = pathlib.Path(tempfile.gettempdir()) / cfg["ref_upload_name"]
     shutil.copy(src, tmp)
-    subprocess.run(["curl", "-sS", "-m", "60", "-F", f"image=@{tmp}", "-F", "type=input",
-                    "-F", "overwrite=true", host + "/upload/image"],
-                   check=True, stdout=subprocess.DEVNULL)
+    upload_file(host, tmp, cfg["ref_upload_name"], kind="input", timeout=60)
 
 def generate(text, out_path, cfg, attempt=0, _uploaded={}, host=None):
     # host 를 지정하지 않으면 hosts 중에서 고른다 (앞이 기본, 막히면 다음)
@@ -50,7 +52,7 @@ def generate(text, out_path, cfg, attempt=0, _uploaded={}, host=None):
         raise SystemExit("ComfyUI node_errors: " + json.dumps(r["node_errors"])[:400])
     pid, t0 = r["prompt_id"], time.time()
     while time.time() - t0 < cfg.get("timeout_sec", 900):
-        h = json.loads(urllib.request.urlopen(f"{host}/history/{pid}", timeout=30).read())
+        h = get_json(f"{host}/history/{pid}", timeout=30)
         if pid in h:
             st = h[pid].get("status", {})
             if st.get("status_str") == "error":
@@ -60,7 +62,7 @@ def generate(text, out_path, cfg, attempt=0, _uploaded={}, host=None):
                 f = files[0]
                 url = (f"{host}/view?filename={f['filename']}&subfolder={f.get('subfolder','')}"
                        f"&type={f.get('type','output')}")
-                pathlib.Path(out_path).write_bytes(urllib.request.urlopen(url, timeout=180).read())
+                download(url, out_path, timeout=180)
                 ts = {m[0]: m[1].get("timestamp") for m in st.get("messages", [])
                       if isinstance(m, list) and len(m) > 1 and isinstance(m[1], dict)}
                 s, e = ts.get("execution_start"), ts.get("execution_success")
