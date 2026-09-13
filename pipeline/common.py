@@ -6,13 +6,9 @@ import hashlib, json, os, re, subprocess, sys, time, pathlib, difflib
 CHANNEL = pathlib.Path(__file__).resolve().parent.parent          # 저장소 루트
 
 # ---------- 어느 파이썬으로 도는가 ----------
-# **틀린 파이썬으로 돌면 여기서 멈춘다.** 2026-09-13 에 anaconda 에서 uv 로 갈아탔는데,
-# 그전에는 `python3` 가 무엇을 가리키는지가 **셸이 뜬 순서와 PATH 에 달려 있었다.**
-# 같은 스크립트가 창마다 다른 환경에서 돌고, 의존이 한쪽에만 있으면 **조용히 다르게 실패한다.**
-# 문서 스무 곳이 `python3 pipeline/...` 라고 적어 둔 것을 다 고치는 대신 여기서 막는다 —
-# 적어 둔 규칙은 잊히지만 공정 안에 있으면 어길 수가 없다.
-#
-# 일부러 다른 환경에서 돌려야 하면 `FACELESS_ALLOW_ANY_PYTHON=1` 을 준다.
+# **틀린 파이썬으로 돌면 여기서 멈춘다.** 29개 스크립트가 이 파일을 거쳐 가는 관문이다.
+# 왜 이 관문이 필요한지는 → `docs/PITFALLS.md` 「어느 파이썬으로 도는지 정해 두지 않으면」
+# 일부러 다른 환경이면 `FACELESS_ALLOW_ANY_PYTHON=1`.
 _VENV = CHANNEL / ".venv"
 if not os.environ.get("FACELESS_ALLOW_ANY_PYTHON"):
     _here = pathlib.Path(sys.prefix).resolve()

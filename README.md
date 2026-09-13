@@ -87,6 +87,7 @@ python3 pipeline/75_chapters.py E01_myepisode
 - [대본 형식](docs/SCRIPT_FORMAT.md) — `[V]` `[N]` 태그와 규칙
 - [여섯 사람](docs/AGENTS.md) — 시나리오·연출·미술·소리·엔지니어·최종 편집자로 나눈 이유, 산출물로 긋는 경계, 총괄 규칙, 교차 검토와 검증 규칙
 - [화면 디자인](docs/DESIGN.md) — 색·글꼴·여백을 바꾸는 곳, 화면 문법을 고르고 만드는 곳
+- [되풀이해 부딪힌 것](docs/PITFALLS.md) — 여러 파일에 걸치는 함정. 사설망만 막히는 파이썬 · 환경이 갈리는 것
 - [화면 소재](docs/VISUALS.md) — 녹화·AI 생성·손그림·기존 자산을 넣는 법
 - [음성 제공자](docs/VOICE_PROVIDERS.md) — 서비스 고르기·바꾸기
 - [목소리 준비](docs/RECORDING.md) — 본인 목소리 녹음과 클론
