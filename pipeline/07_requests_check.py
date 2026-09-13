@@ -28,7 +28,10 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from common import ep_dir  # noqa: E402
 
-STATES = ["안 들어감", "들어감", "재서 확인됨"]
+# **「이 편 밖」이 넷째다.** 이 편에서 닫을 수 없는 항목이 하나 있다고 편 전체를 못 내보내면
+# 안 된다 — 「한 항목이 아직이라고 검수 전체를 미루지 않는다」(CLAUDE.md)가 관문에도 있어야 한다.
+# **다만 빠져나가는 문이라 근거를 받는다** — `밖인 이유` 가 없으면 종료코드 3 으로 막는다.
+STATES = ["안 들어감", "들어감", "재서 확인됨", "이 편 밖"]
 
 
 def die(msg, code=2):
@@ -93,7 +96,7 @@ for i, it in enumerate(items, 1):
     if st not in STATES:
         die(f"{i}번의 `상태` 를 모르겠습니다: {st!r}\n  쓸 수 있는 것: {' · '.join(STATES)}")
     cnt[st] += 1
-    mark = {"안 들어감": "· ", "들어감": "◐ ", "재서 확인됨": "● "}[st]
+    mark = {"안 들어감": "· ", "들어감": "◐ ", "재서 확인됨": "● ", "이 편 밖": "▷ "}[st]
     print(f"{mark}**{st}**  {it['요청']}")
     print(f"     담당 {it.get('담당', '—')}"
           + (f" · 판본 {it['판본']}" if it.get("판본") else "")
@@ -116,6 +119,12 @@ for i, it in enumerate(items, 1):
                        f"(있는 것: {' · '.join(masters)})")
         if not it.get("잰 것"):
             bad.append(f"{i}번 「재서 확인됨」인데 **잰 것이 없습니다** — 수 없이 확인은 안 됩니다")
+    # ── ①-2: 「이 편 밖」은 **빠져나가는 문이라 근거를 받는다**
+    # 이유 없이 쓸 수 있으면 막히는 항목마다 이걸로 넘기게 되고, 그러면 관문이 관문이 아니다.
+    if st == "이 편 밖":
+        if not it.get("밖인 이유"):
+            bad.append(f"{i}번 「이 편 밖」인데 **`밖인 이유` 가 없습니다** — "
+                       f"왜 이 편에서 못 닫는지와 **언제 다시 보는지**를 적으세요")
         if v and NOW and v != NOW:
             old_v.append((i, it["요청"], v))
             print(f"     ← **옛 판({v})에서 확인한 것입니다.** 지금 마스터는 {NOW} — "
@@ -138,7 +147,9 @@ for i, it in enumerate(items, 1):
 
 _now_n = cnt["재서 확인됨"] - len(old_v)
 print(f"안 들어감 **{cnt['안 들어감']}** · 들어감 **{cnt['들어감']}** · "
-      f"재서 확인됨 **{cnt['재서 확인됨']}** / 모두 {len(items)}건")
+      f"재서 확인됨 **{cnt['재서 확인됨']}** · 이 편 밖 **{cnt['이 편 밖']}** / 모두 {len(items)}건")
+if cnt["이 편 밖"]:
+    print("  **「이 편 밖」은 닫힌 것이 아니라 미룬 것입니다** — 다음 편 시작 전에 이 표를 다시 봅니다.")
 print(f"  재서 확인됨 중 — **지금 마스터에서 {_now_n}건** · **옛 판에서 {len(old_v)}건**"
       + (f" (다시 재야 할 것: {' · '.join(f'{i}번' for i, _, _ in old_v)})" if old_v else ""))
 print("  **「들어감」과 「재서 확인됨」은 다릅니다** — 앞엣것은 코드에 넣은 것이고 "

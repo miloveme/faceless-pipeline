@@ -75,7 +75,13 @@ print()
 blocked = []
 
 # ── ㄱ·ㄴ 요청 대장 ─────────────────────────────────────────────────────────
-not_done = [(i, x) for i, x in enumerate(items, 1) if x.get("상태") != "재서 확인됨"]
+# **「이 편 밖」은 막지 않는다.** 이 편에서 못 닫는 항목 하나로 편 전체를 붙들면
+# 「한 항목이 아직이라고 검수 전체를 미루지 않는다」(CLAUDE.md)를 관문이 어기는 것이 된다.
+# **대신 이름으로 찍는다** — 조용히 빠지면 미룬 것이 닫힌 것으로 읽힌다.
+OUT = "이 편 밖"
+deferred = [(i, x) for i, x in enumerate(items, 1) if x.get("상태") == OUT]
+not_done = [(i, x) for i, x in enumerate(items, 1)
+            if x.get("상태") not in ("재서 확인됨", OUT)]
 stale = [(i, x) for i, x in enumerate(items, 1)
          if x.get("상태") == "재서 확인됨" and x.get("판본") != FP]
 print(f"ㄱ 요청 대장 — **{len(items) - len(not_done)}/{len(items)}건**이 「재서 확인됨」")
@@ -84,6 +90,11 @@ for i, x in not_done:
     print(f"       담당 {x.get('담당', '—')} · 자리 {' · '.join(x.get('자리') or ['—'])}")
 if not_done:
     blocked.append(f"요청 **{len(not_done)}건**이 아직 「재서 확인됨」이 아닙니다")
+if deferred:
+    print(f"    ▷ **이 편 밖 {len(deferred)}건** — 막지 않습니다. 다음 편 시작 전에 다시 봅니다")
+    for i, x in deferred:
+        print(f"       {i}번  {x['요청'][:52]}{'…' if len(x['요청']) > 52 else ''}")
+        print(f"          이유: {x.get('밖인 이유', '—')}")
 
 print()
 print(f"ㄴ 판본 — 「재서 확인됨」 {len(items) - len(not_done)}건 중 "
