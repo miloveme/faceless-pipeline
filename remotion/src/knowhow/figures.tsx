@@ -68,10 +68,15 @@ export const BarWithRest: React.FC<{
 /** 숫자가 세어진다. **선형이다** — 세는 속도가 고르지 않으면 「세는 것」으로 안 보인다. */
 export const CountUp: React.FC<{
   to: number; at: number; over: number; from?: number; digits?: number;
-  suffix?: string; style?: React.CSSProperties;
-}> = ({ to, at, over, from = 0, digits = 0, suffix = "", style }) => {
+  suffix?: string; comma?: boolean; style?: React.CSSProperties;
+}> = ({ to, at, over, from = 0, digits = 0, suffix = "", comma = false, style }) => {
   const p = useGrow(at, over);
-  const v = (from + (to - from) * p).toFixed(digits);
+  const n = from + (to - from) * p;
+  // **천 단위 쉼표는 켜야 붙는다**(기본 꺼짐 — 이미 나간 편의 화면을 바꾸지 않으려고).
+  // 자막은 대본 표기를 그대로 쓰므로 `3,900` 인데 화면이 `3900` 이면 **같은 수가 두 모양으로 나간다**(E02).
+  const v = comma
+    ? n.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits })
+    : n.toFixed(digits);
   return <span style={{ fontFamily: faceFor(v + suffix), fontVariantNumeric: "tabular-nums", ...style }}>{v}{suffix}</span>;
 };
 

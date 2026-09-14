@@ -29,6 +29,9 @@ wc = jload(p["caps_whisper"]) if p["caps_whisper"].exists() else {}
 caps = jload(p["caps"]) if p["caps"].exists() else {}
 # 끊는 자리 우선순위 — 쉼표 → 연결어미 뒤 → 어절 경계. 어절 중간에서는 절대 끊지 않는다.
 CONNECTIVE = re.compile(r"(?:고|며|지만|는데|면)\s")
+# **천 단위 쉼표는 끊는 자리가 아니다.** `3,900` 이 「3」과 「900」 두 줄로 갈렸다(E02 s16, 사용자가 잡음).
+# 숫자 사이의 쉼표는 문장 쉼표와 생김새가 같아서 `,\s*` 하나로는 안 갈린다 — 앞뒤가 숫자인 것만 뺀다.
+THOUSANDS = re.compile(r"(?<=\d),(?=\d)")
 
 def _inside_emph(on, i):
     """i 에서 끊으면 강조 구간을 가로지르는가. 강조는 시선을 한 곳에 모으려고 쓰는 것이라 갈리면 안 된다."""
@@ -38,7 +41,8 @@ def _break_at(s, on):
     """maxlen 을 넘는 줄을 어디서 끊을지. 가운데에 가장 가까운 자리를 고른다.
     **강조 구간 안은 후보에서 뺀다.** 피할 자리가 아예 없으면 None — 그때는 42자 초과를 택한다."""
     mid = len(s) / 2
-    for cands in ([m.end() for m in re.finditer(r",\s*", s)],
+    thou = {m.start() + 1 for m in THOUSANDS.finditer(s)}      # 그 쉼표 **뒤** 자리가 후보로 잡힌다
+    for cands in ([m.end() for m in re.finditer(r",\s*", s) if m.end() not in thou],
                   [m.end() for m in CONNECTIVE.finditer(s)],
                   [m.end() for m in re.finditer(r"\s+", s)]):
         cands = [i for i in cands if 0 < i < len(s) and not _inside_emph(on, i)]
