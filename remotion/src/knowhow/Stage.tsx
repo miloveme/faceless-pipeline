@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Video } from "@remotion/media";
 import { T, EASE_OUT, faceFor } from "./theme";
-import { CaptionChunk, captionRuns } from "./Captions";
+import { CaptionChunk, captionRuns, DIM_ON_ACCENT, DIM_ON_BOX } from "./Captions";
 import { getGrammar } from "./grammar";
 
 /**
@@ -204,28 +204,53 @@ export const StageCaptions: React.FC<{
         textAlign: "center", maxWidth, padding: "0 40px", lineHeight: 1.34,
         wordBreak: "keep-all",   // 한글이 낱말 중간에서 끊기지 않게
       }}>
-        {captionRuns(ws).map((run, ri) => {
+        {((runs) => runs.map((run, ri) => {
           // 상자는 그 구의 첫 낱말에서 켜진다. 켜지기 전에는 보통 낱말과 똑같이 보여야 한다 —
           // 상자 안에서 읽힐 어두운 색을 미리 쓰면 어두운 바탕에 묻혀 문장에 구멍이 난다.
           const boxOn = run.hl && t >= run.words[0].s - 0.02;
           const body = run.words.map((w, i) => {
             const spoken = t >= w.s - 0.02;
             const color = boxOn
-              ? (spoken ? "#12141a" : "rgba(18,20,26,0.45)")
-              : (spoken ? "#ffffff" : "rgba(255,255,255,0.34)");
+              ? (spoken ? "#12141a" : DIM_ON_ACCENT)
+              : (spoken ? "#ffffff" : DIM_ON_BOX);
             return <span key={i} style={{ color }}>{i ? " " : ""}{w.t}</span>;
           });
           return (
-            <span key={ri} style={{
+            <React.Fragment key={ri}>
+            {/* **구와 구 사이의 한 칸.** 낱말 사이 공백은 낱말 span 안에 있는데(`i ? " " : ""`),
+                구가 바뀌는 자리에는 그게 없었다 — 첫 낱말이라 i 가 0 이라서다.
+                그래서 강조 띠 오른쪽에 다음 낱말이 그대로 붙어 **「화면에안」 「줄말한」**으로 읽혔다
+                (1:00 · 5:40 · 띠와 글자 사이 실측 3px). 띠 **바깥**에 둔다 — 안에 넣으면 호박이 넓어진다.
+                `white-space: pre` 는 접히지 않는다. */}
+            {ri ? <span style={{
+              whiteSpace: "pre", fontSize,
+              // 띠에 닿는 칸만 넓힌다(40px 글자에서 15 → 18px).
+              // 띠는 `box-shadow` 로 5px 씩 번지는데 그만큼을 이 칸에서 빌린다 —
+              // 안 빌리면 번진 호박이 옆 낱말에 붙고(v12), 여백으로 빌리면 꺼졌을 때 구멍이 난다(v11).
+              ...(runs[ri - 1].hl || run.hl ? { letterSpacing: "0.08em" } : null),
+            }}> </span> : null}
+            <span style={{
               fontFamily: T.sans, fontSize, fontWeight: 700, lineHeight: 1.34,
               backgroundColor: boxOn ? T.accent : "transparent",
-              // 여백을 늘 잡아 둔다. 켜질 때 생기면 줄 폭이 변해 문장 전체가 옆으로 튄다.
-              padding: run.hl ? "2px 10px" : 0,
+              // **띠에 걸린 세 치수는 한 예산을 나눠 쓴다** — 낱말 사이 칸(40px 글자에서 15px) 하나다.
+              //   띠 안쪽(호박과 글자 사이) + 띠 바깥(호박과 옆 낱말 사이) ≤ 그 칸.
+              //   그래서 하나를 늘리면 다른 하나가 줄고, **여백으로 늘리면 꺼져 있을 때까지 벌어진다.**
+              //   네 판을 재서 여기로 왔다(전부 0:30 「GPT-6에게」 실측 · 같은 줄 보통 칸 14~17px):
+              //     여백 10px    꺼짐 **26~28** · 안 10 · 밖 16/12   → 꺼지면 낱말 하나가 빠진 것처럼(13곳 중 8곳)
+              //     그림자 6px   꺼짐 15~18 · 안 8 · 밖 **4~9**     → 켜지면 「GPT-6에게통째로」 한 덩어리(13곳 전부)
+              //     세로6+가로1  꺼짐 14~18 · 안 **2~4** · 밖 15/11 → 글자가 호박 벽에 붙어 **옆에서 잘린 것처럼**
+              //     지금         꺼짐 20~21 · 안 7 · 밖 14/11
+              //   **지금 판은 칸을 3px 빌려 예산을 늘린 것이다** — 띠에 닿는 칸만 0.08em 넓힌다(위 `letterSpacing`).
+              //   꺼짐이 20~21 로 보통 칸보다 조금 넓지만, 구멍으로 읽히던 26~28 과는 다르다.
+              // `box-shadow` 로 번지게 하는 이유는 **그리기만 하고 배치를 안 건드려서** 꺼짐과 켜짐을 따로 정할 수 있어서다.
+              padding: run.hl ? "2px 0" : 0,
               borderRadius: 8,
+              boxShadow: boxOn ? `5px 0 0 0 ${T.accent}, -5px 0 0 0 ${T.accent}` : "none",
               textShadow: boxOn ? "none" : "0 3px 14px rgba(0,0,0,0.95), 0 1px 3px rgba(0,0,0,0.9)",
             }}>{body}</span>
+            </React.Fragment>
           );
-        })}
+        }))(captionRuns(ws))}
       </div>
     </div>
   );

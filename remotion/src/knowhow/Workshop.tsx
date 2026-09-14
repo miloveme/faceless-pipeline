@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, Easing, Img, Sequence, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { Video } from "@remotion/media";
 import { T, EASE_OUT, faceFor } from "./theme";
-import { CaptionChunk, captionRuns } from "./Captions";
+import { CaptionChunk, captionRuns, DIM_ON_ACCENT } from "./Captions";
 import { getGrammar } from "./grammar";
 import { LiveGround } from "./Stage";
 import { useStreamPace } from "./pacing";
@@ -385,8 +385,9 @@ export const WorkshopCaptions: React.FC<{
                 return (
                   <span key={i} style={{
                     color: boxOn
-                      ? (spoken ? "#12141a" : "rgba(18,20,26,0.45)")
-                      : (spoken ? T.text : "rgba(232,232,234,0.34)"),
+                      ? (spoken ? "#12141a" : DIM_ON_ACCENT)
+                      // 여기 바탕 글자는 T.text 라 흰색이 아니다. 알파만 DIM_ON_BOX 와 같은 0.62 로 맞춘다.
+                      : (spoken ? T.text : "rgba(232,232,234,0.62)"),
                   }}>{i ? " " : ""}{w.t}</span>
                 );
               });

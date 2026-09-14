@@ -18,6 +18,19 @@ export const captionRuns = (words: CaptionWord[]) => {
   return runs;
 };
 
+/** 아직 안 말한 낱말의 색. **말한 낱말보다 흐리되 읽히는 선까지만 흐리다.**
+ *  검수자가 「숫자와 부정어가 흐린 채로 머문다」로 잡은 자리다.
+ *
+ *  상자 위 0.36 → 0.62 : **실측 3.06:1 → 7.48:1** (E02 마스터 0:15.8 · 같은 프레임 대조).
+ *    자막 상자(검정 0.72)는 반투명이라 뒤 화면이 밝으면 상자가 옅어지고 대비가 같이 내려간다.
+ *    E02 는 어두운 편이라 107덩어리가 전부 바탕 L≤0.006 이었고, **흰 화면 위라면 4.72:1** 까지 내려간다(계산).
+ *  띠 위 0.45 → 0.70 : 2.66:1 → **5.20:1**(호박 #f5b942 위 계산값). 실물에서 읽히는 것은 프레임으로 봤다.
+ *
+ *  더 올리면 켜지는 것이 안 보인다 — 말한 낱말은 상자 위 흰색(어두운 바탕에서 21:1), 띠 위 #12141a(10.4:1)다.
+ *  **세 문법이 같은 값을 쓴다** — 펼침은 이 파일, 무대는 Stage, 작업대는 Workshop 이 여기서 가져다 쓴다. */
+export const DIM_ON_BOX = "rgba(255,255,255,0.62)";
+export const DIM_ON_ACCENT = "rgba(18,20,26,0.70)";
+
 // 씬 로컬 시간 기준 자막. offsetSec = 씬 안에서 내레이션이 시작되는 시각(LEAD 0.5s)
 export const Captions: React.FC<{
   chunks: CaptionChunk[];
@@ -74,8 +87,8 @@ export const Captions: React.FC<{
                 return (
                   <span key={i} style={{
                     color: boxOn
-                      ? (spoken ? "#12141a" : "rgba(18,20,26,0.45)")
-                      : (spoken ? T.capColor : "rgba(255,255,255,0.36)"),
+                      ? (spoken ? "#12141a" : DIM_ON_ACCENT)
+                      : (spoken ? T.capColor : DIM_ON_BOX),
                   }}>{i ? " " : ""}{w.t}</span>
                 );
               });
